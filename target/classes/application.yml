@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # url: jdbc:mysql://${MYSQL_ADDRESS}/${MYSQL_DATABASE:springboot_demo}
+    # username: ${MYSQL_USERNAME}
+    # password: ${MYSQL_PASSWORD}
+    url: jdbc:mysql://sh-cynosdbmysql-grp-rc3pikzg.sql.tencentcdb.com:23769/springboot_demo
+    username: coc_manager
+    password: Tj201218
+  mvc:
+    view:
+      suffix: .html
+      prefix: /
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-not-delete-value: 0
+      logic-delete-value: 1
+
+coc:
+  jwt:
+    secret: changeme-please-replace-with-a-strong-secret-key
+    expiration-minutes: 1440

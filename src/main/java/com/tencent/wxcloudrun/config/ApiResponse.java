@@ -4,6 +4,10 @@ import lombok.Data;
 
 import java.util.HashMap;
 
+/**
+ * 统一接口返回结构。
+ * code: 0 表示成功，非 0 表示业务/鉴权错误。
+ */
 @Data
 public final class ApiResponse {
 
@@ -16,7 +20,7 @@ public final class ApiResponse {
     this.errorMsg = errorMsg;
     this.data = data;
   }
-  
+
   public static ApiResponse ok() {
     return new ApiResponse(0, "", new HashMap<>());
   }
@@ -26,6 +30,10 @@ public final class ApiResponse {
   }
 
   public static ApiResponse error(String errorMsg) {
-    return new ApiResponse(0, errorMsg, new HashMap<>());
+    return new ApiResponse(400, errorMsg, new HashMap<>());
+  }
+
+  public static ApiResponse error(int code, String errorMsg) {
+    return new ApiResponse(code, errorMsg, new HashMap<>());
   }
 }
