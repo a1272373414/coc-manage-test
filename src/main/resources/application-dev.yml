@@ -1,0 +1,45 @@
+# 开发环境配置
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 开发环境 - 本地/测试数据库
+    url: jdbc:mysql://sh-cynosdbmysql-grp-rc3pikzg.sql.tencentcdb.com:23769/springboot_demo
+    username: coc_manager
+    password: Tj201218
+  mvc:
+    view:
+      suffix: .html
+      prefix: /
+  # 开发环境开启热部署和详细日志
+  devtools:
+    restart:
+      enabled: true
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # 开发环境打印SQL日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-not-delete-value: 0
+      logic-delete-value: 1
+
+coc:
+  jwt:
+    # 开发环境使用较简单的密钥（仅用于测试！）
+    secret: dev-secret-key-change-in-production
+    # 开发环境token有效期24小时，方便调试
+    expiration-minutes: 1440
+
+logging:
+  level:
+    root: INFO
+    com.tencent: DEBUG
+    # 开开MyBatis SQL日志

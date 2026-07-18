@@ -11,6 +11,12 @@
 <body>
   <div id="app"></div>
 
+  <!-- 环境配置（必须最先加载） -->
+  <!-- 开发环境使用 config.dev.js，生产环境部署前请替换为 config.prod.js -->
+  <!-- <script src="config.dev.js"></script> -->
+    <!-- 生产环境配置 -->
+  <script src="config.prod.js"></script>
+
   <!-- 依赖（全局构建，无需打包） -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vue-router@4.3.0/dist/vue-router.global.prod.js"></script>

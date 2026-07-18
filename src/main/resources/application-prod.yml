@@ -1,0 +1,43 @@
+# 生产环境配置
+server:
+  port: 80
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 生产环境 - 使用云托管环境变量（更安全）
+    url: jdbc:mysql://${MYSQL_ADDRESS}/${MYSQL_DATABASE:springboot_demo}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+  mvc:
+    view:
+      suffix: .html
+      prefix: /
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # 生产环境关闭SQL日志输出（性能优化）
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-not-delete-value: 0
+      logic-delete-value: 1
+
+coc:
+  jwt:
+    # 生产环境必须使用强密钥！（请替换为安全的随机字符串）
+    secret: ${JWT_SECRET:please-replace-with-a-strong-random-secret-at-least-32-chars}
+    # 生产环境建议token有效期较短（如2小时），增强安全性
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+
+logging:
+  level:
+    root: WARN
+    com.tencent: INFO
+  # 生产环境可配置文件日志输出
+  file:
+    name: /var/log/app/application.log

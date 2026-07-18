@@ -2,11 +2,44 @@
 (function () {
   const { reactive } = Vue;
 
-  // 支持通过 ?api=http://host:port 覆盖后端地址；默认指向本地后端 8080
-  const params = new URLSearchParams(location.search);
-  const API_BASE = params.get('api') || 'http://localhost:8080';
+  /**
+   * 获取API基础地址
+   * 优先级：URL参数 > APP_CONFIG配置 > 当前域名(生产环境) > localhost:8080(默认)
+   */
+  function getApiBase() {
+    // 1. 支持通过 ?api=http://host:port 覆盖后端地址（临时测试用）
+    const params = new URLSearchParams(location.search);
+    const urlParam = params.get('api');
+    if (urlParam) return urlParam;
+    
+    // 2. 从环境配置读取
+    if (window.APP_CONFIG && window.APP_CONFIG.apiUrl !== undefined && window.APP_CONFIG.apiUrl !== '') {
+      return window.APP_CONFIG.apiUrl;
+    }
+    
+    // 3. 生产环境：如果未配置具体URL，则使用当前页面所在域名（适用于同域部署）
+    if (window.APP_CONFIG && window.APP_CONFIG.env === 'production') {
+      return location.origin;
+    }
+    
+    // 4. 默认值：本地开发环境
+    return 'http://localhost:8080';
+  }
 
-  const http = axios.create({ baseURL: API_BASE, timeout: 20000 });
+  const API_BASE = getApiBase();
+  const CONFIG = window.APP_CONFIG || { debug: false, enableRequestLog: false, requestTimeout: 20000 };
+  
+  // 调试输出（仅开发环境且开启了日志）
+  function log(...args) {
+    if (CONFIG.debug && CONFIG.enableRequestLog) {
+      console.log('[COC-API]', ...args);
+    }
+  }
+
+  log('环境:', CONFIG.env || 'unknown');
+  log('API地址:', API_BASE);
+
+  const http = axios.create({ baseURL: API_BASE, timeout: CONFIG.requestTimeout || 20000 });
 
   http.interceptors.request.use((config) => {
     const t = localStorage.getItem('coc_token');
