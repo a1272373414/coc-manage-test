@@ -2,3 +2,7 @@
 .codebuddy/
 target/
 target/**
+
+# VS Code 本地配置，不纳入版本管理
+.vscode/launch.json
+.vscode/settings.json
