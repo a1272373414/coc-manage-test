@@ -36,13 +36,15 @@ public class SysMenuController extends BaseCrudController<SysMenu> {
   /**
    * 返回完整菜单树（按 sort 升序），供角色分配菜单弹窗使用。
    * 数据结构：[{ id, parentId, menuName, menuType, permission, children: [...] }]
+   * 健壮性：能处理 parentId 为 null/0/自身/指向不存在节点 等各种边界情况，
+   *        这些节点都会被作为 root 显示，不会丢失。
    */
   @GetMapping("/tree")
   public ApiResponse tree() {
     List<SysMenu> all = sysMenuMapper.selectList(new QueryWrapper<SysMenu>().orderByAsc("sort").orderByAsc("id"));
-    Map<Long, List<SysMenuNode>> childMap = new HashMap<>();
-    List<SysMenuNode> roots = new ArrayList<>();
     Map<Long, SysMenuNode> nodeMap = new HashMap<>();
+    List<SysMenuNode> roots = new ArrayList<>();
+    // 第一次遍历：建立 id → node 映射
     for (SysMenu m : all) {
       SysMenuNode n = new SysMenuNode();
       n.id = m.getId();
@@ -53,14 +55,18 @@ public class SysMenuController extends BaseCrudController<SysMenu> {
       n.path = m.getPath();
       n.children = new ArrayList<>();
       nodeMap.put(n.id, n);
-      childMap.computeIfAbsent(n.parentId, (k) -> new ArrayList<>()).add(n);
     }
-    for (Map.Entry<Long, List<SysMenuNode>> e : childMap.entrySet()) {
-      SysMenuNode parent = nodeMap.get(e.getKey());
+    // 第二次遍历：根据 parentId 挂载到父节点或作为 root
+    for (SysMenuNode n : nodeMap.values()) {
+      SysMenuNode parent = null;
+      // parentId 为 0/null、等于自身 id、或指向不存在的节点 → 都作为 root
+      if (n.parentId != null && n.parentId != 0L && !n.parentId.equals(n.id)) {
+        parent = nodeMap.get(n.parentId);
+      }
       if (parent != null) {
-        parent.children = e.getValue();
+        parent.children.add(n);
       } else {
-        roots.addAll(e.getValue());
+        roots.add(n);
       }
     }
     return ApiResponse.ok(roots);

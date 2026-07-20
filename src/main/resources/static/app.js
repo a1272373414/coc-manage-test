@@ -516,11 +516,25 @@
       return {
         list: [], total: 0, page: 1, size: 10, filters: {}, keyword: '',
         loading: false, dialogVisible: false, dialogTitle: '新增用户', form: {},
-        roleDialog: false, roleUserId: null, roleSel: [], savingRole: false
+        roleDialog: false, roleUserId: null, roleSel: [], savingRole: false,
+        roleOptions: [] // 角色下拉选项，组件本地维护避免 COC.roles 异步加载竞态
       };
     },
     async mounted() { await this.load(); },
     methods: {
+      async ensureRoleOptions() {
+        // 优先用 COC.roles（登录/启动时已加载），空则主动拉一次
+        if (COC.roles && COC.roles.length) {
+          this.roleOptions = COC.roles;
+          return;
+        }
+        try {
+          const r = await COC.api.page('/api/sys/role', { size: 9999 });
+          this.roleOptions = (r.records || []).map((x) => ({ label: x.roleName, value: x.id }));
+          // 同步到全局供其他组件复用
+          COC.roles = this.roleOptions;
+        } catch (e) { this.roleOptions = []; }
+      },
       async load() {
         this.loading = true;
         try {
@@ -534,7 +548,7 @@
       resetSearch() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
       openCreate() {
         this.dialogTitle = '新增用户';
-        this.form = { username: '', nickname: '', phone: '', email: '', groupNo: '', status: 1, password: '' };
+        this.form = { username: '', nickname: '', phone: '', email: '', status: 1, password: '' };
         this.dialogVisible = true;
       },
       openEdit(row) {
@@ -563,6 +577,7 @@
       async openRole(row) {
         this.roleUserId = row.id;
         this.roleSel = (row.roleIds || []).map(Number);
+        await this.ensureRoleOptions();
         this.roleDialog = true;
       },
       async saveRole() {
@@ -596,7 +611,6 @@
         <el-table-column prop="nickname" label="昵称" />
         <el-table-column prop="phone" label="手机号" />
         <el-table-column prop="email" label="邮箱" />
-        <el-table-column prop="groupNo" label="群组编号" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><el-tag :type="row.status==1?'success':'info'">{{ row.status==1?'启用':'禁用' }}</el-tag></template>
         </el-table-column>
@@ -619,7 +633,6 @@
           <el-form-item label="昵称"><el-input v-model="form.nickname" /></el-form-item>
           <el-form-item label="手机号"><el-input v-model="form.phone" /></el-form-item>
           <el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item>
-          <el-form-item label="群组编号"><el-input v-model="form.groupNo" /></el-form-item>
           <el-form-item label="状态">
             <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
           </el-form-item>
@@ -631,7 +644,7 @@
       </el-dialog>
       <el-dialog v-model="roleDialog" title="分配角色" width="480px">
         <el-select v-model="roleSel" multiple placeholder="请选择角色" style="width:100%">
-          <el-option v-for="r in (COC.roles||[])" :key="r.value" :label="r.label" :value="r.value" />
+          <el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value" />
         </el-select>
         <template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="savingRole" @click="saveRole">保存</el-button></template>
       </el-dialog>
@@ -843,9 +856,20 @@
   ];
 
   const router = createRouter({ history: createWebHashHistory(), routes });
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
     if (!to.meta.public && !COC.store.token) return '/login';
     if (to.path === '/login' && COC.store.token) return '/dashboard';
+    // 首次进入或刷新页面：info 接口可能还没完成，先等待加载用户信息/权限/菜单
+    if (COC.store.token && !COC.store.user) {
+      try {
+        const info = await COC.api.info();
+        if (info && info.user) COC.store.user = info.user;
+        if (info && info.menus) COC.store.menus = info.menus;
+      } catch (e) {
+        // token 失效或网络错误，留在原页面或去登录
+        return '/login';
+      }
+    }
     if (to.meta.perm && !COC.store.hasPerm(to.meta.perm)) {
       ElementPlus.ElMessage.error('无访问权限');
       return '/dashboard';

@@ -218,7 +218,12 @@ public class AuthService {
     }
     List<MenuNode> roots = new ArrayList<>();
     for (MenuNode node : nodeMap.values()) {
-      MenuNode parent = node.getParentId() == null ? null : nodeMap.get(node.getParentId());
+      MenuNode parent = null;
+      Long pid = node.getParentId();
+      // parentId 为 null/0/等于自身 id/指向不存在节点 → 都作为 root
+      if (pid != null && pid != 0L && !pid.equals(node.getId())) {
+        parent = nodeMap.get(pid);
+      }
       if (parent == null) {
         roots.add(node);
       } else {

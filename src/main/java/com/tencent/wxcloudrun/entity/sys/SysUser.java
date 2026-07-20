@@ -32,4 +32,8 @@ public class SysUser extends BaseEntity {
 
   @TableField(exist = false)
   private List<String> permissions;
+
+  /** 已分配的角色 id 列表（非数据库字段，由 Controller 在分页/详情时关联 sys_user_role 填充） */
+  @TableField(exist = false)
+  private List<Long> roleIds;
 }
