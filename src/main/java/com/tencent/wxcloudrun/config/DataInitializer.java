@@ -50,7 +50,7 @@ public class DataInitializer implements ApplicationRunner {
   @Override
   public void run(ApplicationArguments args) {
     Long superAdminRole = ensureRole(RoleConstants.SUPER_ADMIN, "超级管理员");
-    Long groupAdminRole = ensureRole(RoleConstants.GROUP_ADMIN, "部族组管理员");
+    Long groupAdminRole = ensureRole(RoleConstants.GROUP_ADMIN, "部落组管理员");
     ensureRole(RoleConstants.LEAGUE_ADMIN, "赛事管理员");
     ensureRole(RoleConstants.MEMBER, "普通成员");
 
@@ -60,7 +60,7 @@ public class DataInitializer implements ApplicationRunner {
     assignMenuToRole(groupAdminRole, sysMenu);
 
     // 导航菜单（无权限标识，登录用户可见，数据按 group_no 隔离）
-    ensureMenu(null, "部族管理", "/clan", 1);
+    ensureMenu(null, "部落管理", "/clan", 1);
     ensureMenu(null, "联赛管理", "/league", 1);
     ensureMenu(null, "部落战管理", "/war", 1);
     ensureMenu(null, "数据看板", "/dashboard", 1);

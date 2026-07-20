@@ -10,7 +10,7 @@ window.APP_CONFIG = {
   apiUrl: 'http://localhost:8080',
   
   // 应用标题（可显示环境标识）
-  appTitle: '部落冲突部族联赛管理系统 [DEV]',
+  appTitle: '部落冲突部落联赛管理系统 [DEV]',
   
   // 是否开启调试模式
   debug: true,

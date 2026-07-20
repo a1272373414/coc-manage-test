@@ -1,4 +1,4 @@
-/* 部落冲突部族联赛管理系统 — 前端主程序（Vue3 + Element Plus，零构建） */
+/* 部落冲突部落联赛管理系统 — 前端主程序（Vue3 + Element Plus，零构建） */
 (function () {
   const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
   const { createRouter, createWebHashHistory } = VueRouter;
@@ -194,7 +194,7 @@
     template: `
     <div class="login-wrap">
       <div class="login-card">
-        <h2 class="login-title">部落冲突部族联赛管理</h2>
+        <h2 class="login-title">部落冲突部落联赛管理</h2>
         <p class="login-sub">{{ mode==='login' ? '账号登录' : '注册新账号' }}</p>
         <el-form v-if="mode==='login'" label-width="0" @submit.prevent="doLogin">
           <el-form-item>
@@ -224,7 +224,7 @@
   /* ============ 布局 ============ */
   const NAV = [
     { path: '/dashboard', title: '数据看板', icon: 'Odometer' },
-    { path: '/clan', title: '部族管理', icon: 'OfficeBuilding' },
+    { path: '/clan', title: '部落管理', icon: 'OfficeBuilding' },
     { path: '/war', title: '部落战管理', icon: 'DataAnalysis' },
     { path: '/league', title: '联赛管理', icon: 'Trophy' },
     { path: '/system', title: '系统管理', icon: 'Setting', perm: 'system:manage' }
@@ -275,7 +275,7 @@
       </aside>
       <div class="layout-main">
         <header class="layout-header">
-          <span class="title">{{ (nav.find(n=>active(n.path))||{}).title || '部落冲突部族联赛管理系统' }}</span>
+          <span class="title">{{ (nav.find(n=>active(n.path))||{}).title || '部落冲突部落联赛管理系统' }}</span>
           <div class="user">
             <span>欢迎，{{ user.nickname || user.username }}</span>
             <el-dropdown @command="c=>{ if(c==='pwd') pwdVisible=true; if(c==='logout') logout(); }">
@@ -367,7 +367,7 @@
     template: `
     <div v-loading="loading">
       <div class="dash-cards">
-        <div class="dash-card"><div class="k">部族群组</div><div class="v">{{ stats.clanGroupCount || 0 }}</div></div>
+        <div class="dash-card"><div class="k">部落群组</div><div class="v">{{ stats.clanGroupCount || 0 }}</div></div>
         <div class="dash-card green"><div class="k">部落数量</div><div class="v">{{ stats.clanCount || 0 }}</div></div>
         <div class="dash-card"><div class="k">成员数量</div><div class="v">{{ stats.memberCount || 0 }}</div></div>
         <div class="dash-card orange"><div class="k">联赛场次</div><div class="v">{{ stats.leagueCount || 0 }}</div></div>
@@ -570,7 +570,7 @@
     components: { groupCrud, UserManage, roleCrud, menuCrud, DictManage },
     template: `
     <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="部族群组" name="g"><component :is="'groupCrud'" /></el-tab-pane>
+      <el-tab-pane label="部落群组" name="g"><component :is="'groupCrud'" /></el-tab-pane>
       <el-tab-pane label="用户管理" name="u"><component :is="'UserManage'" /></el-tab-pane>
       <el-tab-pane label="角色管理" name="r"><component :is="'roleCrud'" /></el-tab-pane>
       <el-tab-pane label="菜单管理" name="m"><component :is="'menuCrud'" /></el-tab-pane>

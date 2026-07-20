@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * MyBatis-Plus 配置：
  * 1. 分页插件
- * 2. 部族组（group_no）多租户隔离插件 —— 核心安全机制
+ * 2. 部落组（group_no）多租户隔离插件 —— 核心安全机制
  */
 @Configuration
 public class MyBatisPlusConfig {
@@ -28,7 +28,7 @@ public class MyBatisPlusConfig {
   }
 
   /**
-   * 部族组隔离处理器：
+   * 部落组隔离处理器：
    * - 业务表（clan_league_clan_war）按当前登录用户的 group_no 过滤；
    * - 超级管理员（group_no 为空）放行全部数据；
    * - 字典表（dict_*）为全局共享配置，不隔离；

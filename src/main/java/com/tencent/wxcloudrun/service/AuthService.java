@@ -89,7 +89,7 @@ public class AuthService {
     user.setStatus(1);
     userMapper.insert(user);
 
-    // 自助注册默认分配“部族组管理员”角色，可管理本组部落与成员
+    // 自助注册默认分配“部落组管理员”角色，可管理本组部落与成员
     SysRole groupAdmin = roleMapper.selectOne(new QueryWrapper<SysRole>().eq("role_code", RoleConstants.GROUP_ADMIN));
     if (groupAdmin != null) {
       SysUserRole ur = new SysUserRole();
@@ -97,10 +97,10 @@ public class AuthService {
       ur.setRoleId(groupAdmin.getId());
       userRoleMapper.insert(ur);
     }
-    // 同步创建部族群组记录，便于部族/成员管理
+    // 同步创建部落群组记录，便于部落/成员管理
     ClanGroup group = new ClanGroup();
     group.setGroupNo(groupNo);
-    group.setGroupName((user.getNickname() == null ? user.getUsername() : user.getNickname()) + "的部族组");
+    group.setGroupName((user.getNickname() == null ? user.getUsername() : user.getNickname()) + "的部落组");
     group.setOwnerId(user.getId());
     group.setStatus(1);
     clanGroupMapper.insert(group);

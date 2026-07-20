@@ -17,7 +17,7 @@ window.APP_CONFIG = {
   apiUrl: '',
   
   // 应用标题
-  appTitle: '部落冲突部族联赛管理系统',
+  appTitle: '部落冲突部落联赛管理系统',
   
   // 是否开启调试模式（生产环境必须关闭！）
   debug: false,

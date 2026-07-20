@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 角色。全局配置，不随部族组隔离。
+ * 角色。全局配置，不随部落组隔离。
  */
 @Getter
 @Setter

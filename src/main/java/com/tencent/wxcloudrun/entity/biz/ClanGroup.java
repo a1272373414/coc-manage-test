@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 部族群组。group_no 为租户标识，由注册或管理员分配。
+ * 部落群组。group_no 为租户标识，由注册或管理员分配。
  */
 @Getter
 @Setter
