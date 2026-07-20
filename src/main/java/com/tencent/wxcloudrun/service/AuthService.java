@@ -111,9 +111,55 @@ public class AuthService {
     SysUser user = userMapper.selectById(current.getUserId());
     Map<String, Object> data = new HashMap<>();
     AuthUser au = user == null ? current : toAuthUser(user);
+    // 根据当前用户角色查询其有权访问的菜单（控制左侧导航的显示）
     data.put("user", au);
-    data.put("menus", buildMenuTree(menuMapper.selectList(new QueryWrapper<SysMenu>().orderByAsc("sort")), au));
+    data.put("menus", buildMenuTree(loadUserMenus(au), au));
     return data;
+  }
+
+  /**
+   * 加载当前用户有权访问的菜单：
+   * 所有用户（含超级管理员）都按 sys_user_role → sys_role_menu 关联查询其角色绑定的菜单，
+   * 实现菜单可见性完全由角色菜单绑定表控制。
+   * 超级管理员的特殊待遇：通过 DataInitializer 默认为其绑定全部菜单来体现，
+   * 而不是在这里硬编码绕过权限过滤。
+   */
+  private List<SysMenu> loadUserMenus(AuthUser au) {
+    List<SysUserRole> userRoles = userRoleMapper.selectList(
+        new QueryWrapper<SysUserRole>().eq("user_id", au.getUserId()));
+    if (userRoles.isEmpty()) {
+      return new ArrayList<>();
+    }
+    Set<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).collect(Collectors.toSet());
+    List<SysRoleMenu> roleMenus = roleMenuMapper.selectList(
+        new QueryWrapper<SysRoleMenu>().in("role_id", roleIds));
+    if (roleMenus.isEmpty()) {
+      return new ArrayList<>();
+    }
+    // 角色直接绑定的菜单 id 集合
+    Set<Long> menuIds = roleMenus.stream().map(SysRoleMenu::getMenuId).collect(Collectors.toSet());
+    // 递归补充所有祖先菜单（parentId=0/null 视为无父级），保证子菜单可见时其父菜单也可见，
+    // 避免子菜单"孤儿"在 buildMenuTree 中找不到父节点而被前端过滤掉
+    Set<Long> allIds = new HashSet<>(menuIds);
+    Set<Long> pending = new HashSet<>(menuIds);
+    while (!pending.isEmpty()) {
+      List<SysMenu> rows = menuMapper.selectList(
+          new QueryWrapper<SysMenu>().in("id", pending));
+      Set<Long> parentIds = new HashSet<>();
+      for (SysMenu m : rows) {
+        Long pid = m.getParentId();
+        if (pid != null && pid > 0) parentIds.add(pid);
+      }
+      pending.clear();
+      for (Long pid : parentIds) {
+        if (allIds.add(pid)) pending.add(pid);
+      }
+    }
+    if (allIds.isEmpty()) {
+      return new ArrayList<>();
+    }
+    return menuMapper.selectList(
+        new QueryWrapper<SysMenu>().in("id", allIds).orderByAsc("sort").orderByAsc("id"));
   }
 
   /** 将 SysUser 转换为携带角色与权限的 AuthUser */
@@ -150,13 +196,10 @@ public class AuthService {
   }
 
   private List<MenuNode> buildMenuTree(List<SysMenu> all, AuthUser current) {
-    List<SysMenu> filtered = all;
-    if (!current.isSuperAdmin()) {
-      final Set<String> perms = current.getPermissions();
-      filtered = all.stream()
-          .filter(m -> m.getPermission() == null || perms.contains(m.getPermission()))
-          .collect(Collectors.toList());
-    }
+    // 输入已按用户角色过滤（loadUserMenus），此处仅排除按钮类型（menuType=2）
+    List<SysMenu> filtered = all.stream()
+        .filter(m -> m.getMenuType() == null || m.getMenuType() != 2)
+        .collect(Collectors.toList());
     Map<Long, MenuNode> nodeMap = new HashMap<>();
     for (SysMenu m : filtered) {
       MenuNode node = new MenuNode();

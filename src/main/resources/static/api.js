@@ -101,6 +101,11 @@
     assignRole: (userId, roleIds) =>
       http.post('/api/auth/assign-role', { userId, roleIds }),
 
+    // 角色-菜单绑定管理
+    menuTree: () => http.get('/api/sys/menu/tree'),
+    roleMenus: (roleId) => http.get('/api/sys/role/' + roleId + '/menus'),
+    assignMenus: (roleId, menuIds) => http.post('/api/sys/role/' + roleId + '/menus', menuIds),
+
     // 通用 CRUD
     page: (url, params) => http.get(url + '/page', { params }),
     create: (url, data) => http.post(url, data),

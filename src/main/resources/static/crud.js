@@ -44,6 +44,8 @@
         await this.loadDicts();
         // 预拉取所有 remote-select 字段的默认候选，供表格列把 id 翻译为 label
         await this.preloadRemoteOptions();
+        // 预拉取所有 tree-select 字段的全量数据并转树
+        await this.preloadTreeOptions();
         // 列表模式下若需要先选条件才加载，可设置 opts.lazy=true 跳过首次加载
         if (!opts.lazy) await this.load();
       },
@@ -66,6 +68,35 @@
         async preloadRemoteOptions() {
           const remoteCols = this.cols.filter((c) => c.type === 'remote-select');
           await Promise.all(remoteCols.map((c) => this.remoteSearch(c, '')));
+        },
+        /** 预拉取所有 tree-select 列的全量数据并转树，存入 dictOptions 复用 */
+        async preloadTreeOptions() {
+          const treeCols = this.cols.filter((c) => c.type === 'tree-select' && c.url);
+          await Promise.all(treeCols.map(async (c) => {
+            try {
+              const r = await COC.api.page(c.url, { size: 9999 });
+              const records = r.records || [];
+              // 表格列翻译（id → 菜单名）也复用这份数据
+              const idToLabel = {};
+              records.forEach((m) => { idToLabel[m.id] = m.menuName || m.name; });
+              this.dictOptions[c.prop] = idToLabel;
+              // 把列表转成树
+              const map = new Map();
+              records.forEach((m) => map.set(m.id, {
+                id: m.id, parentId: m.parentId || 0, label: m.menuName || m.name, children: []
+              }));
+              const roots = [];
+              map.forEach((node) => {
+                if (node.parentId && map.has(node.parentId)) {
+                  map.get(node.parentId).children.push(node);
+                } else {
+                  roots.push(node);
+                }
+              });
+              // 给"无父"选项预留"顶级菜单"占位（id=0）
+              this.dictOptions[c.prop + 'Tree'] = [{ id: 0, label: '顶级菜单', children: roots }];
+            } catch (e) { /* 无权限或接口缺失 */ }
+          }));
         },
         async load() {
           this.loading = true;
@@ -97,9 +128,14 @@
           if (c.options) return c.options;
           if (c.dictCode) return this.dictOptions[c.dictCode] || [];
           if (c.type === 'remote-select') return this.remoteOptions[c.prop] || [];
+          if (c.type === 'tree-select') return this.dictOptions[c.prop + 'Tree'] || [];
           return [];
         },
         labelOf(c, val) {
+          // 树形数据（tree-select）走 idToLabel 翻译
+          if (c.type === 'tree-select' && val !== '' && val != null) {
+            return this.dictOptions[c.prop] && this.dictOptions[c.prop][val] || val;
+          }
           const o = this.optionsFor(c).find((x) => String(x.value) === String(val));
           return o ? o.label : val;
         },
@@ -178,6 +214,8 @@
               ElementPlus.ElMessage.success('保存成功');
               this.dialogVisible = false;
               this.load();
+              // 数据变更后，tree-select 字段的候选树可能过期（如新增菜单后应出现在父菜单下拉中），重新加载
+              this.preloadTreeOptions();
             } catch (e) { /* 错误已在拦截器提示 */ }
           });
         },
@@ -188,6 +226,8 @@
             await COC.api.remove(this.baseUrl, row.id);
             ElementPlus.ElMessage.success('删除成功');
             this.load();
+            // 删除后同样刷新 tree-select 候选，避免下拉树残留已删除项
+            this.preloadTreeOptions();
           }).catch(() => {});
         }
       },
@@ -254,6 +294,13 @@
                 style="width:100%">
                 <el-option v-for="o in (remoteOptions[c.prop] || [])" :key="o.value" :label="o.label" :value="o.value" />
               </el-select>
+              <el-tree-select v-else-if="c.type==='tree-select'" v-model="form[c.prop]"
+                :data="optionsFor(c)"
+                :props="c.treeProps || { value: 'id', label: 'label', children: 'children' }"
+                node-key="id"
+                clearable check-strictly
+                :placeholder="c.placeholder || ('请选择'+c.label)"
+                style="width:100%" />
               <el-switch v-else-if="c.type==='switch'" v-model="form[c.prop]" :active-value="1" :inactive-value="0" />
               <el-input v-else-if="c.type==='textarea'" v-model="form[c.prop]" type="textarea" :rows="3" :placeholder="'请输入'+c.label" />
               <el-date-picker v-else-if="c.type==='date'" v-model="form[c.prop]" type="datetime"

@@ -88,23 +88,18 @@
     { prop: 'intro', label: '简介', type: 'textarea' },
     { prop: 'status', label: '状态', type: 'switch', activeText: '启用', inactiveText: '禁用' }
   ];
-  const roleCols = [
-    { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
-    { prop: 'roleCode', label: '角色编码', search: true, rule: req('请输入角色编码') },
-    { prop: 'roleName', label: '角色名称', search: true, rule: req('请输入角色名称') },
-    { prop: 'status', label: '状态', type: 'switch', activeText: '启用', inactiveText: '禁用' },
-    { prop: 'remark', label: '备注', type: 'textarea' }
-  ];
   const menuCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
     { prop: 'menuName', label: '菜单名称', search: true, rule: req('请输入菜单名称') },
     { prop: 'menuType', label: '类型', type: 'select', default: 1, options: [{ label: '目录', value: 0 }, { label: '菜单', value: 1 }, { label: '按钮', value: 2 }] },
+    { prop: 'parentId', label: '父菜单', type: 'tree-select', default: 0,
+      url: '/api/sys/menu',
+      placeholder: '不选则为顶级菜单' },
     { prop: 'path', label: '路径' },
     { prop: 'component', label: '组件' },
     { prop: 'icon', label: '图标' },
     { prop: 'permission', label: '权限标识' },
-    { prop: 'sort', label: '排序', type: 'number' },
-    { prop: 'parentId', label: '父ID', type: 'number' }
+    { prop: 'sort', label: '排序', type: 'number' }
   ];
   const dictGroupCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
@@ -137,7 +132,6 @@
     cols: leagueSignupCols
   });
   const groupCrud = createCrud({ name: 'GroupCrud', baseUrl: '/api/clan/group', cols: groupCols });
-  const roleCrud = createCrud({ name: 'RoleCrud', baseUrl: '/api/sys/role', cols: roleCols });
   const menuCrud = createCrud({ name: 'MenuCrud', baseUrl: '/api/sys/menu', cols: menuCols });
   const dictGroupCrud = createCrud({ name: 'DictGroupCrud', baseUrl: '/api/dict/group', cols: dictGroupCols });
   const dictItemCrud = createCrud({ name: 'DictItemCrud', baseUrl: '/api/dict/item', cols: dictItemCols });
@@ -227,21 +221,49 @@
   };
 
   /* ============ 布局 ============ */
-  const NAV = [
-    { path: '/dashboard', title: '数据看板', icon: 'Odometer' },
-    { path: '/clan', title: '部落管理', icon: 'OfficeBuilding' },
-    { path: '/war', title: '部落战管理', icon: 'DataAnalysis' },
-    { path: '/league', title: '联赛管理', icon: 'Trophy' },
-    { path: '/system', title: '系统管理', icon: 'Setting', perm: 'system:manage' }
-  ];
+  /* ============ 布局 ============ */
+  // 导航图标默认映射（数据库中 menu.icon 为空时使用 Element Plus 内置图标名）
+  const ICON_FALLBACK = {
+    '/dashboard': 'Odometer',
+    '/clan': 'OfficeBuilding',
+    '/war': 'DataAnalysis',
+    '/league': 'Trophy',
+    '/system': 'Setting'
+  };
 
   const Layout = {
     data() {
-      return { nav: NAV, pwdVisible: false, pwdForm: { oldPassword: '', newPassword: '' } };
+      return { pwdVisible: false, pwdForm: { oldPassword: '', newPassword: '' } };
     },
     computed: {
       user() { return COC.store.user || {}; },
-      visibleNav() { return this.nav.filter((n) => !n.perm || COC.store.hasPerm(n.perm)); }
+      /**
+       * 左侧导航菜单从 COC.store.menus（后端按当前用户角色过滤）动态计算：
+       * - 仅取顶级菜单（parentId 为 0 或 null）
+       * - 排除无 path 的条目（按钮/纯权限标识）
+       * - icon 优先用数据库中存储的，否则按 path 兜底
+       */
+      visibleNav() {
+        const all = COC.store.menus || [];
+        return all
+          .filter((m) => (m.parentId == null || m.parentId === 0) && m.path)
+          .map((m) => ({
+            path: m.path,
+            title: m.menuName,
+            icon: (m.icon && m.icon.trim()) || ICON_FALLBACK[m.path] || 'Menu',
+            perm: m.permission || null
+          }));
+      }
+    },
+    async mounted() {
+      // 保障首屏：若 menus 为空（页面刷新时 beforeCreate 的 info 请求未完成）补一次
+      if (COC.store.token && !(COC.store.menus && COC.store.menus.length)) {
+        try {
+          const info = await COC.api.info();
+          if (info && info.user) COC.store.user = info.user;
+          if (info && info.menus) COC.store.menus = info.menus;
+        } catch (e) { /* token 失效由拦截器处理 */ }
+      }
     },
     methods: {
       active(p) { return this.$route.path === p; },
@@ -280,7 +302,7 @@
       </aside>
       <div class="layout-main">
         <header class="layout-header">
-          <span class="title">{{ (nav.find(n=>active(n.path))||{}).title || '部落冲突部落联赛管理系统' }}</span>
+          <span class="title">{{ (visibleNav.find(n=>active(n.path))||{}).title || '部落冲突部落联赛管理系统' }}</span>
           <div class="user">
             <span>欢迎，{{ user.nickname || user.username }}</span>
             <el-dropdown @command="c=>{ if(c==='pwd') pwdVisible=true; if(c==='logout') logout(); }">
@@ -402,34 +424,91 @@
   };
 
   /* ============ 业务页（标签页组合 CRUD） ============ */
-  const ClanPage = {
-    components: { clanCrud, memberCrud },
-    template: `
-    <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="部落管理" name="clan"><component :is="'clanCrud'" /></el-tab-pane>
-      <el-tab-pane label="部落成员" name="member"><component :is="'memberCrud'" /></el-tab-pane>
-    </el-tabs>`,
-    data() { return { t: 'clan' }; }
-  };
-  const WarPage = {
-    components: { warCrud, warRecordCrud },
-    template: `
-    <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="部落战" name="war"><component :is="'warCrud'" /></el-tab-pane>
-      <el-tab-pane label="部落战战绩" name="rec"><component :is="'warRecordCrud'" /></el-tab-pane>
-    </el-tabs>`,
-    data() { return { t: 'war' }; }
-  };
-  const LeaguePage = {
-    components: { leagueCrud, leagueRecordCrud, leagueSignupCrud },
-    template: `
-    <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="联赛管理" name="lg"><component :is="'leagueCrud'" /></el-tab-pane>
-      <el-tab-pane label="联赛战绩" name="rec"><component :is="'leagueRecordCrud'" /></el-tab-pane>
-      <el-tab-pane label="联赛报名" name="sign"><component :is="'leagueSignupCrud'" /></el-tab-pane>
-    </el-tabs>`,
-    data() { return { t: 'lg' }; }
-  };
+  /**
+   * 通用 mixin：根据当前路由 path 找到对应的顶级菜单，
+   * 再从 COC.store.menus 中取出该菜单的子菜单列表，
+   * 让二级 tab 受角色菜单表管控。
+   * 用法：每个 Page 组件传 parentPath（即顶级菜单的 path）。
+   * paneMap 提供每个二级菜单 path → { name, label, component } 的映射。
+   * extraOptions 可附加 components 注册（SystemPage 用）。
+   */
+  function makeSubTabsMixin(parentPath, paneMap, extraOptions) {
+    const base = {
+      data() {
+        return { t: '' };
+      },
+      computed: {
+        /** 当前父菜单的子菜单列表（受角色菜单绑定管控）。
+         *  注意：info.menus 是嵌套的树形结构（buildMenuTree 构建的），
+         *  子菜单在父菜单的 children 字段里，不是平铺在顶层数组。 */
+        subMenus() {
+          const all = COC.store.menus || [];
+          // 找到当前顶级菜单（按 path 匹配）
+          const parent = all.find((m) => m.path === parentPath);
+          if (!parent) return [];
+          // 子菜单在父菜单的 children 中
+          return (parent.children || []).filter((m) => m.path);
+        },
+        /** 根据子菜单 + paneMap 生成实际渲染的 tab 列表 */
+        visiblePanes() {
+          return this.subMenus
+            .map((m) => {
+              // 优先用 menu.path 在 paneMap 中查找对应 tab 配置
+              const pane = paneMap[m.path];
+              if (!pane) return null;
+              return {
+                name: pane.name,
+                label: m.menuName || pane.label,
+                component: pane.component
+              };
+            })
+            .filter(Boolean);
+        }
+      },
+      watch: {
+        visiblePanes: {
+          handler(panes) {
+            // 当前激活的 tab 不在可见列表中时，自动切到第一个
+            if (panes.length && !panes.some((p) => p.name === this.t)) {
+              this.t = panes[0].name;
+            }
+          },
+          immediate: true
+        }
+      },
+      template: `
+      <el-tabs class="coc-tabs" v-model="t">
+        <el-tab-pane v-for="p in visiblePanes" :key="p.name" :label="p.label" :name="p.name">
+          <component :is="p.component" />
+        </el-tab-pane>
+      </el-tabs>`
+    };
+    return Object.assign({}, base, extraOptions || {});
+  }
+
+  // 配置每个父菜单的二级 tab：path → { name, label, component }
+  // name 必须与原 v-model="t" 的初值一致，保持 URL 不变
+  const ClanPage = makeSubTabsMixin('/clan', {
+    '/clan/crud':   { name: 'clan',   label: '部落管理', component: 'clanCrud' },
+    '/clan/member': { name: 'member', label: '部落成员', component: 'memberCrud' }
+  }, {
+    components: { clanCrud, memberCrud }
+  });
+
+  const WarPage = makeSubTabsMixin('/war', {
+    '/war/crud':   { name: 'war', label: '部落战',     component: 'warCrud' },
+    '/war/record': { name: 'rec', label: '部落战战绩', component: 'warRecordCrud' }
+  }, {
+    components: { warCrud, warRecordCrud }
+  });
+
+  const LeaguePage = makeSubTabsMixin('/league', {
+    '/league/crud':   { name: 'lg',   label: '联赛管理', component: 'leagueCrud' },
+    '/league/record': { name: 'rec',  label: '联赛战绩', component: 'leagueRecordCrud' },
+    '/league/signup': { name: 'sign', label: '联赛报名', component: 'leagueSignupCrud' }
+  }, {
+    components: { leagueCrud, leagueRecordCrud, leagueSignupCrud }
+  });
 
   /* ============ 用户管理（含角色分配） ============ */
   const UserManage = {
@@ -559,6 +638,171 @@
     </div>`
   };
 
+  /* ============ 角色管理（含菜单分配） ============ */
+  const RoleManage = {
+    data() {
+      return {
+        list: [], total: 0, page: 1, size: 10, filters: {}, keyword: '',
+        loading: false, dialogVisible: false, dialogTitle: '新增角色', form: {},
+        menuDialog: false, menuRoleId: null, menuRoleName: '',
+        menuTreeData: [], menuCheckedIds: [], menuTreeProps: { children: 'children', label: 'menuName' },
+        savingMenu: false, menuTreeRef: null
+      };
+    },
+    async mounted() { await this.load(); },
+    methods: {
+      async load() {
+        this.loading = true;
+        try {
+          const p = { keyword: this.keyword, current: this.page, size: this.size };
+          Object.keys(this.filters).forEach((k) => { if (this.filters[k] !== '') p[k] = this.filters[k]; });
+          const r = await COC.api.page('/api/sys/role', p);
+          this.list = r.records || [];
+          this.total = r.total || 0;
+        } finally { this.loading = false; }
+      },
+      resetSearch() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
+      openCreate() {
+        this.dialogTitle = '新增角色';
+        this.form = { roleCode: '', roleName: '', status: 1, remark: '' };
+        this.dialogVisible = true;
+      },
+      openEdit(row) {
+        this.dialogTitle = '编辑角色';
+        this.form = Object.assign({}, row);
+        this.dialogVisible = true;
+      },
+      async submit() {
+        try {
+          if (this.form.id) await COC.api.update('/api/sys/role', this.form);
+          else await COC.api.create('/api/sys/role', this.form);
+          ElementPlus.ElMessage.success('保存成功');
+          this.dialogVisible = false;
+          this.load();
+        } catch (e) {}
+      },
+      remove(row) {
+        ElementPlus.ElMessageBox.confirm('确定删除该角色？', '提示', { type: 'warning' }).then(async () => {
+          await COC.api.remove('/api/sys/role', row.id);
+          ElementPlus.ElMessage.success('删除成功');
+          this.load();
+        }).catch(() => {});
+      },
+      /** 打开分配菜单弹窗：拉取菜单树 + 当前角色已勾选的菜单 id */
+      async openAssignMenu(row) {
+        this.menuRoleId = row.id;
+        this.menuRoleName = row.roleName || row.roleCode;
+        this.menuDialog = true;
+        this.menuCheckedIds = [];
+        try {
+          const tree = await COC.api.menuTree();
+          this.menuTreeData = Array.isArray(tree) ? tree : [];
+          const ids = await COC.api.roleMenus(row.id);
+          // 等待 tree 渲染完成再回显勾选
+          this.$nextTick(() => {
+            this.menuCheckedIds = Array.isArray(ids) ? ids.map(Number) : [];
+          });
+        } catch (e) {
+          this.menuDialog = false;
+        }
+      },
+      /** 树节点勾选变化（保留响应式，但保存时不再依赖此值） */
+      handleMenuCheck() {
+        // el-tree 内部状态已更新，保存时通过 getCheckedNodes / getHalfCheckedNodes 读取
+      },
+      async saveAssignMenu() {
+        if (!this.menuRoleId) return;
+        this.savingMenu = true;
+        try {
+          // 通过 el-tree API 直接读取选中状态，避免自己维护 menuCheckedIds 的同步问题
+          const treeRef = this.$refs.menuTreeRef;
+          if (!treeRef) {
+            ElementPlus.ElMessage.error('菜单树未初始化');
+            return;
+          }
+          // 勾选节点：checked=true 的节点（含父节点）
+          const checked = treeRef.getCheckedNodes(false, false) || [];
+          // 半选节点：父节点因部分子节点被选中而处于半选状态
+          const halfChecked = treeRef.getHalfCheckedNodes() || [];
+          // 收集所有勾选 + 半选的节点 id（去重）
+          // - 叶子节点：勾选时收集
+          // - 父节点：勾选或半选时收集（半选保证父菜单可见，子菜单按各自勾选状态分配）
+          const allNodes = checked.concat(halfChecked);
+          const menuIds = [];
+          for (const n of allNodes) {
+            if (n && n.id != null) {
+              const id = Number(n.id);
+              if (menuIds.indexOf(id) === -1) menuIds.push(id);
+            }
+          }
+          await COC.api.assignMenus(this.menuRoleId, menuIds);
+          ElementPlus.ElMessage.success('菜单分配成功');
+          this.menuDialog = false;
+        } finally { this.savingMenu = false; }
+      },
+    },
+    template: `
+    <div>
+      <el-form inline @submit.prevent class="coc-toolbar">
+        <el-form-item label="关键字"><el-input v-model="keyword" placeholder="角色编码/名称" clearable style="width:180px" @keyup.enter="load" /></el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="load">查询</el-button>
+          <el-button @click="resetSearch">重置</el-button>
+          <el-button type="success" @click="openCreate">新增</el-button>
+        </el-form-item>
+      </el-form>
+      <el-table :data="list" v-loading="loading" border stripe>
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column prop="roleCode" label="角色编码" />
+        <el-table-column prop="roleName" label="角色名称" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }"><el-tag :type="row.status==1?'success':'info'">{{ row.status==1?'启用':'禁用' }}</el-tag></template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" show-overflow-tooltip />
+        <el-table-column label="操作" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="warning" @click="openAssignMenu(row)">分配菜单</el-button>
+            <el-button link type="danger" @click="remove(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
+          @current-change="load" @size-change="load" />
+      </div>
+      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
+        <el-form :model="form" label-width="90px">
+          <el-form-item label="角色编码"><el-input v-model="form.roleCode" :disabled="!!form.id" /></el-form-item>
+          <el-form-item label="角色名称"><el-input v-model="form.roleName" /></el-form-item>
+          <el-form-item label="状态">
+            <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
+          </el-form-item>
+          <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
+        </el-form>
+        <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="submit">确定</el-button></template>
+      </el-dialog>
+      <el-dialog v-model="menuDialog" :title="'分配菜单 - ' + menuRoleName" width="560px" destroy-on-close>
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom:8px"
+          title="父节点勾选时会自动展开为该节点下全部叶子；取消父节点勾选不影响其下已勾选的叶子。" />
+        <el-tree ref="menuTreeRef"
+          :data="menuTreeData"
+          :props="menuTreeProps"
+          show-checkbox
+          node-key="id"
+          :default-checked-keys="menuCheckedIds"
+          :default-expand-all="true"
+          @check="handleMenuCheck"
+          style="max-height:420px;overflow:auto;border:1px solid #ebeef5;border-radius:4px;padding:8px;" />
+        <template #footer>
+          <el-button @click="menuDialog=false">取消</el-button>
+          <el-button type="primary" :loading="savingMenu" @click="saveAssignMenu">保存</el-button>
+        </template>
+      </el-dialog>
+    </div>`
+  };
+
   /* ============ 字典管理 ============ */
   const DictManage = {
     components: { dictGroupCrud, dictItemCrud },
@@ -570,19 +814,17 @@
     data() { return { t: 'g' }; }
   };
 
-  /* ============ 系统管理 ============ */
-  const SystemPage = {
-    components: { groupCrud, UserManage, roleCrud, menuCrud, DictManage },
-    template: `
-    <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="部落群组" name="g"><component :is="'groupCrud'" /></el-tab-pane>
-      <el-tab-pane label="用户管理" name="u"><component :is="'UserManage'" /></el-tab-pane>
-      <el-tab-pane label="角色管理" name="r"><component :is="'roleCrud'" /></el-tab-pane>
-      <el-tab-pane label="菜单管理" name="m"><component :is="'menuCrud'" /></el-tab-pane>
-      <el-tab-pane label="字典管理" name="d"><component :is="'DictManage'" /></el-tab-pane>
-    </el-tabs>`,
-    data() { return { t: 'g' }; }
-  };
+  // SystemPage 必须放在 UserManage / RoleManage / DictManage 之后定义，
+  // 否则 const 的 TDZ（Temporal Dead Zone）会触发 "Cannot access 'X' before initialization"
+  const SystemPage = makeSubTabsMixin('/system', {
+    '/clan/group': { name: 'g', label: '部落群组', component: 'groupCrud' },
+    '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
+    '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
+    '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuCrud' },
+    '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
+  }, {
+    components: { groupCrud, UserManage, RoleManage, menuCrud, DictManage }
+  });
 
   /* ============ 路由 ============ */
   const routes = [
@@ -618,6 +860,8 @@
         try {
           const info = await COC.api.info();
           COC.store.user = info.user || info;
+          // 同步填充菜单树，供 Layout 组件渲染左侧导航
+          COC.store.menus = (info && info.menus) || [];
           const g = await COC.api.page('/api/dict/group', { size: 9999 });
           COC.dictGroups = (g.records || []).map((x) => ({ label: x.groupName + '(' + x.groupCode + ')', value: x.groupCode }));
           const r = await COC.api.page('/api/sys/role', { size: 9999 });
