@@ -25,9 +25,11 @@
   <script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 
-  <!-- 应用脚本 -->
+  <!-- 应用脚本（顺序不可变：api → cols → crud → crud-instances → app） -->
   <script src="api.js"></script>
+  <script src="cols.js"></script>
   <script src="crud.js"></script>
+  <script src="crud-instances.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
