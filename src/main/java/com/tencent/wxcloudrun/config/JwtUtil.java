@@ -3,7 +3,6 @@ package com.tencent.wxcloudrun.config;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * JWT 工具类：生成与解析登录令牌。
@@ -57,6 +55,7 @@ public class JwtUtil {
         .compact();
   }
 
+  @SuppressWarnings("unchecked")
   public AuthUser parseToken(String token) {
     Claims claims = Jwts.parserBuilder()
         .setSigningKey(getKey())
@@ -69,11 +68,11 @@ public class JwtUtil {
     user.setUsername(claims.getSubject());
     user.setGroupNo(claims.get("groupNo", String.class));
     user.setSuperAdmin(Boolean.TRUE.equals(claims.get("superAdmin", Boolean.class)));
-    List<String> roleCodes = claims.get("roleCodes", List.class);
+    List<String> roleCodes = (List<String>) claims.get("roleCodes", List.class);
     if (roleCodes != null) {
       user.setRoleCodes(roleCodes);
     }
-    List<String> perms = claims.get("permissions", List.class);
+    List<String> perms = (List<String>) claims.get("permissions", List.class);
     if (perms != null) {
       user.setPermissions(new HashSet<>(perms));
     }

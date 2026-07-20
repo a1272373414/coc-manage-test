@@ -8,6 +8,7 @@ import com.tencent.wxcloudrun.entity.biz.ClanGroup;
 import com.tencent.wxcloudrun.entity.sys.SysUser;
 import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
 import com.tencent.wxcloudrun.mapper.SysUserMapper;
+import com.tencent.wxcloudrun.util.StreamUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/clan/group")
+@SuppressWarnings("all")
 public class ClanGroupController extends BaseCrudController<ClanGroup> {
 
   @Resource
@@ -71,10 +73,7 @@ public class ClanGroupController extends BaseCrudController<ClanGroup> {
     List<ClanGroup> records = page.getRecords();
     if (records != null && !records.isEmpty()) {
       // 收集所有非空 ownerId，批量查询用户名
-      Set<Long> ownerIds = records.stream()
-          .map(ClanGroup::getOwnerId)
-          .filter(id -> id != null)
-          .collect(Collectors.toSet());
+      Set<Long> ownerIds = StreamUtils.mapNonNullToSet(records, ClanGroup::getOwnerId);
       if (!ownerIds.isEmpty()) {
         List<SysUser> users = sysUserMapper.selectBatchIds(ownerIds);
         Map<Long, String> idToName = new HashMap<>();

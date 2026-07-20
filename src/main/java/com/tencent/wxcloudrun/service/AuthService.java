@@ -13,6 +13,7 @@ import com.tencent.wxcloudrun.entity.sys.SysUser;
 import com.tencent.wxcloudrun.entity.sys.SysUserRole;
 import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
 import com.tencent.wxcloudrun.mapper.SysMenuMapper;
+import com.tencent.wxcloudrun.util.StreamUtils;
 import com.tencent.wxcloudrun.mapper.SysRoleMapper;
 import com.tencent.wxcloudrun.mapper.SysRoleMenuMapper;
 import com.tencent.wxcloudrun.mapper.SysUserMapper;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  * 认证与用户信息服务：登录、注册、当前用户信息（含菜单树）。
  */
 @Service
+@SuppressWarnings("all")
 public class AuthService {
 
   @Resource
@@ -130,14 +132,14 @@ public class AuthService {
     if (userRoles.isEmpty()) {
       return new ArrayList<>();
     }
-    Set<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).collect(Collectors.toSet());
+    Set<Long> roleIds = StreamUtils.mapNonNullToSet(userRoles, SysUserRole::getRoleId);
     List<SysRoleMenu> roleMenus = roleMenuMapper.selectList(
         new QueryWrapper<SysRoleMenu>().in("role_id", roleIds));
     if (roleMenus.isEmpty()) {
       return new ArrayList<>();
     }
     // 角色直接绑定的菜单 id 集合
-    Set<Long> menuIds = roleMenus.stream().map(SysRoleMenu::getMenuId).collect(Collectors.toSet());
+    Set<Long> menuIds = StreamUtils.mapNonNullToSet(roleMenus, SysRoleMenu::getMenuId);
     // 递归补充所有祖先菜单（parentId=0/null 视为无父级），保证子菜单可见时其父菜单也可见，
     // 避免子菜单"孤儿"在 buildMenuTree 中找不到父节点而被前端过滤掉
     Set<Long> allIds = new HashSet<>(menuIds);
@@ -171,7 +173,7 @@ public class AuthService {
     au.setSuperAdmin(user.getGroupNo() == null || user.getGroupNo().isEmpty());
 
     List<SysUserRole> userRoles = userRoleMapper.selectList(new QueryWrapper<SysUserRole>().eq("user_id", user.getId()));
-    Set<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).collect(Collectors.toSet());
+    Set<Long> roleIds = StreamUtils.mapNonNullToSet(userRoles, SysUserRole::getRoleId);
 
     if (!roleIds.isEmpty()) {
       List<SysRole> roles = roleMapper.selectBatchIds(roleIds);
@@ -182,7 +184,7 @@ public class AuthService {
         }
       }
       List<SysRoleMenu> roleMenus = roleMenuMapper.selectList(new QueryWrapper<SysRoleMenu>().in("role_id", roleIds));
-      Set<Long> menuIds = roleMenus.stream().map(SysRoleMenu::getMenuId).collect(Collectors.toSet());
+      Set<Long> menuIds = StreamUtils.mapNonNullToSet(roleMenus, SysRoleMenu::getMenuId);
       if (!menuIds.isEmpty()) {
         List<SysMenu> menus = menuMapper.selectBatchIds(menuIds);
         for (SysMenu menu : menus) {

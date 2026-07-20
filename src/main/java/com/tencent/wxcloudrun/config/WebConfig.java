@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -26,14 +27,15 @@ public class WebConfig implements WebMvcConfigurer {
   };
 
   @Override
-  public void addInterceptors(InterceptorRegistry registry) {
+  @SuppressWarnings("all")
+  public void addInterceptors(@NonNull InterceptorRegistry registry) {
     registry.addInterceptor(jwtInterceptor)
         .addPathPatterns("/api/**")
         .excludePathPatterns(WHITELIST);
   }
 
   @Override
-  public void addCorsMappings(CorsRegistry registry) {
+  public void addCorsMappings(@NonNull CorsRegistry registry) {
     registry.addMapping("/api/**")
         .allowedOriginPatterns("*")
         .allowedMethods("*")

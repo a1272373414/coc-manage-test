@@ -22,9 +22,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.tencent.wxcloudrun.util.StreamUtils;
 
 @RestController
 @RequestMapping("/api/sys/role")
+@SuppressWarnings("all")
 public class SysRoleController extends BaseCrudController<SysRole> {
 
   @Resource
@@ -47,7 +49,7 @@ public class SysRoleController extends BaseCrudController<SysRole> {
   public ApiResponse getRoleMenus(@PathVariable Long id) {
     List<SysRoleMenu> list = roleMenuMapper.selectList(
         new QueryWrapper<SysRoleMenu>().eq("role_id", id));
-    List<Long> menuIds = list.stream().map(SysRoleMenu::getMenuId).collect(Collectors.toList());
+    List<Long> menuIds = StreamUtils.mapNonNull(list, SysRoleMenu::getMenuId);
     return ApiResponse.ok(menuIds);
   }
 

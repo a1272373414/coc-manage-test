@@ -1,10 +1,7 @@
 package com.tencent.wxcloudrun.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.tencent.wxcloudrun.entity.biz.ClanGroup;
-import com.tencent.wxcloudrun.entity.biz.ClanMember;
 import com.tencent.wxcloudrun.entity.biz.ClanWar;
-import com.tencent.wxcloudrun.entity.biz.League;
 import com.tencent.wxcloudrun.entity.biz.LeagueRecord;
 import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
 import com.tencent.wxcloudrun.mapper.ClanMapper;
@@ -16,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,12 +83,12 @@ public class DashboardService {
       item.setScore(item.getWinStars() * 3 + item.getActualAttacks());
     }
     return agg.values().stream()
-        .sorted(Comparator.comparingInt(RankItem::getScore).reversed())
+        .sorted((a, b) -> Integer.compare(b.getScore(), a.getScore()))
         .limit(10)
         .map(i -> {
           Map<String, Object> map = new HashMap<>();
-          map.put("memberNo", i.getMemberNo());
-          map.put("memberName", i.getMemberName());
+          map.put("memberNo", i.getMemberNo() == null ? "" : i.getMemberNo());
+          map.put("memberName", i.getMemberName() == null ? "" : i.getMemberName());
           map.put("winStars", i.getWinStars());
           map.put("actualAttacks", i.getActualAttacks());
           map.put("destroyRate", i.getDestroyRate());

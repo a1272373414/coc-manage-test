@@ -3,6 +3,7 @@ package com.tencent.wxcloudrun.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -19,6 +20,7 @@ import java.util.Map;
  * 白名单由 WebConfig 控制，未登录访问受保护接口一律拦截。
  */
 @Component
+@SuppressWarnings("all")
 public class JwtInterceptor implements HandlerInterceptor {
 
   @Autowired
@@ -36,7 +38,7 @@ public class JwtInterceptor implements HandlerInterceptor {
   }
 
   @Override
-  public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+  public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
     // 放行 CORS 预检请求
     if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
       return true;
@@ -64,7 +66,7 @@ public class JwtInterceptor implements HandlerInterceptor {
   }
 
   @Override
-  public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+  public void afterCompletion(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler, Exception ex) {
     UserContext.clear();
   }
 
