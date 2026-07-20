@@ -29,6 +29,8 @@
           dialogTitle: '新增',
           form: {},
           dictOptions: {}, // { groupCode: [{label,value}] }
+          remoteOptions: {}, // { propName: [{label,value}] } - 远程搜索下拉的候选
+          remoteLoading: {}, // { propName: boolean }
           preset: opts.preset || {} // 固定查询条件（如字典项按群组过滤）
         };
       },
@@ -40,6 +42,8 @@
       },
       async mounted() {
         await this.loadDicts();
+        // 预拉取所有 remote-select 字段的默认候选，供表格列把 id 翻译为 label
+        await this.preloadRemoteOptions();
         // 列表模式下若需要先选条件才加载，可设置 opts.lazy=true 跳过首次加载
         if (!opts.lazy) await this.load();
       },
@@ -57,6 +61,11 @@
               } catch (e) { /* 无权限或字典未初始化 */ }
             })
           );
+        },
+        /** 预拉取所有远程下拉的默认候选，让表格列能把 id 翻译为 label */
+        async preloadRemoteOptions() {
+          const remoteCols = this.cols.filter((c) => c.type === 'remote-select');
+          await Promise.all(remoteCols.map((c) => this.remoteSearch(c, '')));
         },
         async load() {
           this.loading = true;
@@ -87,6 +96,7 @@
           if (typeof c.options === 'function') return c.options() || [];
           if (c.options) return c.options;
           if (c.dictCode) return this.dictOptions[c.dictCode] || [];
+          if (c.type === 'remote-select') return this.remoteOptions[c.prop] || [];
           return [];
         },
         labelOf(c, val) {
@@ -106,27 +116,64 @@
           this.dialogTitle = '新增';
           this.form = this.defaultForm();
           this.dialogVisible = true;
+          // 预拉取远程下拉的默认项，避免首次打开无候选
+          this.formCols.filter((c) => c.type === 'remote-select').forEach((c) => {
+            if (!this.remoteOptions[c.prop]) this.remoteSearch(c, '');
+          });
           this.$nextTick(() => this.$refs.formRef && this.$refs.formRef.clearValidate());
         },
         openEdit(row) {
           this.dialogTitle = '编辑';
           const f = this.defaultForm();
+          // 保留 id 用于 submit 判断编辑状态及提交给后端 update 接口
+          if (row.id !== undefined && row.id !== null) f.id = row.id;
           this.formCols.forEach((c) => {
             let v = row[c.prop];
             if (c.type === 'switch') v = v == null ? 1 : Number(v);
+            if (c.type === 'remote-select' && (v === '' || v === undefined)) v = null;
             f[c.prop] = v;
           });
           this.form = f;
           this.dialogVisible = true;
+          // 编辑时拉一次候选，保证当前值可显示在选项中
+          this.formCols.filter((c) => c.type === 'remote-select').forEach((c) => {
+            this.remoteSearch(c, '');
+          });
           this.$nextTick(() => this.$refs.formRef && this.$refs.formRef.clearValidate());
+        },
+        /** 远程下拉搜索：根据输入的关键词请求分页接口，刷新候选列表 */
+        async remoteSearch(c, query) {
+          // Vue3 中 data 返回的对象为 reactive，直接赋值即可触发响应式更新
+          this.remoteLoading[c.prop] = true;
+          try {
+            const params = { size: c.pageSize || 20 };
+            const kw = (query || '').trim();
+            if (c.searchKey) params[c.searchKey] = kw;
+            else params.keyword = kw;
+            const r = await COC.api.page(c.url, params);
+            this.remoteOptions[c.prop] = (r.records || []).map((x) => ({
+              label: c.labelKey ? x[c.labelKey] : x.label,
+              value: c.valueKey ? x[c.valueKey] : x.id
+            }));
+          } catch (e) { /* 已在拦截器提示 */ }
+          finally { this.remoteLoading[c.prop] = false; }
         },
         submit() {
           this.$refs.formRef.validate(async (valid) => {
             if (!valid) return;
             const payload = {};
-            this.formCols.forEach((c) => { payload[c.prop] = this.form[c.prop]; });
+            // 编辑时把 id 带入 payload，供后端 update 接口定位记录
+            if (this.form.id !== undefined && this.form.id !== null && this.form.id !== '') {
+              payload.id = this.form.id;
+            }
+            this.formCols.forEach((c) => {
+              let v = this.form[c.prop];
+              // 远程下拉的空值统一转为 null，避免 Long 类型字段收到空串
+              if (c.type === 'remote-select' && (v === '' || v === undefined)) v = null;
+              payload[c.prop] = v;
+            });
             try {
-              if (this.form.id) await COC.api.update(this.baseUrl, payload);
+              if (payload.id) await COC.api.update(this.baseUrl, payload);
               else await COC.api.create(this.baseUrl, payload);
               ElementPlus.ElMessage.success('保存成功');
               this.dialogVisible = false;
@@ -172,7 +219,7 @@
                   {{ row[c.prop]==1 ? (c.activeText||'是') : (c.inactiveText||'否') }}
                 </el-tag>
               </template>
-              <template #default="{ row }" v-else-if="(c.dictCode || c.options)">
+              <template #default="{ row }" v-else-if="(c.dictCode || c.options || c.type==='remote-select')">
                 {{ labelOf(c, row[c.prop]) }}
               </template>
             </el-table-column>
@@ -198,6 +245,14 @@
             <el-form-item v-for="c in formCols" :key="c.prop" :label="c.label" :prop="c.prop" :rules="c.rule">
               <el-select v-if="c.type==='select'" v-model="form[c.prop]" clearable :placeholder="'请选择'+c.label" style="width:100%">
                 <el-option v-for="o in optionsFor(c)" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+              <el-select v-else-if="c.type==='remote-select'" v-model="form[c.prop]"
+                filterable remote clearable
+                :remote-method="(q) => remoteSearch(c, q)"
+                :loading="!!remoteLoading[c.prop]"
+                :placeholder="c.placeholder || ('请输入关键词搜索'+c.label)"
+                style="width:100%">
+                <el-option v-for="o in (remoteOptions[c.prop] || [])" :key="o.value" :label="o.label" :value="o.value" />
               </el-select>
               <el-switch v-else-if="c.type==='switch'" v-model="form[c.prop]" :active-value="1" :inactive-value="0" />
               <el-input v-else-if="c.type==='textarea'" v-model="form[c.prop]" type="textarea" :rows="3" :placeholder="'请输入'+c.label" />

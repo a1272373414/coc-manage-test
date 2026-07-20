@@ -79,7 +79,12 @@
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
     { prop: 'groupNo', label: '群组编号', search: true, rule: req('请输入群组编号') },
     { prop: 'groupName', label: '群组名称', search: true, rule: req('请输入群组名称') },
-    { prop: 'ownerId', label: '群主ID', type: 'number' },
+    // 表格列：直接展示后端关联返回的 ownerName（只读，仅表格显示）
+    { prop: 'ownerName', label: '群主', hideInForm: true },
+    // 表单字段：用远程下拉选择用户，提交时传 ownerId（仅表单显示）
+    { prop: 'ownerId', label: '群主', type: 'remote-select', hideInTable: true,
+      url: '/api/sys/user', labelKey: 'username', valueKey: 'id',
+      placeholder: '请输入用户名搜索选择群主（可留空）' },
     { prop: 'intro', label: '简介', type: 'textarea' },
     { prop: 'status', label: '状态', type: 'switch', activeText: '启用', inactiveText: '禁用' }
   ];
