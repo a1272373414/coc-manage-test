@@ -9,14 +9,21 @@
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
     { prop: 'clanName', label: '部落名称', search: true, rule: req('请输入部落名称') },
     { prop: 'clanNo', label: '部落编号', search: true, rule: req('请输入部落编号') },
+    // 群组编号：新增时自动从当前用户取，表单只读，表格不展示
+    { prop: 'groupNo', label: '群组编号', hideInTable: true, disabled: true },
     { prop: 'intro', label: '简介', type: 'textarea' }
   ];
   const memberCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
     { prop: 'memberName', label: '成员名称', search: true, rule: req('请输入成员名称') },
-    { prop: 'memberNo', label: '成员编号', rule: req('请输入成员编号') },
-    { prop: 'clanNo', label: '部落编号', search: true },
-    { prop: 'warStatus', label: '参战状态', type: 'switch', activeText: '参战', inactiveText: '不参战' },
+    { prop: 'memberNo', label: '成员编号' },
+    // 部落编号：远程下拉选择，从 /api/clan 接口拉取部落列表（label=clanName, value=clanNo）
+    { prop: 'clanNo', label: '所属部落', search: true, type: 'remote-select', rule: req('请选择所属部落'),
+      url: '/api/clan', labelKey: 'clanName', valueKey: 'clanNo',
+      placeholder: '请输入关键字筛选部落' },
+    { prop: 'memberStatus', label: '在组状态', type: 'select', search: true, rule: req('请选择在组状态'),
+      options: [{ label: '已加入', value: 1 }, { label: '已退出', value: 0 }], default: 1 },
+    { prop: 'warStatus', label: '默认参战状态', type: 'switch', search: true, default: 1 },
     { prop: 'intro', label: '简介', type: 'textarea' }
   ];
   const warCols = [
@@ -42,17 +49,24 @@
   const leagueCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
     { prop: 'leagueName', label: '联赛名称', search: true, rule: req('请输入联赛名称') },
-    { prop: 'leagueNo', label: '联赛编号', search: true, rule: req('请输入联赛编号') },
-    { prop: 'clanNo', label: '部落编号', search: true, rule: req('请输入部落编号') },
+    { prop: 'leagueNo', label: '联赛编号', search: true, type: 'date-ymd', rule: req('请选择联赛编号'), disabledOnEdit: true },
     { prop: 'signupStart', label: '报名开始', type: 'date' },
-    { prop: 'signupEnd', label: '报名结束', type: 'date' },
-    { prop: 'tier', label: '联赛等级', type: 'number' },
+    { prop: 'signupEnd', label: '报名结束', type: 'date' }
+  ];
+  // 联赛部落成绩（从 league 表拆分）
+  const leagueClanScoreCols = [
+    { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
+    { prop: 'leagueNo', label: '联赛', search: true, type: 'remote-select', rule: req('请选择联赛'),
+      url: '/api/league', labelKey: 'leagueName', valueKey: 'leagueNo', placeholder: '请输入关键字筛选联赛' },
+    { prop: 'clanNo', label: '部落', search: true, type: 'remote-select', rule: req('请选择部落'),
+      url: '/api/clan', labelKey: 'clanName', valueKey: 'clanNo', placeholder: '请输入关键字筛选部落' },
+    { prop: 'tier', label: '联赛段位', type: 'select', dictCode: 'league_tier', search: true },
     { prop: 'resultRank', label: '本段排名', type: 'number' },
     { prop: 'extraCount', label: '额外人数', type: 'number' },
     { prop: 'leagueCoin', label: '联赛币', type: 'number' },
     { prop: 'extraCoin', label: '额外币', type: 'number' },
-    { prop: 'promoteStatus', label: '升降级', type: 'select', default: 0, options: [{ label: '无', value: 0 }, { label: '晋升', value: 1 }, { label: '降级', value: 2 }] },
-    { prop: 'intro', label: '简介', type: 'textarea' }
+    { prop: 'promoteStatus', label: '升降级', type: 'select', default: 0, search: true,
+      options: [{ label: '无', value: 0 }, { label: '晋级', value: 1 }, { label: '降级', value: 2 }] }
   ];
   const leagueRecordCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
@@ -68,12 +82,17 @@
   ];
   const leagueSignupCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
-    { prop: 'leagueNo', label: '联赛编号', search: true, rule: req('请输入联赛编号') },
-    { prop: 'clanNo', label: '部落编号', search: true, rule: req('请输入部落编号') },
-    { prop: 'memberName', label: '成员名称', rule: req('请输入成员名称') },
-    { prop: 'memberNo', label: '成员编号', rule: req('请输入成员编号') },
-    { prop: 'signupStatus', label: '报名状态', type: 'select', default: 1, options: [{ label: '取消', value: 0 }, { label: '报名', value: 1 }] },
-    { prop: 'signupTime', label: '报名时间', type: 'date' }
+    // 联赛：显示主值 leagueNo + 副值 leagueName（两行）
+    { prop: 'leagueNo', label: '联赛', search: true, extraProp: 'leagueName', type: 'remote-select', rule: req('请选择联赛编号'),
+      url: '/api/league', labelKey: 'leagueName', valueKey: 'leagueNo', placeholder: '请输入关键字筛选联赛' },
+    // 部落：显示主值 clanNo + 副值 clanName
+    { prop: 'clanNo', label: '部落', search: true, extraProp: 'clanName', type: 'remote-select', rule: req('请选择部落编号'),
+      url: '/api/clan', labelKey: 'clanName', valueKey: 'clanNo', placeholder: '请输入关键字筛选部落' },
+    // 成员：合并显示 memberName（主值）+ memberNo（副值）
+    { prop: 'memberName', label: '成员', search: true, searchAsText: true, extraProp: 'memberNo', type: 'remote-select', rule: req('请选择成员名称'),
+      url: '/api/clan/member', labelKey: 'memberName', valueKey: 'memberName', placeholder: '请输入关键字筛选成员' },
+    { prop: 'signupStatus', label: '报名状态', type: 'select', dictCode: 'signup_status', search: true, default: '1' },
+    { prop: 'signupTime', label: '报名时间', type: 'date', hideInForm: true }
   ];
   const groupCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
@@ -122,7 +141,7 @@
     req,
     clanCols, memberCols,
     warCols, warRecordCols,
-    leagueCols, leagueRecordCols, leagueSignupCols,
+    leagueCols, leagueClanScoreCols, leagueRecordCols, leagueSignupCols,
     groupCols, menuCols,
     dictGroupCols, dictItemCols
   };

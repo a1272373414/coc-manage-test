@@ -30,6 +30,11 @@
           form: {},
           dictOptions: {}, // { groupCode: [{label,value}] }
           remoteOptions: {}, // { propName: [{label,value}] } - 远程搜索下拉的候选
+          extraButtons: opts.extraButtons || [], // 额外按钮（如"一键初始化报名"）
+          initDialogVisible: false, // 初始化报名对话框
+          initLeagueNo: '', // 初始化报名选中的联赛
+          initClanNo: '', // 初始化报名选中的部落
+          initLoading: false, // 初始化报名执行中
           remoteLoading: {}, // { propName: boolean }
           preset: opts.preset || {} // 固定查询条件（如字典项按群组过滤）
         };
@@ -234,12 +239,17 @@
       template: `
       <div>
         <el-form inline @submit.prevent class="coc-toolbar">
-          <el-form-item label="关键字">
-            <el-input v-model="keyword" placeholder="模糊搜索" clearable style="width:180px" @keyup.enter="onSearch" />
-          </el-form-item>
+          <slot name="search-extras"></slot>
           <el-form-item v-for="c in searchCols" :key="c.prop" :label="c.label">
             <el-select v-if="c.type==='select'" v-model="filters[c.prop]" clearable :placeholder="'请选择'+c.label" style="width:160px">
               <el-option v-for="o in optionsFor(c)" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+            <el-select v-else-if="c.type==='remote-select' && !c.searchAsText" v-model="filters[c.prop]" clearable filterable :placeholder="'请选择'+c.label" style="width:180px">
+              <el-option v-for="o in (remoteOptions[c.prop]||[])" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+            <el-select v-else-if="c.type==='switch'" v-model="filters[c.prop]" clearable :placeholder="'请选择'+c.label" style="width:120px">
+              <el-option label="是" :value="1" />
+              <el-option label="否" :value="0" />
             </el-select>
             <el-input v-else v-model="filters[c.prop]" :placeholder="'请输入'+c.label" clearable style="width:180px" />
           </el-form-item>
@@ -247,6 +257,7 @@
             <el-button type="primary" @click="onSearch">查询</el-button>
             <el-button @click="onReset">重置</el-button>
             <el-button type="success" @click="openCreate">新增</el-button>
+            <el-button v-for="b in extraButtons" :key="b.click" :type="b.type||'default'" @click="this[b.click]()">{{ b.text }}</el-button>
           </el-form-item>
         </el-form>
 
@@ -261,6 +272,10 @@
               </template>
               <template #default="{ row }" v-else-if="(c.dictCode || c.options || c.type==='remote-select')">
                 {{ labelOf(c, row[c.prop]) }}
+              </template>
+              <template #default="{ row }" v-else-if="c.extraProp">
+                <div>{{ row[c.prop] || '-' }}</div>
+                <div style="color:#909399; font-size:12px; margin-top:2px;">{{ row[c.extraProp] || '-' }}</div>
               </template>
             </el-table-column>
           </template>
@@ -305,6 +320,9 @@
               <el-input v-else-if="c.type==='textarea'" v-model="form[c.prop]" type="textarea" :rows="3" :placeholder="'请输入'+c.label" />
               <el-date-picker v-else-if="c.type==='date'" v-model="form[c.prop]" type="datetime"
                 value-format="YYYY-MM-DD HH:mm:ss" placeholder="选择时间" style="width:100%" />
+              <el-date-picker v-else-if="c.type==='date-ymd'" v-model="form[c.prop]" type="date"
+                value-format="YYYYMMDD" format="YYYYMMDD" placeholder="选择日期" style="width:100%"
+                :disabled="c.disabled || (c.disabledOnEdit && !!form.id)" />
               <el-input-number v-else-if="c.type==='number'" v-model="form[c.prop]" :min="0" controls-position="right" style="width:100%" />
               <el-input v-else v-model="form[c.prop]" :placeholder="'请输入'+c.label" :disabled="c.disabled" />
             </el-form-item>
@@ -314,7 +332,283 @@
             <el-button type="primary" @click="submit">确定</el-button>
           </template>
         </el-dialog>
+        <el-dialog v-if="extraButtons.length" v-model="initDialogVisible" title="一键初始化报名数据" width="440px">
+          <el-form label-width="90px">
+            <el-form-item label="所属联赛" required>
+              <el-select v-model="initLeagueNo" filterable clearable placeholder="请选择联赛" style="width:100%">
+                <el-option v-for="o in (remoteOptions.leagueNo||[])" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="所属部落" required>
+              <el-select v-model="initClanNo" filterable clearable placeholder="请选择部落" style="width:100%">
+                <el-option v-for="o in (remoteOptions.clanNo||[])" :key="o.value" :label="o.label" :value="o.value" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <div style="color:#909399;font-size:13px;line-height:1.8;">
+            初始化规则：<br/>
+            1. 查询该部落在组状态为"已加入"的成员<br/>
+            2. 成员默认参战"是"→备选报名，"否"→未报名<br/>
+            3. 已存在且为"主动报名"的记录跳过，其余先删再插
+          </div>
+          <template #footer>
+            <el-button @click="initDialogVisible=false">取消</el-button>
+            <el-button type="primary" :loading="initLoading" @click="doInitSignup">确认初始化</el-button>
+          </template>
+        </el-dialog>
       </div>`
+    };
+  };
+
+  /**
+   * 菜单树管理工厂：替代通用 CRUD 列表，适合菜单这种层级数据结构。
+   * 特性：
+   *   - 树视图展示系统所有菜单
+   *   - 关键字过滤（按名称/路径/权限标识，匹配节点的父链保留可见）
+   *   - 每行支持 新增子菜单 / 编辑 / 删除（删除调用 cascade 接口级联删）
+   *   - 表单支持目录/菜单/按钮 三种类型，按类型动态渲染字段
+   *   - 类型标签：目录=success, 菜单=primary, 按钮=info
+   */
+  window.createMenuTree = function () {
+    return {
+      name: 'MenuTree',
+      data() {
+        return {
+          treeData: [],
+          keyword: '',
+          loading: false,
+          dialogVisible: false,
+          dialogTitle: '新增菜单',
+          saving: false,
+          form: this.makeEmptyForm(null),
+          treeProps: { children: 'children', label: (data, node) => data.menuName || '（未命名）' }
+        };
+      },
+      computed: {
+        /**
+         * 关键字过滤后的树视图：
+         * 1) 空关键字 → 返回原树（O(1) 引用，性能友好）
+         * 2) 非空关键字 → 深度优先递归过滤，匹配的节点及其所有祖先链保留，
+         *    不可见子节点被截断。这是 Element Plus el-tree 推荐的"路径保留"过滤方式。
+         * 匹配规则：菜单名 / 路由路径 / 权限标识 任一命中即视为匹配。
+         */
+        filteredData() {
+          if (!this.keyword || !this.keyword.trim()) return this.treeData;
+          const kw = this.keyword.trim().toLowerCase();
+          const walk = (nodes) => {
+            const out = [];
+            for (const n of nodes) {
+              const children = Array.isArray(n.children) ? n.children : [];
+              const childrenOut = walk(children);
+              const match = (n.menuName || '').toLowerCase().includes(kw)
+                || (n.path || '').toLowerCase().includes(kw)
+                || (n.permission || '').toLowerCase().includes(kw);
+              if (match || childrenOut.length > 0) {
+                out.push(Object.assign({}, n, { children: childrenOut }));
+              }
+            }
+            return out;
+          };
+          return walk(this.treeData);
+        }
+      },
+      methods: {
+        /** 创建空的菜单表单对象：parentId=null 表示顶级菜单 */
+        makeEmptyForm(parentId) {
+          return {
+            id: null,
+            parentId: parentId == null ? 0 : parentId,
+            menuName: '',
+            menuType: parentId == null ? 0 : 1,
+            path: '',
+            component: '',
+            icon: '',
+            permission: '',
+            sort: 0
+          };
+        },
+        /** 加载菜单树：调用 /api/sys/menu/tree */
+        async loadTree() {
+          this.loading = true;
+          try {
+            const data = await COC.api.get('/api/sys/menu/tree');
+            this.treeData = Array.isArray(data) ? data : [];
+          } catch (e) {
+            if (window.ElementPlus && ElementPlus.ElMessage) {
+              ElementPlus.ElMessage.error('加载菜单失败：' + ((e && e.message) || ''));
+            }
+            this.treeData = [];
+          } finally {
+            this.loading = false;
+          }
+        },
+        /** 类型标签显示文本（兼容 null） */
+        typeLabel(t) { return ['目录', '菜单', '按钮'][t == null ? 1 : t]; },
+        /** 类型标签 Element Plus tag 类型 */
+        typeTagType(t) { return ['success', 'primary', 'info'][t == null ? 1 : t]; },
+        /** 新增：parentId 为 null/falsy 表示顶级菜单 */
+        openCreate(parentId) {
+          this.dialogTitle = parentId ? '新增子菜单' : '新增顶级菜单';
+          this.form = this.makeEmptyForm(parentId || null);
+          this.dialogVisible = true;
+        },
+        /** 编辑：把后端节点映射为表单字段（缺失字段兜底默认） */
+        openEdit(node) {
+          this.dialogTitle = '编辑菜单';
+          this.form = {
+            id: node.id,
+            parentId: node.parentId || 0,
+            menuName: node.menuName || '',
+            menuType: node.menuType == null ? 1 : node.menuType,
+            path: node.path || '',
+            component: node.component || '',
+            icon: node.icon || '',
+            permission: node.permission || '',
+            sort: node.sort || 0
+          };
+          this.dialogVisible = true;
+        },
+        /**
+         * 级联删除（前端预收集所有后代，调 cascade 接口）：
+         * 后端 cascade 接口会一并清理 sys_role_menu 关联 + 软删所有后代。
+         */
+        async onDelete(node) {
+          try {
+            if (!window.ElementPlus) return;
+            await ElementPlus.ElMessageBox.confirm(
+              `确定删除菜单"${node.menuName}"及其所有子菜单？此操作不可撤销。`,
+              '确认删除',
+              { type: 'warning' }
+            );
+          } catch (e) {
+            return;
+          }
+          this.loading = true;
+          try {
+            await COC.api.remove('/api/sys/menu/cascade', node.id);
+            if (ElementPlus.ElMessage) ElementPlus.ElMessage.success('删除成功');
+            await this.loadTree();
+          } catch (e) {
+            if (ElementPlus.ElMessage) ElementPlus.ElMessage.error('删除失败：' + ((e && e.message) || ''));
+          } finally {
+            this.loading = false;
+          }
+        },
+        /**
+         * 保存：基础校验 → 调用 create/update → 重新加载。
+         * 校验规则与表结构对齐：
+         *  - menuName 必填
+         *  - menuType=0/1 必填 path（路由入口）
+         *  - menuType=1/2 必填 permission（接口鉴权标识）
+         */
+        async onSave() {
+          if (!this.form.menuName) {
+            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入菜单名称');
+            return;
+          }
+          if (this.form.menuType !== 2 && !this.form.path) {
+            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入路由路径');
+            return;
+          }
+          if ((this.form.menuType === 1 || this.form.menuType === 2) && !this.form.permission) {
+            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入权限标识');
+            return;
+          }
+          this.saving = true;
+          try {
+            if (this.form.id) {
+              await COC.api.update('/api/sys/menu', this.form);
+            } else {
+              await COC.api.create('/api/sys/menu', this.form);
+            }
+            if (window.ElementPlus) ElementPlus.ElMessage.success('保存成功');
+            this.dialogVisible = false;
+            await this.loadTree();
+          } catch (e) {
+            if (window.ElementPlus) ElementPlus.ElMessage.error('保存失败：' + ((e && e.message) || ''));
+          } finally {
+            this.saving = false;
+          }
+        }
+      },
+      mounted() {
+        this.loadTree();
+      },
+      template: `
+        <div class="coc-menu-tree">
+          <div class="coc-mt-toolbar">
+            <el-input v-model="keyword" placeholder="按名称 / 路径 / 权限搜索" clearable
+              style="width:280px;" />
+            <el-button type="primary" @click="openCreate(null)" style="margin-left:12px;">新增顶级菜单</el-button>
+            <el-button @click="loadTree" style="margin-left:8px;">刷新</el-button>
+            <span class="coc-mt-tip">共 {{ treeData.length }} 个根菜单，关键字过滤时父链自动保留</span>
+          </div>
+          <div v-loading="loading" class="coc-mt-wrap">
+            <el-tree
+              :data="filteredData"
+              :props="treeProps"
+              node-key="id"
+              :default-expand-all="!keyword"
+              :expand-on-click-node="false"
+              empty-text="暂无菜单">
+              <template #default="{ node, data }">
+                <span class="coc-mt-node">
+                  <span class="coc-mt-label">
+                    <el-tag size="small" :type="typeTagType(data.menuType)">{{ typeLabel(data.menuType) }}</el-tag>
+                    <span style="margin:0 8px;font-weight:500;">{{ data.menuName }}</span>
+                    <span v-if="data.path" class="coc-mt-path">{{ data.path }}</span>
+                    <span v-if="data.permission" class="coc-mt-perm">@{{ data.permission }}</span>
+                  </span>
+                  <span class="coc-mt-actions">
+                    <el-button link size="small" type="primary" @click.stop="openCreate(data.id)">新增子菜单</el-button>
+                    <el-button link size="small" type="primary" @click.stop="openEdit(data)">编辑</el-button>
+                    <el-button link size="small" type="danger" @click.stop="onDelete(data)">删除</el-button>
+                  </span>
+                </span>
+              </template>
+            </el-tree>
+          </div>
+          <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" :close-on-click-modal="false" destroy-on-close>
+            <el-form :model="form" label-width="100px">
+              <el-form-item label="父菜单">
+                <el-tree-select v-model="form.parentId" :data="treeData"
+                  :props="{ value: 'id', label: 'menuName', children: 'children' }"
+                  check-strictly :render-after-expand="false"
+                  node-key="id" clearable
+                  placeholder="（不选则为顶级菜单）" style="width:100%;" />
+              </el-form-item>
+              <el-form-item label="菜单名称" required>
+                <el-input v-model="form.menuName" placeholder="例如：用户管理" />
+              </el-form-item>
+              <el-form-item label="类型" required>
+                <el-radio-group v-model="form.menuType">
+                  <el-radio :value="0">目录</el-radio>
+                  <el-radio :value="1">菜单</el-radio>
+                  <el-radio :value="2">按钮</el-radio>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item label="路由路径" v-if="form.menuType !== 2" required>
+                <el-input v-model="form.path" placeholder="/sys/menu" />
+              </el-form-item>
+              <el-form-item label="组件路径" v-if="form.menuType === 1">
+                <el-input v-model="form.component" placeholder="views/SystemMenu.vue" />
+              </el-form-item>
+              <el-form-item label="图标" v-if="form.menuType !== 2">
+                <el-input v-model="form.icon" placeholder="Element Plus 图标名，如 Setting" />
+              </el-form-item>
+              <el-form-item label="权限标识" v-if="form.menuType === 1 || form.menuType === 2" required>
+                <el-input v-model="form.permission" placeholder="module:action，例如 clan:add" />
+              </el-form-item>
+              <el-form-item label="排序">
+                <el-input-number v-model="form.sort" :min="0" controls-position="right" style="width:100%;" />
+              </el-form-item>
+            </el-form>
+            <template #footer>
+              <el-button @click="dialogVisible = false">取消</el-button>
+              <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
+            </template>
+          </el-dialog>
+        </div>`
     };
   };
 })();

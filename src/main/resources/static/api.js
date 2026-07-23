@@ -116,7 +116,7 @@
 
     // 字典项（用于下拉）
     dictItems: (groupCode) =>
-      http.get('/api/dict/item', { params: { groupCode, size: 9999 } }),
+      http.get('/api/dict/item/page', { params: { groupCode, size: 9999 } }),
 
     // 看板
     dashboardOverview: () => http.get('/api/dashboard/overview'),

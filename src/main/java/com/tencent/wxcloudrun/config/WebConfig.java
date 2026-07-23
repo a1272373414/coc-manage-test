@@ -22,8 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
       "/error",
       "/static/**",
       "/api/auth/login",
-      "/api/auth/register",
-      "/api/counter/**"
+      "/api/auth/register"
   };
 
   @Override

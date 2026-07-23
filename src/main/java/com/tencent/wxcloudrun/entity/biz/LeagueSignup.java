@@ -23,4 +23,12 @@ public class LeagueSignup extends BaseEntity {
   /** 报名状态 1=未报名 2=主动报名 3=协助报名（字典项） */
   private Integer signupStatus;
   private LocalDateTime signupTime;
+
+  // ============ 非持久化字段（仅在 controller 回填用于列表展示） ============
+  /** 联赛名称（由 LeagueSignupController 在列表查询时回填） */
+  @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+  private String leagueName;
+  /** 部落名称（由 LeagueSignupController 在列表查询时回填） */
+  @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+  private String clanName;
 }

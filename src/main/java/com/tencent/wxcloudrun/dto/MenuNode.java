@@ -18,5 +18,7 @@ public class MenuNode {
   private String component;
   private String icon;
   private String permission;
+  /** 排序值（升序，null 视为最大排最后） */
+  private Integer sort;
   private List<MenuNode> children;
 }

@@ -8,7 +8,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 联赛。league_no 为逻辑主键，关联部落通过 clan_no。
+ * 联赛。league_no 为逻辑主键。
+ * 部落成绩（段位/排名/联赛币/升降级等）拆分到 league_clan_score 表，
+ * 通过 league_no 关联。
  */
 @Getter
 @Setter
@@ -17,17 +19,7 @@ public class League extends BaseEntity {
 
   private String leagueName;
   private String leagueNo;
-  private String clanNo;
   private String groupNo;
   private LocalDateTime signupStart;
   private LocalDateTime signupEnd;
-  /** 联赛段位（字典项） */
-  private String tier;
-  private Integer resultRank;
-  private Integer extraCount;
-  private Integer leagueCoin;
-  private Integer extraCoin;
-  /** 晋级状态 1=晋级 2=保级 3=掉级（字典项） */
-  private Integer promoteStatus;
-  private String intro;
 }

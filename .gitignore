@@ -7,3 +7,4 @@ target/**
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
+frontend-test/node_modules

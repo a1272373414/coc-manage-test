@@ -213,6 +213,7 @@ public class AuthService {
       node.setComponent(m.getComponent());
       node.setIcon(m.getIcon());
       node.setPermission(m.getPermission());
+      node.setSort(m.getSort());
       node.setChildren(new ArrayList<>());
       nodeMap.put(m.getId(), node);
     }
@@ -230,8 +231,36 @@ public class AuthService {
         parent.getChildren().add(node);
       }
     }
-    roots.sort((a, b) -> Long.compare(a.getId() == null ? 0 : a.getId(), b.getId() == null ? 0 : b.getId()));
+    // 修复：原代码按 id 排序忽略 sort 字段；改为按 sort 升序（null 排最后），相同时按 id 兜底
+    sortMenuTree(roots);
     return roots;
+  }
+
+  /**
+   * 递归对菜单树按 sort 字段升序排序：
+   * - sort 为 null 视为最大，排在最后
+   * - sort 相同时按 id 升序兜底，保证顺序稳定
+   * - 同步递归处理每个节点的 children
+   */
+  private void sortMenuTree(List<MenuNode> nodes) {
+    if (nodes == null || nodes.isEmpty()) return;
+    nodes.sort((a, b) -> {
+      Integer sa = a.getSort();
+      Integer sb = b.getSort();
+      if (sa == null && sb == null) {
+        return Long.compare(a.getId() == null ? 0 : a.getId(), b.getId() == null ? 0 : b.getId());
+      }
+      if (sa == null) return 1;
+      if (sb == null) return -1;
+      int cmp = Integer.compare(sa, sb);
+      if (cmp != 0) return cmp;
+      return Long.compare(a.getId() == null ? 0 : a.getId(), b.getId() == null ? 0 : b.getId());
+    });
+    for (MenuNode node : nodes) {
+      if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+        sortMenuTree(node.getChildren());
+      }
+    }
   }
 
   private String generateGroupNo() {

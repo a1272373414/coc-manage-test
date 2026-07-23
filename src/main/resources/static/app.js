@@ -7,8 +7,8 @@
   const {
     clanCrud, memberCrud,
     warCrud, warRecordCrud,
-    leagueCrud, leagueRecordCrud, leagueSignupCrud,
-    groupCrud, menuCrud,
+    leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud,
+    groupCrud, menuTree,
     dictGroupCrud, dictItemCrud
   } = window.COC_CRUD;
 
@@ -107,6 +107,22 @@
     '/system': 'Setting'
   };
 
+  /**
+   * 菜单比较器：按 sort 字段升序排序，sort 为 null 视为最大排最后，
+   * sort 相同时按 id 升序兜底。与后端 AuthService.sortMenuTree 行为一致。
+   * @param {{sort?: number, id?: number}} a
+   * @param {{sort?: number, id?: number}} b
+   */
+  function menuSortCompare(a, b) {
+    const sa = a.sort;
+    const sb = b.sort;
+    if (sa == null && sb == null) return (a.id || 0) - (b.id || 0);
+    if (sa == null) return 1;
+    if (sb == null) return -1;
+    if (sa !== sb) return sa - sb;
+    return (a.id || 0) - (b.id || 0);
+  }
+
   const Layout = {
     data() {
       return { pwdVisible: false, pwdForm: { oldPassword: '', newPassword: '' } };
@@ -118,17 +134,19 @@
        * - 仅取顶级菜单（parentId 为 0 或 null）
        * - 排除无 path 的条目（按钮/纯权限标识）
        * - icon 优先用数据库中存储的，否则按 path 兜底
+       * - 按 sort 字段升序排序（null 视为最大排最后），sort 相同时按 id 兜底
+       *   （与后端 buildMenuTree / sortMenuTree 顺序保证一致，此处作为前端兜底）
        */
       visibleNav() {
         const all = COC.store.menus || [];
-        return all
-          .filter((m) => (m.parentId == null || m.parentId === 0) && m.path)
-          .map((m) => ({
-            path: m.path,
-            title: m.menuName,
-            icon: (m.icon && m.icon.trim()) || ICON_FALLBACK[m.path] || 'Menu',
-            perm: m.permission || null
-          }));
+        const filtered = all.filter((m) => (m.parentId == null || m.parentId === 0) && m.path);
+        const sorted = filtered.slice().sort(menuSortCompare);
+        return sorted.map((m) => ({
+          path: m.path,
+          title: m.menuName,
+          icon: (m.icon && m.icon.trim()) || ICON_FALLBACK[m.path] || 'Menu',
+          perm: m.permission || null
+        }));
       }
     },
     async mounted() {
@@ -316,14 +334,18 @@
       computed: {
         /** 当前父菜单的子菜单列表（受角色菜单绑定管控）。
          *  注意：info.menus 是嵌套的树形结构（buildMenuTree 构建的），
-         *  子菜单在父菜单的 children 字段里，不是平铺在顶层数组。 */
+         *  子菜单在父菜单的 children 字段里，不是平铺在顶层数组。
+         *  按 sort 字段升序排序（null 视为最大排最后），与后端排序一致。 */
         subMenus() {
           const all = COC.store.menus || [];
           // 找到当前顶级菜单（按 path 匹配）
           const parent = all.find((m) => m.path === parentPath);
           if (!parent) return [];
-          // 子菜单在父菜单的 children 中
-          return (parent.children || []).filter((m) => m.path);
+          // 子菜单在父菜单的 children 中，按 sort 排序
+          return (parent.children || [])
+            .filter((m) => m.path)
+            .slice()
+            .sort(menuSortCompare);
         },
         /** 根据子菜单 + paneMap 生成实际渲染的 tab 列表 */
         visiblePanes() {
@@ -380,10 +402,11 @@
 
   const LeaguePage = makeSubTabsMixin('/league', {
     '/league/crud':   { name: 'lg',   label: '联赛管理', component: 'leagueCrud' },
+    '/league/score':  { name: 'sco',  label: '部落成绩', component: 'leagueClanScoreCrud' },
     '/league/record': { name: 'rec',  label: '联赛战绩', component: 'leagueRecordCrud' },
     '/league/signup': { name: 'sign', label: '联赛报名', component: 'leagueSignupCrud' }
   }, {
-    components: { leagueCrud, leagueRecordCrud, leagueSignupCrud }
+    components: { leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud }
   });
 
   /* ============ 用户管理（含角色分配） ============ */
@@ -424,7 +447,7 @@
       resetSearch() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
       openCreate() {
         this.dialogTitle = '新增用户';
-        this.form = { username: '', nickname: '', phone: '', email: '', status: 1, password: '' };
+        this.form = { username: '', nickname: '', phone: '', email: '', status: 1, password: '123456' };
         this.dialogVisible = true;
       },
       openEdit(row) {
@@ -434,6 +457,10 @@
       },
       async submit() {
         const payload = Object.assign({}, this.form);
+        if (!payload.username) {
+          ElementPlus.ElMessage.warning('用户名不能为空');
+          return;
+        }
         if (!payload.password) delete payload.password;
         try {
           if (payload.id) await COC.api.update('/api/sys/user', payload);
@@ -485,6 +512,7 @@
         <el-table-column type="index" label="#" width="50" />
         <el-table-column prop="username" label="用户名" />
         <el-table-column prop="nickname" label="昵称" />
+        <el-table-column prop="groupNo" label="群组编号" width="120" />
         <el-table-column prop="phone" label="手机号" />
         <el-table-column prop="email" label="邮箱" />
         <el-table-column label="状态" width="90">
@@ -505,7 +533,7 @@
       </div>
       <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
         <el-form :model="form" label-width="90px">
-          <el-form-item label="用户名"><el-input v-model="form.username" :disabled="!!form.id" /></el-form-item>
+          <el-form-item label="用户名" required><el-input v-model="form.username" :disabled="!!form.id" /></el-form-item>
           <el-form-item label="昵称"><el-input v-model="form.nickname" /></el-form-item>
           <el-form-item label="手机号"><el-input v-model="form.phone" /></el-form-item>
           <el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item>
@@ -513,7 +541,7 @@
             <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
           </el-form-item>
           <el-form-item :label="form.id?'重置密码':'密码'">
-            <el-input v-model="form.password" type="password" show-password :placeholder="form.id?'留空则不修改':'请输入密码'" />
+            <el-input v-model="form.password" type="password" show-password :placeholder="form.id?'留空则不修改':'默认123456'" />
           </el-form-item>
         </el-form>
         <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="submit">确定</el-button></template>
@@ -692,15 +720,257 @@
     </div>`
   };
 
-  /* ============ 字典管理 ============ */
+  /* ============ 字典管理（二级树：分组 → 字典项） ============ */
   const DictManage = {
-    components: { dictGroupCrud, dictItemCrud },
+    data() {
+      return {
+        treeData: [],
+        keyword: '',
+        loading: false,
+        groupDialogVisible: false,
+        groupDialogTitle: '',
+        groupForm: {},
+        itemDialogVisible: false,
+        itemDialogTitle: '',
+        itemForm: {},
+        treeProps: {
+          children: 'children',
+          label: function (data) {
+            return data.nodeType === 'group' ? (data.groupName || '') : (data.itemName || '');
+          }
+        }
+      };
+    },
+    computed: {
+      filteredTree() {
+        if (!this.keyword || !this.keyword.trim()) return this.treeData;
+        var kw = this.keyword.trim().toLowerCase();
+        var walk = function (nodes) {
+          var out = [];
+          for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            var children = Array.isArray(n.children) ? walk(n.children) : [];
+            var match = false;
+            if (n.nodeType === 'group') {
+              match = (n.groupCode || '').toLowerCase().indexOf(kw) !== -1 ||
+                      (n.groupName || '').toLowerCase().indexOf(kw) !== -1;
+            } else {
+              match = (n.itemName || '').toLowerCase().indexOf(kw) !== -1 ||
+                      (n.itemValue || '').toLowerCase().indexOf(kw) !== -1;
+            }
+            if (match || children.length > 0) {
+              out.push(Object.assign({}, n, { children: children }));
+            }
+          }
+          return out;
+        };
+        return walk(this.treeData);
+      }
+    },
+    async mounted() {
+      await this.loadTree();
+    },
+    methods: {
+      async loadTree() {
+        this.loading = true;
+        try {
+          var results = await Promise.all([
+            COC.api.page('/api/dict/group', { size: 9999 }),
+            COC.api.page('/api/dict/item', { size: 9999 })
+          ]);
+          var groups = results[0].records || [];
+          var items = results[1].records || [];
+          // 同步全局 COC.dictGroups（供其他模块下拉使用）
+          COC.dictGroups = groups.map(function (x) {
+            return { label: x.groupName + '(' + x.groupCode + ')', value: x.groupCode };
+          });
+          // 按 groupCode 分组字典项，并按 sort 升序排列
+          var itemMap = {};
+          items.forEach(function (it) {
+            var key = it.groupCode;
+            if (!itemMap[key]) itemMap[key] = [];
+            itemMap[key].push(it);
+          });
+          Object.keys(itemMap).forEach(function (key) {
+            itemMap[key].sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+          });
+          // 组装二级树：分组（一级） → 字典项（二级）
+          this.treeData = groups.map(function (g) {
+            var children = (itemMap[g.groupCode] || []).map(function (it) {
+              return {
+                id: 'item_' + it.id,
+                realId: it.id,
+                nodeType: 'item',
+                groupCode: g.groupCode,
+                itemName: it.itemName,
+                itemValue: it.itemValue,
+                sort: it.sort,
+                status: it.status
+              };
+            });
+            return {
+              id: 'group_' + g.id,
+              realId: g.id,
+              nodeType: 'group',
+              groupCode: g.groupCode,
+              groupName: g.groupName,
+              status: g.status,
+              remark: g.remark,
+              children: children
+            };
+          });
+        } catch (e) {
+          if (window.ElementPlus && ElementPlus.ElMessage) {
+            ElementPlus.ElMessage.error('加载字典失败：' + ((e && e.message) || ''));
+          }
+        } finally {
+          this.loading = false;
+        }
+      },
+      openGroupCreate() {
+        this.groupDialogTitle = '新增字典分组';
+        this.groupForm = { groupCode: '', groupName: '', remark: '', status: 1 };
+        this.groupDialogVisible = true;
+      },
+      openGroupEdit(data) {
+        this.groupDialogTitle = '编辑字典分组';
+        this.groupForm = {
+          id: data.realId,
+          groupCode: data.groupCode,
+          groupName: data.groupName,
+          remark: data.remark,
+          status: data.status
+        };
+        this.groupDialogVisible = true;
+      },
+      async submitGroup() {
+        if (!this.groupForm.groupCode || !this.groupForm.groupName) {
+          ElementPlus.ElMessage.warning('分组编码和名称不能为空');
+          return;
+        }
+        try {
+          if (this.groupForm.id) await COC.api.update('/api/dict/group', this.groupForm);
+          else await COC.api.create('/api/dict/group', this.groupForm);
+          ElementPlus.ElMessage.success('保存成功');
+          this.groupDialogVisible = false;
+          await this.loadTree();
+        } catch (e) { /* 拦截器已提示 */ }
+      },
+      openItemCreate(groupNode) {
+        this.itemDialogTitle = '新增字典项';
+        this.itemForm = {
+          groupCode: groupNode.groupCode,
+          itemName: '',
+          itemValue: '',
+          sort: 0,
+          status: 1
+        };
+        this.itemDialogVisible = true;
+      },
+      openItemEdit(data) {
+        this.itemDialogTitle = '编辑字典项';
+        this.itemForm = {
+          id: data.realId,
+          groupCode: data.groupCode,
+          itemName: data.itemName,
+          itemValue: data.itemValue,
+          sort: data.sort,
+          status: data.status
+        };
+        this.itemDialogVisible = true;
+      },
+      async submitItem() {
+        if (!this.itemForm.itemName || !this.itemForm.itemValue) {
+          ElementPlus.ElMessage.warning('字典名称和值不能为空');
+          return;
+        }
+        try {
+          if (this.itemForm.id) await COC.api.update('/api/dict/item', this.itemForm);
+          else await COC.api.create('/api/dict/item', this.itemForm);
+          ElementPlus.ElMessage.success('保存成功');
+          this.itemDialogVisible = false;
+          await this.loadTree();
+        } catch (e) { /* 拦截器已提示 */ }
+      },
+      onDelete(data) {
+        var self = this;
+        if (data.nodeType === 'group') {
+          var childCount = (data.children || []).length;
+          var msg = '确定删除分组「' + data.groupName + '」？';
+          if (childCount > 0) {
+            msg = '分组「' + data.groupName + '」下有 ' + childCount + ' 个字典项，删除分组后这些字典项不会被自动删除。确定继续？';
+          }
+          ElementPlus.ElMessageBox.confirm(msg, '提示', { type: 'warning' }).then(async () => {
+            await COC.api.remove('/api/dict/group', data.realId);
+            ElementPlus.ElMessage.success('删除成功');
+            await self.loadTree();
+          }).catch(function () {});
+        } else {
+          ElementPlus.ElMessageBox.confirm('确定删除字典项「' + data.itemName + '」？', '提示', { type: 'warning' }).then(async () => {
+            await COC.api.remove('/api/dict/item', data.realId);
+            ElementPlus.ElMessage.success('删除成功');
+            await self.loadTree();
+          }).catch(function () {});
+        }
+      }
+    },
     template: `
-    <el-tabs class="coc-tabs" v-model="t">
-      <el-tab-pane label="字典分组" name="g"><component :is="'dictGroupCrud'" /></el-tab-pane>
-      <el-tab-pane label="字典项" name="i"><component :is="'dictItemCrud'" /></el-tab-pane>
-    </el-tabs>`,
-    data() { return { t: 'g' }; }
+    <div class="dict-manage">
+      <div class="dict-toolbar">
+        <el-input v-model="keyword" placeholder="搜索分组编码/名称或字典项名称/值" clearable style="width:320px" />
+        <el-button type="success" @click="openGroupCreate" style="margin-left:12px">新增分组</el-button>
+        <el-button @click="loadTree" style="margin-left:8px">刷新</el-button>
+        <span class="dict-tip">共 {{ treeData.length }} 个分组，点击分组节点的「新增字典项」可快速添加</span>
+      </div>
+      <div v-loading="loading" class="dict-tree-body">
+        <el-tree :data="filteredTree" :props="treeProps" node-key="id"
+          :default-expand-all="!keyword" :expand-on-click-node="false" empty-text="暂无字典数据">
+          <template #default="{ data }">
+            <span class="dict-tree-node">
+              <span class="dict-tree-label" v-if="data.nodeType === 'group'">
+                <el-tag size="small" type="primary">分组</el-tag>
+                <span class="dict-name">{{ data.groupName }}</span>
+                <span class="dict-code">{{ data.groupCode }}</span>
+                <el-tag size="small" :type="data.status==1?'success':'info'">{{ data.status==1?'启用':'禁用' }}</el-tag>
+              </span>
+              <span class="dict-tree-label" v-else>
+                <el-tag size="small" type="info">项</el-tag>
+                <span class="dict-name">{{ data.itemName }}</span>
+                <span class="dict-code">{{ data.itemValue }}</span>
+                <span class="dict-sort">排序 {{ data.sort }}</span>
+                <el-tag size="small" :type="data.status==1?'success':'info'">{{ data.status==1?'启用':'禁用' }}</el-tag>
+              </span>
+              <span class="dict-tree-actions">
+                <el-button v-if="data.nodeType === 'group'" link size="small" type="success" @click.stop="openItemCreate(data)">新增字典项</el-button>
+                <el-button link size="small" type="primary" @click.stop="data.nodeType === 'group' ? openGroupEdit(data) : openItemEdit(data)">编辑</el-button>
+                <el-button link size="small" type="danger" @click.stop="onDelete(data)">删除</el-button>
+              </span>
+            </span>
+          </template>
+        </el-tree>
+      </div>
+      <el-dialog v-model="groupDialogVisible" :title="groupDialogTitle" width="480px" destroy-on-close>
+        <el-form :model="groupForm" label-width="90px">
+          <el-form-item label="分组编码" required><el-input v-model="groupForm.groupCode" :disabled="!!groupForm.id" placeholder="如 league_tier" /></el-form-item>
+          <el-form-item label="分组名称" required><el-input v-model="groupForm.groupName" placeholder="如 联赛段位" /></el-form-item>
+          <el-form-item label="备注"><el-input v-model="groupForm.remark" type="textarea" :rows="2" /></el-form-item>
+          <el-form-item label="状态"><el-switch v-model="groupForm.status" :active-value="1" :inactive-value="0" /></el-form-item>
+        </el-form>
+        <template #footer><el-button @click="groupDialogVisible=false">取消</el-button><el-button type="primary" @click="submitGroup">确定</el-button></template>
+      </el-dialog>
+      <el-dialog v-model="itemDialogVisible" :title="itemDialogTitle" width="480px" destroy-on-close>
+        <el-form :model="itemForm" label-width="90px">
+          <el-form-item label="所属分组">
+            <el-input :model-value="itemForm.groupCode" disabled />
+          </el-form-item>
+          <el-form-item label="字典名称" required><el-input v-model="itemForm.itemName" placeholder="如 铜杯III" /></el-form-item>
+          <el-form-item label="字典值" required><el-input v-model="itemForm.itemValue" placeholder="如 bronze_3" /></el-form-item>
+          <el-form-item label="排序"><el-input-number v-model="itemForm.sort" :min="0" controls-position="right" style="width:100%" /></el-form-item>
+          <el-form-item label="状态"><el-switch v-model="itemForm.status" :active-value="1" :inactive-value="0" /></el-form-item>
+        </el-form>
+        <template #footer><el-button @click="itemDialogVisible=false">取消</el-button><el-button type="primary" @click="submitItem">确定</el-button></template>
+      </el-dialog>
+    </div>`
   };
 
   // SystemPage 必须放在 UserManage / RoleManage / DictManage 之后定义，
@@ -709,10 +979,10 @@
     '/clan/group': { name: 'g', label: '部落群组', component: 'groupCrud' },
     '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
     '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
-    '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuCrud' },
+    '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuTree' },
     '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
   }, {
-    components: { groupCrud, UserManage, RoleManage, menuCrud, DictManage }
+    components: { groupCrud, UserManage, RoleManage, menuTree, DictManage }
   });
 
   /* ============ 路由 ============ */
@@ -771,7 +1041,7 @@
     }
   });
   app.use(router);
-  app.use(ElementPlus);
+  app.use(ElementPlus, { locale: window.ElementPlusLocaleZhCn });
   for (const [key, comp] of Object.entries(ElementPlusIconsVue)) app.component(key, comp);
   app.mount('#app');
 })();

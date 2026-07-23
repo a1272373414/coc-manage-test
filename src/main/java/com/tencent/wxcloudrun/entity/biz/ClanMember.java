@@ -17,6 +17,8 @@ public class ClanMember extends BaseEntity {
   private String memberNo;
   private String clanNo;
   private String groupNo;
+  /** 在组状态 0=已退出 1=已加入 */
+  private Integer memberStatus;
   /** 参战状态 0=不参战 1=参战（字典项） */
   private Integer warStatus;
   private String intro;

@@ -1,0 +1,21 @@
+# 测试环境配置（不依赖外部 MySQL，使用纯 MockMvc + Mockito 单元测试）
+server:
+  port: 0
+
+spring:
+  # 不启动数据源（@WebMvcTest / 纯单元测试无需数据库）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
+
+coc:
+  jwt:
+    secret: test-secret-key-for-unit-testing-only-32chars
+    expiration-minutes: 60
+
+logging:
+  level:
+    root: WARN
+    com.tencent: DEBUG

@@ -161,9 +161,10 @@ CREATE TABLE clan (
 CREATE TABLE clan_member (
   id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
   member_name VARCHAR(64)  DEFAULT NULL COMMENT '成员名称',
-  member_no   VARCHAR(32)  NOT NULL COMMENT '成员编号',
+  member_no   VARCHAR(32)  DEFAULT NULL COMMENT '成员编号',
   clan_no     VARCHAR(32)  NOT NULL COMMENT '所属部落编号',
   group_no    VARCHAR(32)  NOT NULL COMMENT '所属群组编号',
+  member_status TINYINT   NOT NULL DEFAULT 1 COMMENT '在组状态 0=已退出 1=已加入',
   war_status  TINYINT      DEFAULT NULL COMMENT '参战状态 0=不参战 1=参战（字典项）',
   intro       VARCHAR(500) DEFAULT NULL COMMENT '简介',
   user_id     BIGINT       DEFAULT NULL COMMENT '关联系统用户（可空）',
@@ -183,17 +184,9 @@ CREATE TABLE league (
   id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
   league_name   VARCHAR(64)  DEFAULT NULL COMMENT '联赛名称',
   league_no     VARCHAR(32)  NOT NULL COMMENT '联赛编号',
-  clan_no       VARCHAR(32)  NOT NULL COMMENT '所属部落编号',
   group_no      VARCHAR(32)  NOT NULL COMMENT '所属群组编号',
   signup_start  DATETIME     DEFAULT NULL COMMENT '报名开始时间',
   signup_end    DATETIME     DEFAULT NULL COMMENT '报名截止时间',
-  tier          VARCHAR(32)  DEFAULT NULL COMMENT '联赛段位（字典项）',
-  result_rank   INT          DEFAULT NULL COMMENT '联赛结果排名',
-  extra_count   INT          DEFAULT NULL COMMENT '联赛额外个数',
-  league_coin   INT          DEFAULT NULL COMMENT '联赛币数量',
-  extra_coin    INT          DEFAULT NULL COMMENT '额外币数量',
-  promote_status TINYINT     DEFAULT NULL COMMENT '晋级状态：1=晋级 2=保级 3=掉级（字典项）',
-  intro         VARCHAR(500) DEFAULT NULL COMMENT '简介',
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
   created_by    VARCHAR(32)  DEFAULT NULL COMMENT '创建者',
@@ -201,9 +194,32 @@ CREATE TABLE league (
   deleted       TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0=未删 1=已删',
   PRIMARY KEY (id),
   UNIQUE KEY uk_league_no (league_no),
-  KEY idx_group_no (group_no),
-  KEY idx_clan_no (clan_no)
+  KEY idx_group_no (group_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='联赛表';
+
+-- 联赛部落成绩表（从 league 表拆分，每条 = 一个部落在某联赛中的成绩）
+CREATE TABLE league_clan_score (
+  id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  league_no      VARCHAR(32)  NOT NULL COMMENT '所属联赛编号',
+  clan_no        VARCHAR(32)  NOT NULL COMMENT '所属部落编号',
+  group_no       VARCHAR(32)  NOT NULL COMMENT '所属群组编号',
+  tier           VARCHAR(32)  DEFAULT NULL COMMENT '联赛段位（字典项 league_tier）',
+  result_rank    INT          DEFAULT NULL COMMENT '本段排名',
+  extra_count    INT          DEFAULT NULL COMMENT '额外人数',
+  league_coin    INT          DEFAULT NULL COMMENT '联赛币',
+  extra_coin     INT          DEFAULT NULL COMMENT '额外币',
+  promote_status TINYINT     DEFAULT 0 COMMENT '升降级 0=无 1=晋级 2=降级',
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+  created_by     VARCHAR(32)  DEFAULT NULL COMMENT '创建者',
+  updated_by     VARCHAR(32)  DEFAULT NULL COMMENT '修改者',
+  deleted        TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0=未删 1=已删',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_league_clan (league_no, clan_no),
+  KEY idx_group_no (group_no),
+  KEY idx_league_no (league_no),
+  KEY idx_clan_no (clan_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='联赛部落成绩表';
 
 -- 联赛报名表
 CREATE TABLE league_signup (
@@ -213,7 +229,7 @@ CREATE TABLE league_signup (
   league_no     VARCHAR(32)  NOT NULL COMMENT '所属联赛编号',
   clan_no       VARCHAR(32)  NOT NULL COMMENT '所属部落编号',
   group_no      VARCHAR(32)  NOT NULL COMMENT '所属群组编号',
-  signup_status TINYINT      DEFAULT NULL COMMENT '报名状态：1=未报名 2=主动报名 3=协助报名（字典项）',
+  signup_status TINYINT      DEFAULT NULL COMMENT '报名状态：1=未报名 2=备选报名 3=主动报名（字典项）',
   signup_time   DATETIME     DEFAULT NULL COMMENT '报名时间',
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',

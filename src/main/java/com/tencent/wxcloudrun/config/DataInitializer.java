@@ -54,34 +54,36 @@ public class DataInitializer implements ApplicationRunner {
     ensureRole(RoleConstants.LEAGUE_ADMIN, "赛事管理员");
     ensureRole(RoleConstants.MEMBER, "普通成员");
 
-    // 系统管理权限菜单（拦截器据此校验 /api/sys/** 与 /api/dict/**）
-    Long sysMenu = ensureMenu("system:manage", "系统管理", "/system", 0);
+    // 顶级菜单（全部带 permission 和 sort，按业务优先级排序）
+    Long dashboardMenu = ensureMenu("dashboard:view", "数据看板", "/dashboard", 1, 10);
+    Long clanMenu = ensureMenu("clan:view", "部落管理", "/clan", 0, 20);
+    Long warMenu = ensureMenu("war:view", "部落战管理", "/war", 0, 30);
+    Long leagueMenu = ensureMenu("league:view", "联赛管理", "/league", 0, 40);
+    Long sysMenu = ensureMenu("system:manage", "系统管理", "/system", 0, 50);
     assignMenuToRole(superAdminRole, sysMenu);
     assignMenuToRole(groupAdminRole, sysMenu);
 
-    // 顶级导航菜单（无权限标识，登录用户可见，数据按 group_no 隔离）
-    Long clanMenu = ensureMenu(null, "部落管理", "/clan", 1);
-    Long leagueMenu = ensureMenu(null, "联赛管理", "/league", 1);
-    Long warMenu = ensureMenu(null, "部落战管理", "/war", 1);
-    Long dashboardMenu = ensureMenu(null, "数据看板", "/dashboard", 1);
-
     // 部落管理下的二级菜单
-    Long clanSubCrudMenu = ensureMenuSub("部落", "/clan/crud", clanMenu, 1);
-    Long clanMemberMenu = ensureMenuSub("部落成员", "/clan/member", clanMenu, 2);
+    Long clanSubCrudMenu = ensureMenuSub("部落", "/clan/crud", clanMenu, 1, "clan:list");
+    Long clanMemberMenu = ensureMenuSub("部落成员", "/clan/member", clanMenu, 2, "clan:member:list");
     // 部落战管理下的二级菜单
-    Long warSubMenu = ensureMenuSub("部落战", "/war/crud", warMenu, 1);
-    Long warRecordMenu = ensureMenuSub("部落战战绩", "/war/record", warMenu, 2);
+    Long warSubMenu = ensureMenuSub("部落战", "/war/crud", warMenu, 1, "war:list");
+    Long warRecordMenu = ensureMenuSub("部落战战绩", "/war/record", warMenu, 2, "war:record:list");
     // 联赛管理下的二级菜单
-    Long leagueSubMenu = ensureMenuSub("联赛", "/league/crud", leagueMenu, 1);
-    Long leagueRecordMenu = ensureMenuSub("联赛战绩", "/league/record", leagueMenu, 2);
-    Long leagueSignupMenu = ensureMenuSub("联赛报名", "/league/signup", leagueMenu, 3);
+    Long leagueSubMenu = ensureMenuSub("联赛", "/league/crud", leagueMenu, 1, "league:list");
+    Long leagueScoreMenu = ensureMenuSub("部落成绩", "/league/score", leagueMenu, 2, "league:score:list");
+    Long leagueRecordMenu = ensureMenuSub("联赛战绩", "/league/record", leagueMenu, 3, "league:record:list");
+    Long leagueSignupMenu = ensureMenuSub("联赛报名", "/league/signup", leagueMenu, 4, "league:signup:list");
 
-    // 系统管理下的二级菜单（菜单管理页面可维护这些条目）
-    Long clanGroupMenu = ensureMenuSub("部落群组", "/clan/group", sysMenu, 1);
-    Long userMenu = ensureMenuSub("用户管理", "/sys/user", sysMenu, 2);
-    Long roleMenu = ensureMenuSub("角色管理", "/sys/role", sysMenu, 3);
-    Long menuMgmtMenu = ensureMenuSub("菜单管理", "/sys/menu", sysMenu, 4);
-    Long dictMenu = ensureMenuSub("字典管理", "/dict", sysMenu, 5);
+    // 系统管理下的二级菜单
+    Long clanGroupMenu = ensureMenuSub("部落群组", "/clan/group", sysMenu, 1, "group:list");
+    Long userMenu = ensureMenuSub("用户管理", "/sys/user", sysMenu, 2, "sys:user:list");
+    Long roleMenu = ensureMenuSub("角色管理", "/sys/role", sysMenu, 3, "sys:role:list");
+    Long menuMgmtMenu = ensureMenuSub("菜单管理", "/sys/menu", sysMenu, 4, "sys:menu:list");
+    Long dictMenu = ensureMenuSub("字典管理", "/dict", sysMenu, 5, "sys:dict:list");
+
+    // 修复已有历史数据中 permission/sort 为空的菜单（兼容旧版本初始化逻辑产生的数据）
+    fixExistingMenus();
 
     // 为超级管理员绑定全部菜单
     Long[] allMenuIds = { sysMenu, clanMenu, leagueMenu, warMenu, dashboardMenu,
@@ -138,7 +140,7 @@ public class DataInitializer implements ApplicationRunner {
     return role.getId();
   }
 
-  private Long ensureMenu(String permission, String name, String path, Integer menuType) {
+  private Long ensureMenu(String permission, String name, String path, Integer menuType, Integer sort) {
     SysMenu menu = menuMapper.selectOne(new QueryWrapper<SysMenu>().eq("menu_name", name));
     if (menu == null) {
       menu = new SysMenu();
@@ -147,7 +149,7 @@ public class DataInitializer implements ApplicationRunner {
       menu.setPath(path);
       menu.setPermission(permission);
       menu.setParentId(0L);
-      menu.setSort(0);
+      menu.setSort(sort);
       menuMapper.insert(menu);
     }
     return menu.getId();
@@ -157,13 +159,14 @@ public class DataInitializer implements ApplicationRunner {
    * 创建二级菜单（parentId 指定为父菜单 id）。如果已存在同名菜单则复用。
    * 注意：同名顶级菜单会被复用，因此二级菜单名应与顶级菜单名不同。
    */
-  private Long ensureMenuSub(String name, String path, Long parentId, Integer sort) {
+  private Long ensureMenuSub(String name, String path, Long parentId, Integer sort, String permission) {
     SysMenu menu = menuMapper.selectOne(new QueryWrapper<SysMenu>().eq("menu_name", name));
     if (menu == null) {
       menu = new SysMenu();
       menu.setMenuName(name);
       menu.setMenuType(1);
       menu.setPath(path);
+      menu.setPermission(permission);
       menu.setParentId(parentId);
       menu.setSort(sort);
       menuMapper.insert(menu);
@@ -174,6 +177,54 @@ public class DataInitializer implements ApplicationRunner {
       menuMapper.updateById(menu);
     }
     return menu.getId();
+  }
+
+  /**
+   * 修复已有历史数据中 permission 或 sort 为空的菜单。
+   * 兼容旧版本 DataInitializer 产生的数据（permission=null, sort=0）。
+   * 按菜单名匹配并补全，不影响用户新建的自定义菜单。
+   */
+  private void fixExistingMenus() {
+    // 菜单名 → { permission, sort } 映射表（与 ensureMenu/ensureMenuSub 参数一致）
+    java.util.Map<String, String[]> fixMap = new java.util.LinkedHashMap<>();
+    fixMap.put("数据看板",   new String[]{"dashboard:view", "10"});
+    fixMap.put("部落管理",   new String[]{"clan:view", "20"});
+    fixMap.put("部落战管理", new String[]{"war:view", "30"});
+    fixMap.put("联赛管理",   new String[]{"league:view", "40"});
+    fixMap.put("系统管理",   new String[]{"system:manage", "50"});
+    fixMap.put("部落",       new String[]{"clan:list", "1"});
+    fixMap.put("部落成员",   new String[]{"clan:member:list", "2"});
+    fixMap.put("部落战",     new String[]{"war:list", "1"});
+    fixMap.put("部落战战绩", new String[]{"war:record:list", "2"});
+    fixMap.put("联赛",       new String[]{"league:list", "1"});
+    fixMap.put("部落成绩",   new String[]{"league:score:list", "2"});
+    fixMap.put("联赛战绩",   new String[]{"league:record:list", "3"});
+    fixMap.put("联赛报名",   new String[]{"league:signup:list", "4"});
+    fixMap.put("部落群组",   new String[]{"group:list", "1"});
+    fixMap.put("用户管理",   new String[]{"sys:user:list", "2"});
+    fixMap.put("角色管理",   new String[]{"sys:role:list", "3"});
+    fixMap.put("菜单管理",   new String[]{"sys:menu:list", "4"});
+    fixMap.put("字典管理",   new String[]{"sys:dict:list", "5"});
+
+    for (java.util.Map.Entry<String, String[]> entry : fixMap.entrySet()) {
+      String menuName = entry.getKey();
+      String permission = entry.getValue()[0];
+      Integer sort = Integer.parseInt(entry.getValue()[1]);
+      SysMenu menu = menuMapper.selectOne(new QueryWrapper<SysMenu>().eq("menu_name", menuName));
+      if (menu == null) continue;
+      boolean changed = false;
+      if (menu.getPermission() == null || menu.getPermission().isEmpty()) {
+        menu.setPermission(permission);
+        changed = true;
+      }
+      if (menu.getSort() == null || (menu.getSort() == 0 && sort != 0)) {
+        menu.setSort(sort);
+        changed = true;
+      }
+      if (changed) {
+        menuMapper.updateById(menu);
+      }
+    }
   }
 
   /**
@@ -218,6 +269,33 @@ public class DataInitializer implements ApplicationRunner {
         {"lose", "失败"},
         {"draw", "平局"}
     });
+    // 联赛报名状态
+    seedGroup("signup_status", "报名状态", new String[][]{
+        {"1", "未报名"},
+        {"2", "备选报名"},
+        {"3", "主动报名"}
+    });
+    // 部落冲突联赛段位（6 大段 × 3 小段 = 18 级，value 从低到高 1~18）
+    seedGroup("league_tier", "联赛段位", new String[][]{
+        {"1",  "铜杯III"},
+        {"2",  "铜杯II"},
+        {"3",  "铜杯I"},
+        {"4",  "银杯III"},
+        {"5",  "银杯II"},
+        {"6",  "银杯I"},
+        {"7",  "金杯III"},
+        {"8",  "金杯II"},
+        {"9",  "金杯I"},
+        {"10", "水晶杯III"},
+        {"11", "水晶杯II"},
+        {"12", "水晶杯I"},
+        {"13", "大师杯III"},
+        {"14", "大师杯II"},
+        {"15", "大师杯I"},
+        {"16", "冠军杯III"},
+        {"17", "冠军杯II"},
+        {"18", "冠军杯I"}
+    });
   }
 
   private void seedGroup(String groupCode, String groupName, String[][] items) {
@@ -229,16 +307,16 @@ public class DataInitializer implements ApplicationRunner {
       group.setStatus(1);
       dictGroupMapper.insert(group);
     }
-    for (String[] item : items) {
-      String itemValue = item[0];
-      String itemName = item[1];
+    for (int idx = 0; idx < items.length; idx++) {
+      String itemValue = items[idx][0];
+      String itemName = items[idx][1];
       if (dictItemMapper.selectCount(new QueryWrapper<DictItem>()
           .eq("group_code", groupCode).eq("item_value", itemValue)) == 0) {
         DictItem di = new DictItem();
         di.setGroupCode(groupCode);
         di.setItemValue(itemValue);
         di.setItemName(itemName);
-        di.setSort(0);
+        di.setSort(idx + 1);
         di.setStatus(1);
         dictItemMapper.insert(di);
       }
