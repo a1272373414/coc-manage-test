@@ -13,27 +13,33 @@ public final class ApiResponse {
 
   private Integer code;
   private String errorMsg;
+  private String errorMsg2;
   private Object data;
 
-  private ApiResponse(int code, String errorMsg, Object data) {
+  private ApiResponse(int code, String errorMsg, String errorMsg2, Object data) {
     this.code = code;
     this.errorMsg = errorMsg;
+    this.errorMsg2 = errorMsg2;
     this.data = data;
   }
 
   public static ApiResponse ok() {
-    return new ApiResponse(0, "", new HashMap<>());
+    return new ApiResponse(0, "", null, new HashMap<>());
   }
 
   public static ApiResponse ok(Object data) {
-    return new ApiResponse(0, "", data);
+    return new ApiResponse(0, "", null, data);
   }
 
   public static ApiResponse error(String errorMsg) {
-    return new ApiResponse(400, errorMsg, new HashMap<>());
+    return new ApiResponse(400, errorMsg, null, new HashMap<>());
   }
 
   public static ApiResponse error(int code, String errorMsg) {
-    return new ApiResponse(code, errorMsg, new HashMap<>());
+    return new ApiResponse(code, errorMsg, null, new HashMap<>());
+  }
+
+  public static ApiResponse error(String errorMsg, String detail) {
+    return new ApiResponse(400, errorMsg, detail, new HashMap<>());
   }
 }

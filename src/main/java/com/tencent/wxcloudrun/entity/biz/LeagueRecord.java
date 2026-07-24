@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.entity.biz;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tencent.wxcloudrun.entity.BaseEntity;
 import lombok.Getter;
@@ -28,4 +29,14 @@ public class LeagueRecord extends BaseEntity {
   private Integer requiredAttacks;
   /** 是否有额外 0=否 1=是 */
   private Integer hasExtra;
+  /** 报名状态（冗余字段，字典项 signup_status）：1=未报名 2=备选报名 3=主动报名 */
+  private Integer signupStatus;
+
+  /** 联赛名称（非数据库字段） */
+  @TableField(exist = false)
+  private String leagueName;
+
+  /** 部落名称（非数据库字段） */
+  @TableField(exist = false)
+  private String clanName;
 }

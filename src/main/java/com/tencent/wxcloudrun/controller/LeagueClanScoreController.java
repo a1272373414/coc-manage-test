@@ -5,8 +5,12 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tencent.wxcloudrun.config.ApiResponse;
 import com.tencent.wxcloudrun.config.PageResult;
+import com.tencent.wxcloudrun.entity.biz.Clan;
+import com.tencent.wxcloudrun.entity.biz.League;
 import com.tencent.wxcloudrun.entity.biz.LeagueClanScore;
+import com.tencent.wxcloudrun.mapper.ClanMapper;
 import com.tencent.wxcloudrun.mapper.LeagueClanScoreMapper;
+import com.tencent.wxcloudrun.mapper.LeagueMapper;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,7 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 联赛部落成绩 CRUD（继承 BaseCrudController 通用分页/增删改查）。
@@ -26,6 +35,12 @@ public class LeagueClanScoreController extends BaseCrudController<LeagueClanScor
 
   @Resource
   private LeagueClanScoreMapper leagueClanScoreMapper;
+
+  @Resource
+  private LeagueMapper leagueMapper;
+
+  @Resource
+  private ClanMapper clanMapper;
 
   @Override
   protected BaseMapper<LeagueClanScore> mapper() {
@@ -73,6 +88,45 @@ public class LeagueClanScoreController extends BaseCrudController<LeagueClanScor
     }
     qw.orderByDesc("id");
     mapper().selectPage(page, qw);
+
+    // 批量填充联赛名称、部落名称供前端展示
+    List<LeagueClanScore> records = page.getRecords();
+    if (!records.isEmpty()) {
+      Set<String> leagueNos = records.stream()
+          .map(LeagueClanScore::getLeagueNo)
+          .filter(Objects::nonNull)
+          .collect(Collectors.toSet());
+      Set<String> clanNos = records.stream()
+          .map(LeagueClanScore::getClanNo)
+          .filter(Objects::nonNull)
+          .collect(Collectors.toSet());
+
+      Map<String, String> leagueNameMap = new HashMap<>();
+      if (!leagueNos.isEmpty()) {
+        List<League> leagues = leagueMapper.selectList(
+            new QueryWrapper<League>().in("league_no", leagueNos));
+        for (League league : leagues) {
+          leagueNameMap.put(league.getLeagueNo(), league.getLeagueName());
+        }
+      }
+
+      Map<String, String> clanNameMap = new HashMap<>();
+      if (!clanNos.isEmpty()) {
+        List<Clan> clans = clanMapper.selectList(
+            new QueryWrapper<Clan>().in("clan_no", clanNos));
+        for (Clan clan : clans) {
+          clanNameMap.put(clan.getClanNo(), clan.getClanName());
+        }
+      }
+
+      for (LeagueClanScore record : records) {
+        String ln = record.getLeagueNo();
+        String cn = record.getClanNo();
+        record.setLeagueName(leagueNameMap.getOrDefault(ln, ln));
+        record.setClanName(clanNameMap.getOrDefault(cn, cn));
+      }
+    }
+
     return ApiResponse.ok(PageResult.of(page));
   }
 }

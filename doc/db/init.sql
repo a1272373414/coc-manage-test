@@ -193,7 +193,7 @@ CREATE TABLE league (
   updated_by    VARCHAR(32)  DEFAULT NULL COMMENT '修改者',
   deleted       TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0=未删 1=已删',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_league_no (league_no),
+  UNIQUE KEY uk_league_group_deleted (league_no, group_no, deleted),
   KEY idx_group_no (group_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='联赛表';
 
@@ -306,3 +306,19 @@ CREATE TABLE clan_war_record (
   KEY idx_group_no (group_no),
   KEY idx_war_no (war_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='部落战成员战绩表';
+
+-- 入组申请表
+CREATE TABLE clan_group_apply (
+  id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  group_no      VARCHAR(32)  NOT NULL COMMENT '申请加入的群组编号',
+  user_id       BIGINT       NOT NULL COMMENT '申请人用户ID',
+  apply_status  TINYINT      NOT NULL DEFAULT 1 COMMENT '申请状态：1=申请中 2=同意 3=拒绝',
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  created_by    VARCHAR(32)  DEFAULT NULL COMMENT '创建者',
+  updated_by    VARCHAR(32)  DEFAULT NULL COMMENT '更新者',
+  deleted       TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0=未删 1=已删',
+  PRIMARY KEY (id),
+  KEY idx_group_status (group_no, apply_status),
+  KEY idx_user_status (user_id, apply_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';

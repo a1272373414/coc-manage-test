@@ -73,6 +73,9 @@ public class SysRoleController extends BaseCrudController<SysRole> {
       for (Long menuId : menuIds) {
         if (menuId != null) uniqueMenuIds.add(menuId);
       }
+      // 注意：目录节点（menu_type=0）也可能携带权限标识（如 system:manage），
+      // 必须保存到 sys_role_menu，否则 toAuthUser() 无法收集到该权限。
+      // 回显时由 getRoleMenus 过滤掉目录节点，避免 el-tree 级联全选。
       for (Long menuId : uniqueMenuIds) {
         SysRoleMenu rm = new SysRoleMenu();
         rm.setRoleId(id);

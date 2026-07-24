@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tencent.wxcloudrun.config.ApiResponse;
 import com.tencent.wxcloudrun.config.PageResult;
+import com.tencent.wxcloudrun.config.UserContext;
 import com.tencent.wxcloudrun.entity.sys.SysUser;
 import com.tencent.wxcloudrun.entity.sys.SysUserRole;
 import com.tencent.wxcloudrun.mapper.SysUserMapper;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -73,6 +75,11 @@ public class SysUserController extends BaseCrudController<SysUser> {
       });
     }
     qw.orderByDesc("id");
+    // 非超级管理员仅展示本群组用户
+    if (!UserContext.isSuperAdmin()) {
+      String groupNo = UserContext.getGroupNo();
+      qw.eq("group_no", groupNo == null ? "" : groupNo);
+    }
     mapper().selectPage(page, qw);
 
     List<SysUser> records = page.getRecords();
@@ -80,12 +87,19 @@ public class SysUserController extends BaseCrudController<SysUser> {
     return ApiResponse.ok(PageResult.of(page));
   }
 
-  /** 重写详情接口：填充 roleIds */
+  /** 重写详情接口：填充 roleIds，非超管时校验用户所属群组 */
   @Override
   @GetMapping("/{id}")
   public ApiResponse getById(@PathVariable Long id) {
     SysUser user = mapper().selectById(id);
     if (user != null) {
+      // 非超级管理员只能查看本群组用户
+      if (!UserContext.isSuperAdmin()) {
+        String groupNo = UserContext.getGroupNo();
+        if (!Objects.equals(groupNo, user.getGroupNo())) {
+          return ApiResponse.error("无权查看该用户");
+        }
+      }
       fillRoleIds(Collections.singletonList(user));
     }
     return ApiResponse.ok(user);
@@ -122,6 +136,10 @@ public class SysUserController extends BaseCrudController<SysUser> {
       body.setPassword(encoder.encode("123456"));
     }
     body.setId(null);
+    // 非超级管理员创建用户时，自动设置 group_no 为当前用户的 group_no
+    if (!UserContext.isSuperAdmin()) {
+      body.setGroupNo(UserContext.getGroupNo());
+    }
     mapper().insert(body);
     return ApiResponse.ok(body);
   }
@@ -131,6 +149,19 @@ public class SysUserController extends BaseCrudController<SysUser> {
   public ApiResponse update(@RequestBody SysUser body) {
     if (body.getId() == null) {
       return ApiResponse.error("id 不能为空");
+    }
+    // 非超级管理员只能更新本群组用户
+    if (!UserContext.isSuperAdmin()) {
+      SysUser existing = mapper().selectById(body.getId());
+      if (existing == null) {
+        return ApiResponse.error("用户不存在");
+      }
+      String groupNo = UserContext.getGroupNo();
+      if (!Objects.equals(groupNo, existing.getGroupNo())) {
+        return ApiResponse.error("无权修改该用户");
+      }
+      // 防止越权修改 group_no
+      body.setGroupNo(existing.getGroupNo());
     }
     if (body.getPassword() != null && !body.getPassword().isEmpty()) {
       body.setPassword(encoder.encode(body.getPassword()));

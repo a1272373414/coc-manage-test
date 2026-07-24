@@ -12,7 +12,9 @@ import com.tencent.wxcloudrun.mapper.ClanMapper;
 import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
 import com.tencent.wxcloudrun.mapper.LeagueMapper;
 import com.tencent.wxcloudrun.mapper.LeagueSignupMapper;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -120,6 +122,13 @@ public class LeagueSignupController {
   @PutMapping
   public ApiResponse signupUpdate(@RequestBody LeagueSignup body) {
     return doSignup(body);
+  }
+
+  /** 删除报名记录（逻辑删除） */
+  @DeleteMapping("/{id}")
+  public ApiResponse delete(@PathVariable Long id) {
+    signupMapper.deleteById(id);
+    return ApiResponse.ok();
   }
 
   private ApiResponse doSignup(LeagueSignup body) {

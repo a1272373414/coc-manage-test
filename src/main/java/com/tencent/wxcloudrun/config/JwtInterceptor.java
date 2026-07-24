@@ -58,7 +58,8 @@ public class JwtInterceptor implements HandlerInterceptor {
     UserContext.set(user);
 
     String required = matchRequired(request.getRequestURI());
-    if (required != null && !user.getPermissions().contains(required)) {
+    // 超级管理员跳过所有权限校验
+    if (required != null && !user.isSuperAdmin() && !user.getPermissions().contains(required)) {
       write(response, ApiResponse.error(403, "无访问权限"));
       return false;
     }

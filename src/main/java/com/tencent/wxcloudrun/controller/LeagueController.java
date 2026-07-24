@@ -51,11 +51,6 @@ public class LeagueController extends BaseCrudController<League> {
   @PostMapping
   public ApiResponse create(@RequestBody League body) {
     body.setId(null);
-    if (body.getLeagueNo() != null && !body.getLeagueNo().isEmpty()) {
-      League existing = leagueMapper.selectOne(
-          new QueryWrapper<League>().eq("league_no", body.getLeagueNo()));
-      if (existing != null) return ApiResponse.error(409, "联赛编号已存在：" + body.getLeagueNo());
-    }
     // 确保 group_no 有值（优先用前端传入，其次取当前登录用户）
     String groupNo = body.getGroupNo();
     if (groupNo == null || groupNo.isEmpty()) {
@@ -65,6 +60,12 @@ public class LeagueController extends BaseCrudController<League> {
       return ApiResponse.error("无法确定所属群组，请先登录或联系管理员");
     }
     body.setGroupNo(groupNo);
+    // 按 league_no + group_no 校验唯一性（@TableLogic 自动过滤 deleted=0）
+    if (body.getLeagueNo() != null && !body.getLeagueNo().isEmpty()) {
+      League existing = leagueMapper.selectOne(
+          new QueryWrapper<League>().eq("league_no", body.getLeagueNo()).eq("group_no", groupNo));
+      if (existing != null) return ApiResponse.error(409, "该群组下联赛编号已存在：" + body.getLeagueNo());
+    }
     mapper().insert(body);
 
     // 查询该群组下所有部落，为每个部落生成联赛部落成绩记录
@@ -81,15 +82,24 @@ public class LeagueController extends BaseCrudController<League> {
     return ApiResponse.ok(body);
   }
 
-  /** 更新时排除自身后校验联赛编号唯一性。 */
+  /** 更新时按 league_no + group_no 校验唯一性（排除自身）。 */
   @Override
   @PutMapping
   public ApiResponse update(@RequestBody League body) {
     if (body.getId() == null) return ApiResponse.error("id 不能为空");
     if (body.getLeagueNo() != null && !body.getLeagueNo().isEmpty()) {
-      League existing = leagueMapper.selectOne(
-          new QueryWrapper<League>().eq("league_no", body.getLeagueNo()).ne("id", body.getId()));
-      if (existing != null) return ApiResponse.error(409, "联赛编号已被其他联赛使用：" + body.getLeagueNo());
+      String groupNo = body.getGroupNo();
+      if (groupNo == null || groupNo.isEmpty()) {
+        League self = leagueMapper.selectById(body.getId());
+        if (self != null) groupNo = self.getGroupNo();
+      }
+      QueryWrapper<League> qw = new QueryWrapper<League>()
+          .eq("league_no", body.getLeagueNo()).ne("id", body.getId());
+      if (groupNo != null && !groupNo.isEmpty()) {
+        qw.eq("group_no", groupNo);
+      }
+      League existing = leagueMapper.selectOne(qw);
+      if (existing != null) return ApiResponse.error(409, "该群组下联赛编号已被其他联赛使用：" + body.getLeagueNo());
     }
     mapper().updateById(body);
     return ApiResponse.ok(body);

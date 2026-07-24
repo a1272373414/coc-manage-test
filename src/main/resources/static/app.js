@@ -615,9 +615,22 @@
           const tree = await COC.api.menuTree();
           this.menuTreeData = Array.isArray(tree) ? tree : [];
           const ids = await COC.api.roleMenus(row.id);
-          // 等待 tree 渲染完成再回显勾选
+          // 收集树中所有叶子节点 id（无 children），用于过滤回显时的父目录 id。
+          // 若把父目录 id 放进 default-checked-keys，el-tree 会级联勾选其下所有子节点。
+          var leafIdSet = {};
+          (function walk(nodes) {
+            for (var i = 0; i < nodes.length; i++) {
+              var n = nodes[i];
+              if (!Array.isArray(n.children) || n.children.length === 0) {
+                if (n.id != null) leafIdSet[Number(n.id)] = true;
+              }
+              if (Array.isArray(n.children)) walk(n.children);
+            }
+          })(Array.isArray(tree) ? tree : []);
+          // 等待 tree 渲染完成再回显勾选（只勾选叶子节点）
           this.$nextTick(() => {
-            this.menuCheckedIds = Array.isArray(ids) ? ids.map(Number) : [];
+            var raw = Array.isArray(ids) ? ids.map(Number) : [];
+            this.menuCheckedIds = raw.filter(function(id) { return leafIdSet[id] === true; });
           });
         } catch (e) {
           this.menuDialog = false;
@@ -631,19 +644,14 @@
         if (!this.menuRoleId) return;
         this.savingMenu = true;
         try {
-          // 通过 el-tree API 直接读取选中状态，避免自己维护 menuCheckedIds 的同步问题
           const treeRef = this.$refs.menuTreeRef;
           if (!treeRef) {
             ElementPlus.ElMessage.error('菜单树未初始化');
             return;
           }
-          // 勾选节点：checked=true 的节点（含父节点）
+          // 收集勾选节点 + 半选节点（父目录半选时可能携带权限标识，如 system:manage，必须保存）
           const checked = treeRef.getCheckedNodes(false, false) || [];
-          // 半选节点：父节点因部分子节点被选中而处于半选状态
           const halfChecked = treeRef.getHalfCheckedNodes() || [];
-          // 收集所有勾选 + 半选的节点 id（去重）
-          // - 叶子节点：勾选时收集
-          // - 父节点：勾选或半选时收集（半选保证父菜单可见，子菜单按各自勾选状态分配）
           const allNodes = checked.concat(halfChecked);
           const menuIds = [];
           for (const n of allNodes) {
@@ -973,16 +981,176 @@
     </div>`
   };
 
-  // SystemPage 必须放在 UserManage / RoleManage / DictManage 之后定义，
+  /* ============ 入组申请页面 ============ */
+  const ClanGroupApplyPage = {
+    data() {
+      return {
+        loading: false,
+        submitting: false,
+        records: [],
+        total: 0,
+        page: 1,
+        size: 10,
+        query: { applyStatus: '' },
+        form: { groupNo: '' },
+        groups: [],
+        groupLoading: false
+      };
+    },
+    computed: {
+      user() { return COC.store.user || {}; },
+      roleCodes() { return this.user.roleCodes || []; },
+      isAdmin() {
+        return !!this.user.superAdmin || this.roleCodes.includes('GROUP_ADMIN');
+      },
+      statusOptions() {
+        return [{ label: '申请中', value: 1 }, { label: '同意', value: 2 }, { label: '拒绝', value: 3 }];
+      }
+    },
+    async mounted() { await this.load(); },
+    methods: {
+      statusLabel(status) {
+        const s = Number(status);
+        if (s === 1) return '申请中';
+        if (s === 2) return '同意';
+        if (s === 3) return '拒绝';
+        return status;
+      },
+      async load() {
+        this.loading = true;
+        try {
+          const params = { current: this.page, size: this.size };
+          if (this.query.applyStatus !== '') params.applyStatus = this.query.applyStatus;
+          const r = await COC.api.applyPage(params);
+          this.records = r.records || [];
+          this.total = r.total || 0;
+        } finally { this.loading = false; }
+      },
+      async searchGroups(keyword) {
+        if (!keyword || keyword.length < 1) { this.groups = []; return; }
+        this.groupLoading = true;
+        try {
+          const r = await COC.api.page('/api/clan/group', { keyword, size: 20 });
+          this.groups = r.records || [];
+        } finally { this.groupLoading = false; }
+      },
+      async submit() {
+        if (!this.form.groupNo) {
+          ElementPlus.ElMessage.warning('请选择要申请的群组');
+          return;
+        }
+        this.submitting = true;
+        try {
+          await COC.api.applyCreate({ groupNo: this.form.groupNo });
+          ElementPlus.ElMessage.success('申请已提交');
+          this.form.groupNo = '';
+          this.page = 1;
+          await this.load();
+        } finally { this.submitting = false; }
+      },
+      async approve(row) {
+        try {
+          await ElementPlus.ElMessageBox.confirm('确认同意该用户的入组申请？', '提示', { type: 'warning' });
+          await COC.api.applyApprove(row.id);
+          ElementPlus.ElMessage.success('已同意');
+          await this.load();
+        } catch (e) { /* 取消 */ }
+      },
+      async reject(row) {
+        try {
+          await ElementPlus.ElMessageBox.confirm('确认拒绝该用户的入组申请？', '提示', { type: 'warning' });
+          await COC.api.applyReject(row.id);
+          ElementPlus.ElMessage.success('已拒绝');
+          await this.load();
+        } catch (e) { /* 取消 */ }
+      },
+      async cancel(row) {
+        try {
+          await ElementPlus.ElMessageBox.confirm('确认撤销该申请？', '提示', { type: 'warning' });
+          await COC.api.applyDelete(row.id);
+          ElementPlus.ElMessage.success('已撤销');
+          await this.load();
+        } catch (e) { /* 取消 */ }
+      }
+    },
+    template: `
+    <div class="page-apply" style="padding:16px">
+      <el-card v-if="!isAdmin" style="margin-bottom:16px">
+        <template #header><b>提交入组申请</b></template>
+        <el-form :model="form" label-width="100px" inline>
+          <el-form-item label="目标群组" required>
+            <el-select v-model="form.groupNo" filterable remote :remote-method="searchGroups"
+              :loading="groupLoading" placeholder="请输入群组名称/编号搜索" style="width:320px">
+              <el-option v-for="g in groups" :key="g.groupNo" :label="g.groupName + ' (' + g.groupNo + ')'" :value="g.groupNo" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="submit" :loading="submitting">提交申请</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <el-card>
+        <template #header><b>{{ isAdmin ? '入组申请管理' : '我的入组申请' }}</b></template>
+        <el-form v-if="isAdmin" :inline="true" :model="query" style="margin-bottom:12px">
+          <el-form-item label="申请状态">
+            <el-select v-model="query.applyStatus" clearable placeholder="全部" style="width:140px" @change="page=1;load()">
+              <el-option label="申请中" :value="1" />
+              <el-option label="同意" :value="2" />
+              <el-option label="拒绝" :value="3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="page=1;load()">查询</el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-table :data="records" v-loading="loading" stripe border>
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="username" label="申请人账号" width="130" />
+          <el-table-column prop="nickname" label="昵称" width="130" />
+          <el-table-column prop="groupName" label="目标群组" min-width="160" />
+          <el-table-column prop="applyStatus" label="状态" width="100">
+            <template #default="{row}">
+              <el-tag v-if="row.applyStatus === 1" type="warning">{{ statusLabel(row.applyStatus) }}</el-tag>
+              <el-tag v-else-if="row.applyStatus === 2" type="success">{{ statusLabel(row.applyStatus) }}</el-tag>
+              <el-tag v-else-if="row.applyStatus === 3" type="danger">{{ statusLabel(row.applyStatus) }}</el-tag>
+              <span v-else>{{ statusLabel(row.applyStatus) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="createdAt" label="申请时间" width="160" />
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{row}">
+              <template v-if="isAdmin && row.applyStatus === 1">
+                <el-button size="small" type="success" @click="approve(row)">同意</el-button>
+                <el-button size="small" type="danger" @click="reject(row)">拒绝</el-button>
+              </template>
+              <el-button v-if="!isAdmin && row.applyStatus === 1" size="small" type="danger" @click="cancel(row)">撤销</el-button>
+              <span v-if="row.applyStatus !== 1">-</span>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+            :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
+            @current-change="load" @size-change="load" />
+        </div>
+      </el-card>
+    </div>`
+  };
+
+  // SystemPage 必须放在 UserManage / RoleManage / DictManage / ClanGroupApplyPage 之后定义，
   // 否则 const 的 TDZ（Temporal Dead Zone）会触发 "Cannot access 'X' before initialization"
   const SystemPage = makeSubTabsMixin('/system', {
     '/clan/group': { name: 'g', label: '部落群组', component: 'groupCrud' },
+    '/clan/group/apply': { name: 'a', label: '入组申请', component: 'ClanGroupApplyPage' },
     '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
     '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
     '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuTree' },
     '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
   }, {
-    components: { groupCrud, UserManage, RoleManage, menuTree, DictManage }
+    components: { groupCrud, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage }
   });
 
   /* ============ 路由 ============ */
@@ -993,9 +1161,10 @@
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', component: Dashboard, meta: { title: '数据看板' } },
         { path: 'clan', component: ClanPage },
+        { path: 'clan/group/apply', component: ClanGroupApplyPage, meta: { title: '入组申请', perm: 'group:apply:list' } },
         { path: 'war', component: WarPage },
         { path: 'league', component: LeaguePage },
-        { path: 'system', component: SystemPage, meta: { perm: 'system:manage' } }
+        { path: 'system', component: SystemPage }
       ]
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' }

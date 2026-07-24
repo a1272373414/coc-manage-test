@@ -270,6 +270,9 @@
                   {{ row[c.prop]==1 ? (c.activeText||'是') : (c.inactiveText||'否') }}
                 </el-tag>
               </template>
+              <template #default="{ row }" v-else-if="c.formatter">
+                {{ c.formatter(row) }}
+              </template>
               <template #default="{ row }" v-else-if="(c.dictCode || c.options || c.type==='remote-select')">
                 {{ labelOf(c, row[c.prop]) }}
               </template>

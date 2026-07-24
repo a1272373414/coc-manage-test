@@ -121,7 +121,14 @@
     // 看板
     dashboardOverview: () => http.get('/api/dashboard/overview'),
     dashboardWarStat: () => http.get('/api/dashboard/war-stat'),
-    dashboardLeagueRank: () => http.get('/api/dashboard/league-rank')
+    dashboardLeagueRank: () => http.get('/api/dashboard/league-rank'),
+
+    // 入组申请
+    applyCreate: (body) => http.post('/api/clan/group/apply', body),
+    applyPage: (params) => http.get('/api/clan/group/apply/page', { params }),
+    applyApprove: (id) => http.put('/api/clan/group/apply/' + id + '/approve'),
+    applyReject: (id) => http.put('/api/clan/group/apply/' + id + '/reject'),
+    applyDelete: (id) => http.delete('/api/clan/group/apply/' + id)
   };
 
   // 全局字典分组 / 角色选项（登录后填充，供下拉使用）

@@ -5,13 +5,11 @@ import com.tencent.wxcloudrun.config.AuthUser;
 import com.tencent.wxcloudrun.config.RoleConstants;
 import com.tencent.wxcloudrun.dto.MenuNode;
 import com.tencent.wxcloudrun.dto.RegisterRequest;
-import com.tencent.wxcloudrun.entity.biz.ClanGroup;
 import com.tencent.wxcloudrun.entity.sys.SysMenu;
 import com.tencent.wxcloudrun.entity.sys.SysRole;
 import com.tencent.wxcloudrun.entity.sys.SysRoleMenu;
 import com.tencent.wxcloudrun.entity.sys.SysUser;
 import com.tencent.wxcloudrun.entity.sys.SysUserRole;
-import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
 import com.tencent.wxcloudrun.mapper.SysMenuMapper;
 import com.tencent.wxcloudrun.util.StreamUtils;
 import com.tencent.wxcloudrun.mapper.SysRoleMapper;
@@ -28,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -42,8 +39,6 @@ public class AuthService {
   private SysUserMapper userMapper;
   @Resource
   private SysUserRoleMapper userRoleMapper;
-  @Resource
-  private ClanGroupMapper clanGroupMapper;
   @Resource
   private SysRoleMapper roleMapper;
   @Resource
@@ -82,30 +77,18 @@ public class AuthService {
     user.setPassword(encoder.encode(req.getPassword()));
     user.setNickname(req.getNickname());
     user.setPhone(req.getPhone());
-
-    String groupNo = req.getGroupNo();
-    if (groupNo == null || groupNo.trim().isEmpty()) {
-      groupNo = generateGroupNo();
-    }
-    user.setGroupNo(groupNo);
+    user.setGroupNo(null);
     user.setStatus(1);
     userMapper.insert(user);
 
-    // 自助注册默认分配“部落组管理员”角色，可管理本组部落与成员
-    SysRole groupAdmin = roleMapper.selectOne(new QueryWrapper<SysRole>().eq("role_code", RoleConstants.GROUP_ADMIN));
-    if (groupAdmin != null) {
+    // 新注册用户默认分配"游客"角色，仅具有基础查看权限
+    SysRole visitorRole = roleMapper.selectOne(new QueryWrapper<SysRole>().eq("role_code", RoleConstants.VISITOR));
+    if (visitorRole != null) {
       SysUserRole ur = new SysUserRole();
       ur.setUserId(user.getId());
-      ur.setRoleId(groupAdmin.getId());
+      ur.setRoleId(visitorRole.getId());
       userRoleMapper.insert(ur);
     }
-    // 同步创建部落群组记录，便于部落/成员管理
-    ClanGroup group = new ClanGroup();
-    group.setGroupNo(groupNo);
-    group.setGroupName((user.getNickname() == null ? user.getUsername() : user.getNickname()) + "的部落组");
-    group.setOwnerId(user.getId());
-    group.setStatus(1);
-    clanGroupMapper.insert(group);
     return user;
   }
 
@@ -170,7 +153,7 @@ public class AuthService {
     au.setUserId(user.getId());
     au.setUsername(user.getUsername());
     au.setGroupNo(user.getGroupNo());
-    au.setSuperAdmin(user.getGroupNo() == null || user.getGroupNo().isEmpty());
+    // superAdmin 完全由角色表中的 SUPER_ADMIN 角色决定，不依赖 groupNo 是否为空
 
     List<SysUserRole> userRoles = userRoleMapper.selectList(new QueryWrapper<SysUserRole>().eq("user_id", user.getId()));
     Set<Long> roleIds = StreamUtils.mapNonNullToSet(userRoles, SysUserRole::getRoleId);
@@ -261,9 +244,5 @@ public class AuthService {
         sortMenuTree(node.getChildren());
       }
     }
-  }
-
-  private String generateGroupNo() {
-    return "G" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
   }
 }

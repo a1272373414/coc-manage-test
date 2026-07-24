@@ -44,3 +44,39 @@ ALTER TABLE league DROP COLUMN extra_count;
 ALTER TABLE league DROP COLUMN league_coin;
 ALTER TABLE league DROP COLUMN extra_coin;
 ALTER TABLE league DROP COLUMN promote_status;
+
+
+
+-- 4. league_clan_score 表增加报名状态冗余字段
+ALTER TABLE league_clan_score ADD COLUMN signup_status TINYINT DEFAULT NULL COMMENT '报名状态：1=未报名 2=备选报名 3=主动报名（字典项signup_status）';
+
+-- 5. league_record 表增加报名状态冗余字段
+ALTER TABLE league_record ADD COLUMN signup_status TINYINT DEFAULT NULL COMMENT '报名状态：1=未报名 2=备选报名 3=主动报名（字典项signup_status）' after has_extra;
+
+-- 6. league 表去掉 league_no 单一唯一索引，改为 (league_no, group_no, deleted) 联合唯一索引
+ALTER TABLE league DROP INDEX uk_league_no;
+ALTER TABLE league ADD UNIQUE KEY uk_league_group_deleted (league_no, group_no, deleted);
+
+-- 7. 入组申请表
+CREATE TABLE IF NOT EXISTS clan_group_apply (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  group_no VARCHAR(64) NOT NULL COMMENT '申请加入的群组编号',
+  user_id BIGINT NOT NULL COMMENT '申请人用户ID',
+  apply_status TINYINT NOT NULL DEFAULT 1 COMMENT '申请状态：1=申请中 2=同意 3=拒绝',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  created_by VARCHAR(64) DEFAULT NULL COMMENT '创建人',
+  updated_by VARCHAR(64) DEFAULT NULL COMMENT '更新人',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删除 1=已删除',
+  KEY idx_group_status (group_no, apply_status),
+  KEY idx_user_status (user_id, apply_status, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='入组申请表';
+
+-- 8. 游客角色（如已存在则忽略）
+INSERT IGNORE INTO sys_role (id, role_code, role_name, status) VALUES (5, 'VISITOR', '游客', 1);
+
+-- 9. 入组申请菜单及角色菜单绑定
+INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permission, sort, icon) VALUES
+(19, '入组申请', 1, 5, '/clan/group/apply', 'group:apply:list', 6, NULL);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
+(1, 19), (2, 19), (5, 19);

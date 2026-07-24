@@ -70,6 +70,14 @@ public class AuthController {
    * - userId 为目标用户 id
    * - roleIds 为新角色 id 集合，空数组表示清空角色
    */
+  /**
+   * 退出登录。JWT 无状态，服务端无需额外操作，前端只需清空本地 token。
+   */
+  @PostMapping("/logout")
+  public ApiResponse logout() {
+    return ApiResponse.ok();
+  }
+
   @PostMapping("/assign-role")
   @Transactional
   public ApiResponse assignRole(@RequestBody Map<String, Object> body) {

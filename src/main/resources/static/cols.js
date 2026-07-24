@@ -56,10 +56,12 @@
   // 联赛部落成绩（从 league 表拆分）
   const leagueClanScoreCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
-    { prop: 'leagueNo', label: '联赛', search: true, type: 'remote-select', rule: req('请选择联赛'),
+    { prop: 'leagueNo', label: '联赛', search: true, type: 'remote-select', hideInTable: true, rule: req('请选择联赛'),
       url: '/api/league', labelKey: 'leagueName', valueKey: 'leagueNo', placeholder: '请输入关键字筛选联赛' },
-    { prop: 'clanNo', label: '部落', search: true, type: 'remote-select', rule: req('请选择部落'),
+    { prop: 'clanNo', label: '部落', search: true, type: 'remote-select', hideInTable: true, rule: req('请选择部落'),
       url: '/api/clan', labelKey: 'clanName', valueKey: 'clanNo', placeholder: '请输入关键字筛选部落' },
+    { prop: 'leagueName', label: '联赛名称', hideInForm: true },
+    { prop: 'clanName', label: '部落名称', hideInForm: true },
     { prop: 'tier', label: '联赛段位', type: 'select', dictCode: 'league_tier', search: true },
     { prop: 'resultRank', label: '本段排名', type: 'number' },
     { prop: 'extraCount', label: '额外人数', type: 'number' },
@@ -70,15 +72,22 @@
   ];
   const leagueRecordCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
-    { prop: 'leagueNo', label: '联赛编号', search: true, rule: req('请输入联赛编号') },
-    { prop: 'clanNo', label: '部落编号', search: true, rule: req('请输入部落编号') },
-    { prop: 'memberName', label: '成员名称', rule: req('请输入成员名称') },
-    { prop: 'memberNo', label: '成员编号', rule: req('请输入成员编号') },
+    { prop: 'leagueNo', label: '联赛', search: true, type: 'remote-select', hideInTable: true, rule: req('请选择联赛'),
+      url: '/api/league', labelKey: 'leagueName', valueKey: 'leagueNo', placeholder: '请输入关键字筛选联赛' },
+    { prop: 'clanNo', label: '部落', search: true, type: 'remote-select', hideInTable: true, rule: req('请选择部落'),
+      url: '/api/clan', labelKey: 'clanName', valueKey: 'clanNo', placeholder: '请输入关键字筛选部落' },
+    { prop: 'leagueName', label: '联赛', extraProp: 'leagueNo', hideInForm: true },
+    { prop: 'clanName', label: '部落', extraProp: 'clanNo', hideInForm: true },
+    { prop: 'memberName', label: '成员名称', search: true, extraProp: 'memberNo', rule: req('请输入成员名称') },
+    { prop: 'memberNo', label: '成员编号', hideInTable: true },
     { prop: 'winStars', label: '胜利之星', type: 'number' },
     { prop: 'destroyRate', label: '摧毁率(%)', type: 'number' },
-    { prop: 'actualAttacks', label: '实际攻击', type: 'number' },
-    { prop: 'requiredAttacks', label: '要求攻击', type: 'number' },
-    { prop: 'hasExtra', label: '额外参赛', type: 'select', default: 0, options: [{ label: '否', value: 0 }, { label: '是', value: 1 }] }
+    { prop: 'actualAttacks', label: '实际攻击次数', type: 'number', hideInTable: true, rule: req('请输入实际攻击次数') },
+    { prop: 'requiredAttacks', label: '应该攻击次数', type: 'number', hideInTable: true, rule: req('请输入应该攻击次数') },
+    { prop: 'attackCount', label: '进攻次数', hideInForm: true,
+      formatter: (row) => (row.actualAttacks || 0) + '/' + (row.requiredAttacks || 0) },
+    { prop: 'hasExtra', label: '是否有额外', type: 'select', default: 0, options: [{ label: '否', value: 0 }, { label: '是', value: 1 }] },
+    { prop: 'signupStatus', label: '报名状态', type: 'select', dictCode: 'signup_status', search: true, default: '1' }
   ];
   const leagueSignupCols = [
     { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },

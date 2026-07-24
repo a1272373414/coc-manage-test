@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.entity.biz;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.tencent.wxcloudrun.entity.BaseEntity;
 import lombok.Getter;
@@ -29,4 +30,12 @@ public class LeagueClanScore extends BaseEntity {
   private Integer extraCoin;
   /** 晋级状态 0=无 1=晋级 2=降级 */
   private Integer promoteStatus;
+
+  /** 联赛名称（非数据库字段） */
+  @TableField(exist = false)
+  private String leagueName;
+
+  /** 部落名称（非数据库字段） */
+  @TableField(exist = false)
+  private String clanName;
 }

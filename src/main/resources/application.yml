@@ -1,4 +1,7 @@
-# 公共配置
+# 调试配置，当配置为true时，把堆栈跟踪的错误信息也返回给前端
+debug:
+  errorMsgShow: false
+
 server:
   port: 8080
 
