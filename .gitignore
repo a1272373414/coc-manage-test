@@ -8,3 +8,6 @@ target/**
 .vscode/settings.json
 .vscode/tasks.json
 frontend-test/node_modules
+
+# 本地开发专属配置（含密钥，不纳入版本管理）
+src/main/resources/application-local.yml

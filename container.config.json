@@ -20,7 +20,10 @@
 			"PolicyThreshold": 50
 		}
 	],
-	"envParams": {},                                
+	"envParams": {
+		"TENCENT_OCR_SECRET_ID": "REPLACE_WITH_YOUR_SECRET_ID",
+		"TENCENT_OCR_SECRET_KEY": "REPLACE_WITH_YOUR_SECRET_KEY"
+	},                                
 	"customLogs": "stdout",                         
 	"dataBaseName":"springboot_demo",               
 	"executeSQLs":[
