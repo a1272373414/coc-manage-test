@@ -5,7 +5,6 @@ import com.tencent.wxcloudrun.config.AuthUser;
 import com.tencent.wxcloudrun.config.RoleConstants;
 import com.tencent.wxcloudrun.dto.MenuNode;
 import com.tencent.wxcloudrun.dto.RegisterRequest;
-import com.tencent.wxcloudrun.entity.biz.ClanGroup;
 import com.tencent.wxcloudrun.entity.sys.SysMenu;
 import com.tencent.wxcloudrun.entity.sys.SysRole;
 import com.tencent.wxcloudrun.entity.sys.SysRoleMenu;
@@ -136,7 +135,14 @@ class AuthServiceTest {
     user.setStatus(1);
 
     when(userMapper.selectOne(any(QueryWrapper.class))).thenReturn(user);
-    when(userRoleMapper.selectList(any(QueryWrapper.class))).thenReturn(Collections.emptyList());
+    // 超级管理员由 SUPER_ADMIN 角色决定（而非 groupNo 为空）
+    SysUserRole sur = new SysUserRole();
+    sur.setRoleId(99L);
+    SysRole superRole = new SysRole();
+    superRole.setId(99L);
+    superRole.setRoleCode(RoleConstants.SUPER_ADMIN);
+    when(userRoleMapper.selectList(any(QueryWrapper.class))).thenReturn(Collections.singletonList(sur));
+    when(roleMapper.selectBatchIds(anyCollection())).thenReturn(Collections.singletonList(superRole));
 
     AuthUser result = authService.login("root", "root123");
 
@@ -156,22 +162,22 @@ class AuthServiceTest {
 
     when(userMapper.selectCount(any(QueryWrapper.class))).thenReturn(0L);
 
-    SysRole groupAdminRole = new SysRole();
-    groupAdminRole.setId(10L);
-    groupAdminRole.setRoleCode(RoleConstants.GROUP_ADMIN);
-    when(roleMapper.selectOne(any(QueryWrapper.class))).thenReturn(groupAdminRole);
+    // 注册默认分配"游客"角色
+    SysRole visitorRole = new SysRole();
+    visitorRole.setId(10L);
+    visitorRole.setRoleCode(RoleConstants.VISITOR);
+    when(roleMapper.selectOne(any(QueryWrapper.class))).thenReturn(visitorRole);
 
     SysUser result = authService.register(req);
 
     assertNotNull(result);
     assertEquals("newuser", result.getUsername());
-    assertNotNull(result.getGroupNo());
-    assertTrue(result.getGroupNo().startsWith("G"));
     assertEquals(1, result.getStatus());
+    assertNull(result.getGroupNo()); // 未指定 groupNo 时默认为空
 
     verify(userMapper, times(1)).insert(any(SysUser.class));
     verify(userRoleMapper, times(1)).insert(any(SysUserRole.class));
-    verify(clanGroupMapper, times(1)).insert(any(ClanGroup.class));
+    // 注册不再自动创建部落群组
   }
 
   @Test
@@ -289,7 +295,21 @@ class AuthServiceTest {
 
     AuthUser au = authService.toAuthUser(user);
 
-    assertTrue(au.isSuperAdmin());
+    // group_no 为空但无 SUPER_ADMIN 角色时，不是超级管理员
+    assertFalse(au.isSuperAdmin());
+
+    // 超级管理员由 SUPER_ADMIN 角色决定：补充该角色后再断言为 true
+    SysUserRole sur = new SysUserRole();
+    sur.setRoleId(99L);
+    SysRole superRole = new SysRole();
+    superRole.setId(99L);
+    superRole.setRoleCode(RoleConstants.SUPER_ADMIN);
+    when(userRoleMapper.selectList(any(QueryWrapper.class)))
+        .thenReturn(Collections.singletonList(sur));
+    when(roleMapper.selectBatchIds(anyCollection())).thenReturn(Collections.singletonList(superRole));
+
+    AuthUser au2 = authService.toAuthUser(user);
+    assertTrue(au2.isSuperAdmin());
   }
 
   // ==================== info() 测试 ====================

@@ -77,7 +77,8 @@ public class AuthService {
     user.setPassword(encoder.encode(req.getPassword()));
     user.setNickname(req.getNickname());
     user.setPhone(req.getPhone());
-    user.setGroupNo(null);
+    // 指定 groupNo 时使用指定值（如 CUSTOM001），否则默认为空（游客）
+    user.setGroupNo(req.getGroupNo() != null ? req.getGroupNo().trim() : null);
     user.setStatus(1);
     userMapper.insert(user);
 
