@@ -18,7 +18,6 @@ import com.tencent.wxcloudrun.mapper.SysUserRoleMapper;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 
@@ -26,7 +25,7 @@ import javax.annotation.Resource;
  * 启动初始化：注入默认角色、超级管理员账号、系统管理菜单以及常用字典数据。
  * 在 UserContext 未设置的启动阶段执行，因此不受 group_no 多租户过滤影响。
  */
-@Component
+// @Component
 public class DataInitializer implements ApplicationRunner {
 
   @Resource
@@ -53,6 +52,7 @@ public class DataInitializer implements ApplicationRunner {
     Long groupAdminRole = ensureRole(RoleConstants.GROUP_ADMIN, "部落组管理员");
     ensureRole(RoleConstants.LEAGUE_ADMIN, "赛事管理员");
     ensureRole(RoleConstants.MEMBER, "普通成员");
+    ensureRole(RoleConstants.VISITOR, "游客");
 
     // 顶级菜单（全部带 permission 和 sort，按业务优先级排序）
     Long dashboardMenu = ensureMenu("dashboard:view", "数据看板", "/dashboard", 1, 10);
