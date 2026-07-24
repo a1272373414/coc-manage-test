@@ -63,7 +63,10 @@
                 const r = await COC.api.dictItems(c.dictCode);
                 this.dictOptions[c.dictCode] = (r.records || []).map((i) => ({
                   label: i.itemName,
-                  value: i.itemValue
+                  // 将纯数字字串规范化为 Number，使 el-select 与表单绑定值类型一致，回显中文
+                  value: typeof i.itemValue === 'string' && /^-?\d+(\.\d+)?$/.test(i.itemValue.trim())
+                    ? Number(i.itemValue.trim())
+                    : i.itemValue
                 }));
               } catch (e) { /* 无权限或字典未初始化 */ }
             })
@@ -359,6 +362,7 @@
             <el-button type="primary" :loading="initLoading" @click="doInitSignup">确认初始化</el-button>
           </template>
         </el-dialog>
+        ${opts.extraTemplate || ''}
       </div>`
     };
   };

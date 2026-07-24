@@ -72,6 +72,9 @@ public class LeagueRecordController extends BaseCrudController<LeagueRecord> {
       String kw = keyword.trim();
       qw.and(w -> w.like("member_name", kw).or().like("member_no", kw));
     }
+    // 排序：联赛编号大的排前面，排名数字小的排前面，id 降序兜底保证分页稳定
+    qw.orderByDesc("league_no");
+    qw.orderByAsc("member_rank");
     qw.orderByDesc("id");
     mapper().selectPage(page, qw);
 

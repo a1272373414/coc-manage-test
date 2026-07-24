@@ -246,6 +246,7 @@ CREATE TABLE league_record (
   id               BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'ID',
   member_name      VARCHAR(64)  DEFAULT NULL COMMENT '成员名称',
   member_no        VARCHAR(32)  DEFAULT NULL COMMENT '成员编号',
+  member_rank      INT          DEFAULT NULL COMMENT '排名',
   league_no        VARCHAR(32)  NOT NULL COMMENT '所属联赛编号',
   clan_no          VARCHAR(32)  NOT NULL COMMENT '所属部落编号',
   group_no         VARCHAR(32)  NOT NULL COMMENT '所属群组编号',

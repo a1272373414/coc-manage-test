@@ -80,6 +80,7 @@
     { prop: 'clanName', label: '部落', extraProp: 'clanNo', hideInForm: true },
     { prop: 'memberName', label: '成员名称', search: true, extraProp: 'memberNo', rule: req('请输入成员名称') },
     { prop: 'memberNo', label: '成员编号', hideInTable: true },
+    { prop: 'memberRank', label: '排名', type: 'number' },
     { prop: 'winStars', label: '胜利之星', type: 'number' },
     { prop: 'destroyRate', label: '摧毁率(%)', type: 'number' },
     { prop: 'actualAttacks', label: '实际攻击次数', type: 'number', hideInTable: true, rule: req('请输入实际攻击次数') },

@@ -80,3 +80,9 @@ INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permissi
 (19, '入组申请', 1, 5, '/clan/group/apply', 'group:apply:list', 6, NULL);
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
 (1, 19), (2, 19), (5, 19);
+
+-- 10. 群组成员管理菜单（群主/超管可管理本群组成员：设为部落管理员、踢出）
+INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permission, sort, icon) VALUES
+(20, '群组成员', 1, 5, '/clan/group/user', 'group:user:list', 7, NULL);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
+(1, 20), (2, 20);

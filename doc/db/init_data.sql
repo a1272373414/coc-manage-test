@@ -107,3 +107,9 @@ INSERT IGNORE INTO dict_item (id, group_code, item_value, item_name, sort, statu
 (30, 'league_tier', '16', '冠军杯III',  16, 1),
 (31, 'league_tier', '17', '冠军杯II',   17, 1),
 (32, 'league_tier', '18', '冠军杯I',    18, 1);
+
+-- 8. 群组成员管理菜单（群主/超管可管理本群组成员：设为部落管理员、踢出）
+INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permission, sort, icon) VALUES
+(20, '群组成员', 1, 5, '/clan/group/user', 'group:user:list', 7, NULL);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
+(1, 20), (2, 20);

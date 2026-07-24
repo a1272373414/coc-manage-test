@@ -50,6 +50,8 @@
   http.interceptors.response.use(
     (res) => {
       const d = res.data;
+      // 文件下载（blob）直接返回，不走业务 code 约定
+      if (d instanceof Blob) return d;
       if (d && d.code === 0) return d.data;
       // 后端对鉴权失败统一返回 HTTP 200 + body code=401（见 JwtInterceptor）
       if (d && d.code === 401) {
@@ -122,6 +124,18 @@
     dashboardOverview: () => http.get('/api/dashboard/overview'),
     dashboardWarStat: () => http.get('/api/dashboard/war-stat'),
     dashboardLeagueRank: () => http.get('/api/dashboard/league-rank'),
+
+    // 群组成员
+    groupMemberPage: (params) => http.get('/api/clan/group/user/page', { params }),
+    groupMemberSetAdmin: (userId) => http.put('/api/clan/group/user/' + userId + '/set-admin'),
+    groupMemberKick: (userId) => http.put('/api/clan/group/user/' + userId + '/kick'),
+    groupMemberCancelAdmin: (userId) => http.put('/api/clan/group/user/' + userId + '/cancel-admin'),
+
+    // 联赛战绩导入
+    leagueImportPreview: (formData) => http.post('/api/league/record/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    leagueImportConfirm: (body) => http.post('/api/league/record/import/confirm', body),
+    leagueImportTemplate: (type) => http.get('/api/league/record/import/template', { params: { type: type }, responseType: 'blob' }),
+    leagueCheckMembers: (body) => http.post('/api/league/record/import/check-members', body),
 
     // 入组申请
     applyCreate: (body) => http.post('/api/clan/group/apply', body),

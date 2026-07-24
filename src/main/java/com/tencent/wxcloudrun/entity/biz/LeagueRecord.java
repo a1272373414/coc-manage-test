@@ -16,6 +16,8 @@ public class LeagueRecord extends BaseEntity {
 
   private String memberName;
   private String memberNo;
+  /** 排名 */
+  private Integer memberRank;
   private String leagueNo;
   private String clanNo;
   private String groupNo;

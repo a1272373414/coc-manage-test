@@ -13,6 +13,10 @@ spring:
     view:
       suffix: .html
       prefix: /
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 200MB
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/*Mapper.xml
@@ -24,3 +28,11 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-not-delete-value: 0
       logic-delete-value: 1
+
+# 腾讯云 OCR 表格识别V3（图片导入用），密钥建议生产环境通过环境变量覆盖
+tencent:
+  ocr:
+    secret-id: ${TENCENT_OCR_SECRET_ID}
+    secret-key: ${TENCENT_OCR_SECRET_KEY}
+    region: ap-guangzhou
+    endpoint: ocr.tencentcloudapi.com

@@ -68,7 +68,389 @@
     var end = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
     this.form.signupEnd = fmt(end);
   };
-  const leagueRecordCrud = createCrud({ name: 'LeagueRecordCrud', baseUrl: '/api/league/record', cols: leagueRecordCols });
+  // 导入弹窗模板：选择方式 → 上传/解析 → 预览编辑 → 确认导入
+  const IMPORT_DIALOG_TEMPLATE = `
+<el-dialog v-model="importDialogVisible" title="导入联赛战绩" width="1200px" :close-on-click-modal="false" destroy-on-close>
+    <el-form label-width="90px" style="margin-bottom:8px">
+      <el-form-item label="所属群组" required>
+        <el-input :model-value="importGroupLabel" disabled placeholder="-" />
+      </el-form-item>
+      <el-form-item label="所属联赛" required>
+        <el-select v-model="importLeagueNo" filterable clearable placeholder="请选择联赛" style="width:100%">
+          <el-option v-for="o in (remoteOptions.leagueNo||[])" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="所属部落" required>
+        <el-select v-model="importClanNo" filterable clearable placeholder="请选择部落" style="width:100%">
+          <el-option v-for="o in (remoteOptions.clanNo||[])" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+
+    <div v-if="importStep==='select'">
+      <div style="margin:8px 0 12px;color:#909399;font-size:13px;">请选择导入方式：</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <el-button @click="chooseImportType('image')" style="width:160px;height:80px;">
+          <div>图片导入</div>
+          <div style="font-size:12px;color:#909399;margin-top:4px;">可多张，按数字命名</div>
+        </el-button>
+        <el-button @click="chooseImportType('excel')" style="width:160px;height:80px;">
+          <div>Excel 导入</div>
+          <div style="font-size:12px;color:#909399;margin-top:4px;">.xlsx 文件</div>
+        </el-button>
+        <el-button @click="chooseImportType('json')" style="width:160px;height:80px;">
+          <div>JSON 导入</div>
+          <div style="font-size:12px;color:#909399;margin-top:4px;">本地解析</div>
+        </el-button>
+      </div>
+      <div style="margin-top:16px;">
+        <el-button link type="primary" @click="downloadTemplate('excel')">下载 Excel 示例</el-button>
+        <el-button link type="primary" @click="downloadTemplate('json')">下载 JSON 示例</el-button>
+      </div>
+    </div>
+
+    <div v-if="importStep==='upload'">
+      <div v-if="importType==='image'" style="margin-bottom:8px;color:#E6A23C;font-size:13px;">
+        请选择多张图片，图片需按顺序以数字命名（如 1.jpg、2.jpg ...）
+      </div>
+      <el-upload
+        :auto-upload="false"
+        :on-change="onImportFileChange"
+        :on-remove="onImportFileRemove"
+        :multiple="importType==='image'"
+        :accept="importType==='image' ? 'image/*' : '.xlsx,.xls'"
+        :file-list="importFiles"
+        :limit="importType==='image' ? 50 : 1">
+        <el-button type="primary">选择{{ importType==='image' ? '图片' : 'Excel' }}</el-button>
+      </el-upload>
+      <div style="margin-top:16px;">
+        <el-button @click="importStep='select'">上一步</el-button>
+        <el-button type="success" :loading="previewLoading" :disabled="!importFiles.length" @click="doParseImport">上传并解析</el-button>
+      </div>
+    </div>
+
+    <div v-if="importStep==='json'">
+      <div style="margin-bottom:8px;color:#909399;font-size:13px;">粘贴 JSON 文本，或选择 .json 文件本地解析：</div>
+      <el-input v-model="importJsonText" type="textarea" :rows="6" placeholder='{"data":[{"rank":1,"name":"成员","stars":21,"destruction":700.0,"attacks":"7/7"}]}' />
+      <el-upload
+        :auto-upload="false"
+        :on-change="onJsonFileChange"
+        accept=".json"
+        :show-file-list="false"
+        style="margin-top:8px;display:inline-block">
+        <el-button>选择 .json 文件</el-button>
+      </el-upload>
+      <div style="margin-top:16px;">
+        <el-button @click="importStep='select'">上一步</el-button>
+        <el-button type="success" :loading="previewLoading" :disabled="!importJsonText" @click="doParseJson">解析 JSON</el-button>
+      </div>
+    </div>
+
+    <div v-if="importStep==='preview'">
+      <div style="margin-bottom:8px;color:#909399;font-size:13px;">共 {{ previewList.length }} 条，可编辑后确认导入：</div>
+        <el-table :data="previewList" border stripe max-height="420" size="small" style="width:100%;table-layout:fixed">
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column label="排名" width="72">
+          <template #default="{row}"><el-input v-model="row.rank" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="成员名称" min-width="160">
+          <template #default="{row}">
+            <div :class="row.memberExists ? 'member-exists-cell' : ''" :title="row.memberExists ? '该成员已在部落成员表中' : ''">
+              <el-input v-model="row.memberName" size="small" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="胜利之星" width="100">
+          <template #default="{row}"><el-input-number v-model="row.winStars" :min="0" controls-position="right" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="摧毁率" width="100">
+          <template #default="{row}"><el-input-number v-model="row.destroyRate" :min="0" controls-position="right" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="是否有额外" width="110">
+          <template #default="{row}">
+            <el-select v-model="row.hasExtra" size="small" style="width:100%">
+              <el-option :value="1" label="是" />
+              <el-option :value="0" label="否" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="实际进攻" width="100">
+          <template #default="{row}"><el-input-number v-model="row.actualAttacks" :min="0" controls-position="right" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="应进攻" width="100">
+          <template #default="{row}"><el-input-number v-model="row.requiredAttacks" :min="0" controls-position="right" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="操作" width="80" fixed="right">
+          <template #default="{row,$index}"><el-button link type="danger" size="small" @click="previewList.splice($index,1)">删除</el-button></template>
+        </el-table-column>
+      </el-table>
+      <div style="margin-top:16px;">
+        <el-button @click="importStep='select'">重新选择</el-button>
+        <el-button type="primary" :loading="confirmLoading" @click="doConfirmImport">确认导入</el-button>
+      </div>
+    </div>
+  </el-dialog>`;
+
+  const leagueRecordCrud = createCrud({
+    name: 'LeagueRecordCrud',
+    baseUrl: '/api/league/record',
+    cols: leagueRecordCols,
+    extraButtons: [
+      { text: '导入', type: 'primary', click: 'openImport' }
+    ],
+    extraTemplate: IMPORT_DIALOG_TEMPLATE
+  });
+
+  // 导入弹窗所需的 data 字段
+  var _recOrigData = leagueRecordCrud.data;
+  leagueRecordCrud.data = function () {
+    var d = _recOrigData.call(this);
+    d.importDialogVisible = false;
+    d.importType = '';          // image | excel | json
+    d.importStep = 'select';   // select | upload | json | preview
+    d.importFiles = [];         // el-upload 选中的文件
+    d.importJsonText = '';      // JSON 粘贴文本
+    d.previewList = [];         // 预览数据
+    d.previewLoading = false;
+    d.confirmLoading = false;
+    d.importLeagueNo = '';
+    d.importClanNo = '';
+    d.importGroupNo = '';
+    d.importGroupLabel = '';
+    return d;
+  };
+
+  // 确保命中成员的绿色样式已注入全局（只注入一次）
+  function ensureImportStyle() {
+    if (document.getElementById('league-import-green-style')) return;
+    var s = document.createElement('style');
+    s.id = 'league-import-green-style';
+    s.textContent = '' +
+      '.member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;padding:2px 2px;}' +
+      '.member-exists-cell .el-input__wrapper{background-color:transparent!important;box-shadow:none!important;}' +
+      '.member-exists-cell .el-input__inner{color:#2e7d32!important;font-weight:700;}';
+    document.head.appendChild(s);
+  }
+
+  // 打开导入弹窗：预填当前筛选的联赛/部落与登录用户群组，并加载群组下拉
+  leagueRecordCrud.methods.openImport = async function () {
+    ensureImportStyle();
+    this.importLeagueNo = (this.filters && this.filters.leagueNo) || '';
+    this.importClanNo = (this.filters && this.filters.clanNo) || '';
+    this.importGroupNo = (COC.store.user && COC.store.user.groupNo) || '';
+    this.importType = '';
+    this.importStep = 'select';
+    this.previewList = [];
+    this.importFiles = [];
+    this.importJsonText = '';
+    this.importDialogVisible = true;
+    if (!this.remoteOptions.groupNo || !this.remoteOptions.groupNo.length) {
+      try {
+        var r = await COC.api.page('/api/clan/group', { size: 9999 });
+        this.remoteOptions.groupNo = (r.records || []).map(function (x) {
+          return { label: x.groupName || x.groupNo, value: x.groupNo };
+        });
+      } catch (e) { /* ignore */ }
+    }
+    // 用登录用户的 groupNo 反查群组名作为只读展示；查不到则回退为 groupNo
+    var hit = (this.remoteOptions.groupNo || []).find((x) => x.value === this.importGroupNo);
+    this.importGroupLabel = (hit && hit.label) || this.importGroupNo;
+  };
+
+  leagueRecordCrud.methods.chooseImportType = function (t) {
+    this.importType = t;
+    this.importFiles = [];
+    this.importJsonText = '';
+    this.previewList = [];
+    this.importStep = (t === 'json') ? 'json' : 'upload';
+  };
+
+  leagueRecordCrud.methods.onImportFileChange = function (file, fileList) {
+    this.importFiles = fileList;
+  };
+  leagueRecordCrud.methods.onImportFileRemove = function (file, fileList) {
+    this.importFiles = fileList;
+  };
+
+  leagueRecordCrud.methods.onJsonFileChange = function (file) {
+    var self = this;
+    var reader = new FileReader();
+    reader.onload = function (e) { self.importJsonText = e.target.result; };
+    reader.readAsText(file.raw);
+  };
+
+  leagueRecordCrud.methods.doParseImport = async function () {
+    if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
+      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      return;
+    }
+    if (!this.importFiles.length) {
+      ElementPlus.ElMessage.warning('请选择文件');
+      return;
+    }
+    this.previewLoading = true;
+    try {
+      var fd = new FormData();
+      fd.append('type', this.importType);
+      fd.append('leagueNo', this.importLeagueNo);
+      fd.append('clanNo', this.importClanNo);
+      fd.append('groupNo', this.importGroupNo);
+      for (var i = 0; i < this.importFiles.length; i++) {
+        var raw = this.importFiles[i].raw;
+        if (raw) fd.append('files', raw);
+      }
+      var res = await COC.api.leagueImportPreview(fd);
+      this.previewList = (res && res.records) || [];
+      this.importStep = 'preview';
+      ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+    } catch (e) {
+      ElementPlus.ElMessage.error('解析失败');
+    } finally {
+      this.previewLoading = false;
+    }
+  };
+
+  leagueRecordCrud.methods.doParseJson = function () {
+    if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
+      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      return;
+    }
+    if (!this.importJsonText) {
+      ElementPlus.ElMessage.warning('请粘贴或选择 JSON');
+      return;
+    }
+    var parsed;
+    try {
+      parsed = JSON.parse(this.importJsonText);
+    } catch (e) {
+      ElementPlus.ElMessage.error('JSON 格式错误');
+      return;
+    }
+    // 兼容脚本输出：{metadata, data:[{...}], records:[[...]]}，以及纯数组
+    var arr = parsed.data || parsed.records || parsed;
+    if (!Array.isArray(arr)) {
+      ElementPlus.ElMessage.error('未识别到数据数组');
+      return;
+    }
+    var self = this;
+    this.previewList = arr.map(function (item) {
+      // 兼容对象 {rank,name,stars,destruction,attacks} 或数组 [rank,name,stars,destruction,attacks]
+      var obj = Array.isArray(item)
+        ? { rank: item[0], name: item[1], stars: item[2], destruction: item[3], attacks: item[4] }
+        : item;
+      // 进攻次数规范化（兼容 attacks:"7/7" 或 actualAttacks/requiredAttacks 两个字段）
+      var atkRaw = (obj.attacks != null ? obj.attacks
+        : (obj.actualAttacks != null && obj.requiredAttacks != null ? obj.actualAttacks + '/' + obj.requiredAttacks : ''));
+      var atkNorm = self.normalizeAttacks(atkRaw) || atkRaw;
+      var atk = String(atkNorm || '').split('/');
+      var actual = Number(atk[0]) || 0;
+      var required = Number(atk[1]) || 0;
+      var winStars = Number(obj.stars != null ? obj.stars : obj.winStars);
+      if (isNaN(winStars)) winStars = 0;
+      var destroyRate = Number(obj.destruction != null ? obj.destruction : obj.destroyRate);
+      if (isNaN(destroyRate)) destroyRate = 0;
+      // 未参战行(0/0 或 0/1) → 胜利之星/摧毁率补0
+      if ((actual === 0 && required === 0) || (actual === 0 && required === 1)) {
+        winStars = 0;
+        destroyRate = 0;
+      }
+      return {
+        rank: obj.rank != null ? String(obj.rank) : '',
+        memberName: obj.name || obj.memberName || '',
+        winStars: winStars,
+        destroyRate: Math.round(destroyRate),
+        actualAttacks: actual,
+        requiredAttacks: required,
+        hasExtra: 0,
+        signupStatus: null,
+        leagueNo: self.importLeagueNo,
+        clanNo: self.importClanNo,
+        groupNo: self.importGroupNo
+      };
+    });
+    this.importStep = 'preview';
+    ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+    // JSON 本地解析后，查询后台判断成员是否存在，回填 memberExists
+    this.checkMemberExists();
+  };
+
+  // 查询后台：批量判断 previewList 中的成员名是否存在于所选部落+群组，回填 memberExists
+  leagueRecordCrud.methods.checkMemberExists = async function () {
+    if (!this.importClanNo || !this.importGroupNo || !this.previewList.length) return;
+    var names = [];
+    for (var i = 0; i < this.previewList.length; i++) {
+      var nm = (this.previewList[i].memberName || '').trim();
+      if (nm && names.indexOf(nm) === -1) names.push(nm);
+    }
+    if (!names.length) return;
+    try {
+      var res = await COC.api.leagueCheckMembers({
+        clanNo: this.importClanNo,
+        groupNo: this.importGroupNo,
+        names: names
+      });
+      var exists = (res && res.exists) || [];
+      for (var j = 0; j < this.previewList.length; j++) {
+        var r = this.previewList[j];
+        r.memberExists = exists.indexOf((r.memberName || '').trim()) !== -1;
+      }
+    } catch (e) { /* 忽略，不影响预览 */ }
+  };
+
+  // 进攻次数规范化：标准 X/Y 或 OCR 误读(777→7/7, 000→0/0)；无法识别返回 null
+  leagueRecordCrud.methods.normalizeAttacks = function (val) {
+    if (val == null) return null;
+    var s = String(val).trim();
+    var m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (m) return m[1] + '/' + m[2];
+    m = s.match(/^(\d)\1{1,2}$/);
+    if (m && s.length <= 3) return m[1] + '/' + m[1];
+    return null;
+  };
+
+  leagueRecordCrud.methods.downloadTemplate = async function (type) {
+    try {
+      var blob = await COC.api.leagueImportTemplate(type);
+      var ext = type === 'json' ? 'json' : 'xlsx';
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'league-record-example.' + ext;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      ElementPlus.ElMessage.error('下载示例失败');
+    }
+  };
+
+  leagueRecordCrud.methods.doConfirmImport = async function () {
+    if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
+      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      return;
+    }
+    if (!this.previewList.length) {
+      ElementPlus.ElMessage.warning('无导入数据');
+      return;
+    }
+    this.confirmLoading = true;
+    try {
+      var res = await COC.api.leagueImportConfirm({
+        leagueNo: this.importLeagueNo,
+        clanNo: this.importClanNo,
+        groupNo: this.importGroupNo,
+        records: this.previewList
+      });
+      ElementPlus.ElMessage.success('导入成功：' + ((res && res.inserted) || this.previewList.length) + ' 条');
+      this.importDialogVisible = false;
+      this.load();
+    } catch (e) {
+      ElementPlus.ElMessage.error('导入失败');
+    } finally {
+      this.confirmLoading = false;
+    }
+  };
   const leagueSignupCrud = createCrud({
     name: 'LeagueSignupCrud',
     baseUrl: '/api/league/signup',

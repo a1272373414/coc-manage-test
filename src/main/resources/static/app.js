@@ -1090,67 +1090,190 @@
         </el-form>
       </el-card>
 
-      <el-card>
-        <template #header><b>{{ isAdmin ? '入组申请管理' : '我的入组申请' }}</b></template>
-        <el-form v-if="isAdmin" :inline="true" :model="query" style="margin-bottom:12px">
-          <el-form-item label="申请状态">
-            <el-select v-model="query.applyStatus" clearable placeholder="全部" style="width:140px" @change="page=1;load()">
-              <el-option label="申请中" :value="1" />
-              <el-option label="同意" :value="2" />
-              <el-option label="拒绝" :value="3" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="page=1;load()">查询</el-button>
-          </el-form-item>
-        </el-form>
+      <el-form v-if="isAdmin" inline @submit.prevent class="coc-toolbar">
+        <el-form-item label="申请状态">
+          <el-select v-model="query.applyStatus" clearable placeholder="全部" style="width:140px" @change="page=1;load()">
+            <el-option label="申请中" :value="1" />
+            <el-option label="同意" :value="2" />
+            <el-option label="拒绝" :value="3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="page=1;load()">查询</el-button>
+        </el-form-item>
+      </el-form>
 
-        <el-table :data="records" v-loading="loading" stripe border>
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="username" label="申请人账号" width="130" />
-          <el-table-column prop="nickname" label="昵称" width="130" />
-          <el-table-column prop="groupName" label="目标群组" min-width="160" />
-          <el-table-column prop="applyStatus" label="状态" width="100">
-            <template #default="{row}">
-              <el-tag v-if="row.applyStatus === 1" type="warning">{{ statusLabel(row.applyStatus) }}</el-tag>
-              <el-tag v-else-if="row.applyStatus === 2" type="success">{{ statusLabel(row.applyStatus) }}</el-tag>
-              <el-tag v-else-if="row.applyStatus === 3" type="danger">{{ statusLabel(row.applyStatus) }}</el-tag>
-              <span v-else>{{ statusLabel(row.applyStatus) }}</span>
+      <el-table :data="records" v-loading="loading" border stripe>
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="username" label="申请人账号" width="130" />
+        <el-table-column prop="nickname" label="昵称" width="130" />
+        <el-table-column prop="groupName" label="目标群组" min-width="160" />
+        <el-table-column prop="applyStatus" label="状态" width="100">
+          <template #default="{row}">
+            <el-tag v-if="row.applyStatus === 1" type="warning">{{ statusLabel(row.applyStatus) }}</el-tag>
+            <el-tag v-else-if="row.applyStatus === 2" type="success">{{ statusLabel(row.applyStatus) }}</el-tag>
+            <el-tag v-else-if="row.applyStatus === 3" type="danger">{{ statusLabel(row.applyStatus) }}</el-tag>
+            <span v-else>{{ statusLabel(row.applyStatus) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="申请时间" width="160" />
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{row}">
+            <template v-if="isAdmin && row.applyStatus === 1">
+              <el-button size="small" type="success" @click="approve(row)">同意</el-button>
+              <el-button size="small" type="danger" @click="reject(row)">拒绝</el-button>
             </template>
-          </el-table-column>
-          <el-table-column prop="createdAt" label="申请时间" width="160" />
-          <el-table-column label="操作" width="200" fixed="right">
-            <template #default="{row}">
-              <template v-if="isAdmin && row.applyStatus === 1">
-                <el-button size="small" type="success" @click="approve(row)">同意</el-button>
-                <el-button size="small" type="danger" @click="reject(row)">拒绝</el-button>
-              </template>
-              <el-button v-if="!isAdmin && row.applyStatus === 1" size="small" type="danger" @click="cancel(row)">撤销</el-button>
-              <span v-if="row.applyStatus !== 1">-</span>
-            </template>
-          </el-table-column>
-        </el-table>
+            <el-button v-if="!isAdmin && row.applyStatus === 1" size="small" type="danger" @click="cancel(row)">撤销</el-button>
+            <span v-if="row.applyStatus !== 1">-</span>
+          </template>
+        </el-table-column>
+      </el-table>
 
-        <div style="display:flex;justify-content:flex-end;margin-top:12px">
-          <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
-            :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
-            @current-change="load" @size-change="load" />
-        </div>
-      </el-card>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
+          :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
+          @current-change="load" @size-change="load" />
+      </div>
     </div>`
   };
 
   // SystemPage 必须放在 UserManage / RoleManage / DictManage / ClanGroupApplyPage 之后定义，
   // 否则 const 的 TDZ（Temporal Dead Zone）会触发 "Cannot access 'X' before initialization"
+  const GroupMemberPage = {
+    template: /*html*/`
+      <div>
+        <el-form inline @submit.prevent class="coc-toolbar">
+          <el-form-item label="关键字"><el-input v-model="keyword" placeholder="用户名/昵称" clearable style="width:180px" @keyup.enter="search" /></el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="search">查询</el-button>
+            <el-button @click="resetSearch">重置</el-button>
+          </el-form-item>
+        </el-form>
+        <el-table :data="records" v-loading="loading" border stripe>
+          <el-table-column type="index" label="#" width="50" />
+          <el-table-column prop="username" label="用户名" width="140" />
+          <el-table-column prop="nickname" label="昵称" min-width="140" />
+          <el-table-column label="角色" width="200">
+            <template v-slot="{row}">
+              <el-tag v-for="role in (row.roleCodes || [])" :key="role" size="small" style="margin-right:4px"
+                :type="role==='SUPER_ADMIN'?'danger':role==='GROUP_ADMIN'?'warning':role==='LEAGUE_ADMIN'?'primary':''">
+                {{ roleLabel(role) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="280" fixed="right">
+            <template v-slot="{row}">
+              <template v-if="isGroupAdmin">
+                <el-popconfirm v-if="hasRole(row, 'LEAGUE_ADMIN')" title="确认取消该成员的部落管理员身份？" @confirm="doCancelAdmin(row)">
+                  <template #reference>
+                    <el-button type="warning" size="small" plain>取消部落管理员</el-button>
+                  </template>
+                </el-popconfirm>
+                <el-popconfirm v-else-if="!hasRole(row, 'GROUP_ADMIN')" title="确认设为部落管理员？" @confirm="doSetAdmin(row)">
+                  <template #reference>
+                    <el-button type="primary" size="small" plain style="margin-left:6px">设为部落管理员</el-button>
+                  </template>
+                </el-popconfirm>
+              </template>
+              <el-popconfirm v-if="canKick(row)" title="确认要踢出该成员并恢复为游客吗？" @confirm="doKick(row)">
+                <template #reference>
+                  <el-button type="danger" size="small" plain style="margin-left:6px">踢出</el-button>
+                </template>
+              </el-popconfirm>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <el-pagination v-model:current-page="page.current" v-model:page-size="page.size" :total="page.total"
+            :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
+            @current-change="c=>load(page.size,c)" @size-change="s=>load(s,1)" />
+        </div>
+      </div>`,
+    data() {
+      return {
+        records: [],
+        page: { current: 1, size: 10, total: 0 },
+        loading: false,
+        keyword: ''
+      };
+    },
+    computed: {
+      me() { return COC.store.user || {}; },
+      myRoleCodes() { return this.me.roleCodes || []; },
+      isGroupAdmin() { return this.myRoleCodes.indexOf('GROUP_ADMIN') !== -1; },
+      isManagerOrLeague() {
+        return this.myRoleCodes.indexOf('GROUP_ADMIN') !== -1
+          || this.myRoleCodes.indexOf('LEAGUE_ADMIN') !== -1;
+      }
+    },
+    mounted() { this.load(); },
+    methods: {
+      async load(size, current) {
+        this.loading = true;
+        try {
+          var s = size || this.page.size;
+          var c = current || 1;
+          var res = await COC.api.groupMemberPage({ current: c, size: s, keyword: this.keyword });
+          var data = res.data || res;
+          this.records = data.records || [];
+          this.page = { current: data.current || c, size: data.size || s, total: data.total || 0 };
+        } catch(e) {
+          ElementPlus.ElMessage.error('加载失败');
+        } finally { this.loading = false; }
+      },
+      search() { this.load(10, 1); },
+      resetSearch() { this.keyword = ''; this.load(10, 1); },
+      hasRole(row, code) {
+        return (row.roleCodes || []).indexOf(code) !== -1;
+      },
+      onlyMember(row) {
+        return this.hasRole(row, 'MEMBER')
+          && !this.hasRole(row, 'LEAGUE_ADMIN')
+          && !this.hasRole(row, 'GROUP_ADMIN')
+          && !this.hasRole(row, 'SUPER_ADMIN')
+          && !this.hasRole(row, 'VISITOR');
+      },
+      canKick(row) {
+        return this.isManagerOrLeague && this.onlyMember(row);
+      },
+      roleLabel(code) {
+        var m = {SUPER_ADMIN:'超级管理员',GROUP_ADMIN:'群主',LEAGUE_ADMIN:'部落管理员',MEMBER:'成员',VISITOR:'游客'};
+        return m[code] || code;
+      },
+      async doSetAdmin(row) {
+        try {
+          await COC.api.groupMemberSetAdmin(row.id);
+          ElementPlus.ElMessage.success('已设为部落管理员');
+          this.load(this.page.size, this.page.current);
+        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
+      },
+      async doKick(row) {
+        try {
+          await COC.api.groupMemberKick(row.id);
+          ElementPlus.ElMessage.success('已踢出成员');
+          this.load(this.page.size, this.page.current);
+        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
+      },
+      async doCancelAdmin(row) {
+        try {
+          await COC.api.groupMemberCancelAdmin(row.id);
+          ElementPlus.ElMessage.success('已取消部落管理员');
+          this.load(this.page.size, this.page.current);
+        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
+      }
+    }
+  };
   const SystemPage = makeSubTabsMixin('/system', {
     '/clan/group': { name: 'g', label: '部落群组', component: 'groupCrud' },
+    '/clan/group/user': { name: 'gu', label: '群组成员', component: 'GroupMemberPage' },
     '/clan/group/apply': { name: 'a', label: '入组申请', component: 'ClanGroupApplyPage' },
     '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
     '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
     '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuTree' },
     '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
   }, {
-    components: { groupCrud, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage }
+    components: { groupCrud, GroupMemberPage, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage }
   });
 
   /* ============ 路由 ============ */
