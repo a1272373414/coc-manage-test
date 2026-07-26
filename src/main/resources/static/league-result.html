@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>联赛战绩</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23ff7a45'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='Arial'>R</text></svg>" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.7.0/theme-chalk/index.css" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ===== 联赛战绩 · 视觉美化版（与联赛报名页统一风格） ===== */
+    :root {
+      --brand: #ff7a45;
+      --brand-2: #ff9a56;
+      --brand-deep: #ef5d2a;
+      --brand-soft: #fff4ec;
+      --brand-line: #ffd8c2;
+      --ink: #2b2f38;
+      --ink-2: #6b7280;
+      --ink-3: #9aa1ad;
+      --line: #eef0f4;
+      --card: #ffffff;
+      --ok: #2bb673;
+      --warn: #e6a23c;
+      --mute: #909399;
+      --radius: 16px;
+      --shadow-sm: 0 2px 8px rgba(40, 44, 52, .06);
+      --shadow-md: 0 10px 30px rgba(255, 122, 69, .12);
+      --shadow-lg: 0 18px 48px rgba(255, 122, 69, .18);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', system-ui, -apple-system, Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 480px at 80% -10%, #fff0e6 0%, rgba(255,240,230,0) 60%),
+        radial-gradient(900px 420px at -10% 0%, #fff4ee 0%, rgba(255,244,238,0) 55%),
+        #fafbfc;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .qs-wrap { min-height: 100vh; }
+
+    /* ===== 顶部导航 ===== */
+    .qs-top {
+      height: 64px; padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(135deg, var(--brand-2) 0%, var(--brand) 55%, var(--brand-deep) 100%);
+      box-shadow: 0 4px 18px rgba(255, 122, 69, .28);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .qs-top-left { display: flex; align-items: center; gap: 14px; }
+    /* 左上角跳转链接 */
+    .qs-nav-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 36px; padding: 0 14px;
+      background: rgba(255,255,255,.16);
+      color: #fff; text-decoration: none;
+      border-radius: 999px; font-size: 13px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,.28);
+      transition: background .15s, transform .15s;
+    }
+    .qs-nav-link:hover { background: rgba(255,255,255,.3); transform: translateY(-1px); }
+    .qs-brand { display: flex; align-items: center; gap: 12px; color: #fff; }
+    .qs-brand .qs-logo {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: rgba(255,255,255,.18);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; backdrop-filter: blur(2px);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+    }
+    .qs-brand .qs-title { font-size: 16px; font-weight: 700; letter-spacing: .5px; }
+    .qs-brand .qs-sub { font-size: 12px; opacity: .85; font-weight: 400; margin-top: 2px; }
+
+    .qs-top-right { display: flex; align-items: center; gap: 14px; }
+
+    /* 未登录按钮 */
+    .qs-login {
+      display: inline-flex; align-items: center; height: 36px; padding: 0 18px;
+      background: #fff; color: var(--brand-deep);
+      border-radius: 999px; font-size: 13px; font-weight: 700;
+      text-decoration: none; transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    .qs-login:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.12); }
+
+    /* 已登录用户 */
+    .qs-user {
+      position: relative; display: inline-flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+      color: #fff; font-size: 14px; font-weight: 600;
+      transition: background .15s;
+    }
+    .qs-user { position: relative; padding-bottom: 6px; }
+    .qs-user:hover { background: rgba(255,255,255,.16); }
+    .qs-user-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,.92); color: var(--brand-deep);
+      font-weight: 700; font-size: 13px; flex: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qs-user-caret { font-size: 10px; opacity: .9; margin-left: 1px; }
+    .qs-user-menu {
+      position: absolute; top: 100%; right: 0; min-width: 128px;
+      background: #fff; border-radius: 10px; box-shadow: var(--shadow-md);
+      padding: 6px; display: none; z-index: 30; overflow: hidden;
+    }
+    .qs-user:hover .qs-user-menu { display: block; }
+    .qs-user-menu-item {
+      width: 100%; border: none; background: transparent; text-align: left;
+      padding: 9px 12px; border-radius: 6px; color: var(--ink);
+      font-size: 13px; cursor: pointer; font-family: inherit;
+    }
+    .qs-user-menu-item:hover { background: var(--brand-soft); color: var(--brand-deep); }
+
+    /* ===== 容器 ===== */
+    .qs-container { width: 1080px; max-width: calc(100% - 40px); margin: 0 auto; padding-top: 28px; }
+
+    /* ===== 通用区块卡片 ===== */
+    .qs-block {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow-sm);
+      padding: 22px 26px; margin-top: 22px;
+      position: relative;
+    }
+    .qs-block::before {
+      content: ''; position: absolute; left: 0; top: 18px; bottom: 18px;
+      width: 4px; border-radius: 4px;
+      background: linear-gradient(var(--brand-2), var(--brand-deep));
+    }
+    .qs-block-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 15px; font-weight: 700; color: var(--ink);
+    }
+    .qs-block-title .qs-tick {
+      width: 8px; height: 8px; border-radius: 3px; background: var(--brand);
+    }
+    .qs-block-title .qs-count {
+      font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 4px;
+    }
+
+    /* ===== 部落 Tab ===== */
+    .qs-clan-tabs { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px 8px 6px; }
+    .qs-clan-tab {
+      cursor: pointer; padding: 9px 20px; color: var(--brand-deep);
+      font-size: 14px; font-weight: 600; user-select: none;
+      background: var(--brand-soft);
+      border: 1px solid var(--brand-line);
+      border-radius: 999px;
+      transition: all .18s ease;
+    }
+    .qs-clan-tab:hover { background: #ffe9da; transform: translateY(-1px); }
+    .qs-clan-tab.is-active {
+      color: #fff;
+      background: linear-gradient(135deg, var(--brand-2), var(--brand-deep));
+      border-color: transparent;
+      box-shadow: 0 6px 16px rgba(255, 122, 69, .35);
+    }
+
+    /* ===== 主区块 ===== */
+    .qs-main { padding-bottom: 26px; }
+    .qs-league-wrap { display: flex; align-items: center; gap: 12px; padding: 14px 8px 6px; flex-wrap: wrap; }
+    .qs-league-empty { font-size: 13px; color: var(--ink-3); }
+    .qs-league-time { font-size: 13px; color: var(--ink-3); }
+
+    /* ===== 战绩总览卡片 ===== */
+    .qs-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 4px 8px 6px; }
+    .qs-stat {
+      background: linear-gradient(160deg, #fffaf6 0%, #fff 100%);
+      border: 1px solid var(--brand-line);
+      border-radius: 14px; padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    .qs-stat .qs-stat-label { font-size: 13px; color: var(--ink-2); }
+    .qs-stat .qs-stat-value { font-size: 26px; font-weight: 800; color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+    .qs-stat .qs-stat-unit { font-size: 13px; font-weight: 600; color: var(--ink-3); margin-left: 2px; }
+
+    /* ===== 部落对比 ===== */
+    .qs-compare { padding: 6px 8px 4px; display: flex; flex-direction: column; gap: 12px; }
+    .qs-compare-row { display: flex; align-items: center; gap: 12px; }
+    .qs-compare-name { width: 120px; flex: none; font-size: 14px; font-weight: 600; color: var(--ink); text-align: right; }
+    .qs-compare-bar-track { flex: 1; height: 22px; background: var(--brand-soft); border-radius: 999px; overflow: hidden; }
+    .qs-compare-bar {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--brand-2), var(--brand-deep));
+      transition: width .6s ease;
+    }
+    .qs-compare-val { width: 90px; flex: none; font-size: 14px; font-weight: 700; color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+
+    /* ===== 表格 ===== */
+    .qs-table {
+      margin: 4px 8px 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .qs-table-head, .qs-row {
+      display: grid; grid-template-columns: 0.7fr 1.4fr 1.1fr 0.9fr 0.9fr 1fr 0.7fr;
+    }
+    .qs-table-head {
+      background: #fbf6f2;
+      padding: 13px 18px;
+      color: var(--brand-deep); font-size: 13px; font-weight: 700;
+      border-bottom: 1px solid var(--brand-line);
+    }
+    .qs-table-head > div { text-align: center; }
+    .qs-table-body { display: flex; flex-direction: column; }
+    .qs-row {
+      padding: 16px 18px; font-size: 14px; color: var(--ink);
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      transition: background .15s;
+      align-items: center;
+    }
+    .qs-row:last-child { border-bottom: none; }
+    .qs-row:hover { background: #fff9f5; }
+    .qs-row > div { text-align: center; }
+    .qs-row .qs-name {
+      font-weight: 600; color: var(--ink);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .qs-row .qs-name .qs-avatar {
+      width: 26px; height: 26px; border-radius: 50%; flex: none;
+      background: linear-gradient(135deg, var(--brand-2), var(--brand-deep));
+      color: #fff; font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qs-row .qs-rank { font-weight: 800; color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+    .qs-row .qs-win { font-weight: 800; color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+    .qs-row .qs-clan { color: var(--ink-2); font-size: 13px; }
+    .qs-row .qs-extra-yes { color: var(--ok); font-weight: 700; }
+    .qs-row .qs-extra-no { color: var(--ink-3); }
+
+    /* ===== 状态占位 ===== */
+    .qs-loading, .qs-error, .qs-empty-state {
+      padding: 40px 0; text-align: center; color: var(--ink-3); font-size: 14px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .qs-loading .qs-spin {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 3px solid var(--brand-line); border-top-color: var(--brand);
+      animation: qs-spin .8s linear infinite;
+    }
+    @keyframes qs-spin { to { transform: rotate(360deg); } }
+    .qs-error { color: #f56c6c; }
+    .qs-empty-ico { font-size: 32px; opacity: .5; }
+
+    /* ===== 页脚 ===== */
+    .qs-foot {
+      text-align: center; color: var(--ink-3); font-size: 12px;
+      padding: 28px 0 36px; letter-spacing: .3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="qs-app" class="qs-wrap">
+    <!-- 顶部导航 -->
+    <div class="qs-top">
+      <div class="qs-top-left">
+        <!-- 左上角跳转：返回报名页面 -->
+        <a class="qs-nav-link" :href="signupUrl">← 联赛报名</a>
+        <div class="qs-brand">
+          <div class="qs-logo">R</div>
+          <div>
+            <div class="qs-title">联赛战绩</div>
+            <div class="qs-sub">Clash of Clans · League Records</div>
+          </div>
+        </div>
+      </div>
+      <div class="qs-top-right">
+        <!-- 已登录：显示用户名 + 退出菜单 -->
+        <div v-if="loginUser" class="qs-user">
+          <span class="qs-user-avatar">{{ avatarText(loginUser.username) }}</span>
+          <span class="qs-user-name">{{ loginUser.username }}</span>
+          <span class="qs-user-caret">▾</span>
+          <div class="qs-user-menu">
+            <button class="qs-user-menu-item" @click="logout">退出登录</button>
+          </div>
+        </div>
+        <!-- 未登录：跳转登录页（带回跳） -->
+        <a v-else class="qs-login" href="#" @click.prevent="goLogin">登录</a>
+      </div>
+    </div>
+
+   <!-- 主体 -->
+   <div class="qs-container">
+     <!-- 联赛选择 -->
+      <div class="qs-block">
+        <div class="qs-block-title"><span class="qs-tick"></span>选择联赛</div>
+        <div class="qs-league-wrap">
+          <el-select
+            v-model="selectedLeagueNo"
+            placeholder="选择联赛"
+            style="width: 260px"
+            :loading="loadingLeagues"
+            @change="onLeagueChange"
+          >
+            <el-option
+              v-for="l in leagues"
+              :key="l.leagueNo"
+              :label="leagueLabel(l)"
+              :value="l.leagueNo"
+            />
+          </el-select>
+          <span v-if="selectedLeague && (selectedLeague.signupStart || selectedLeague.signupEnd)" class="qs-league-time">
+            报名：{{ fmtTime(selectedLeague.signupStart) }} ~ {{ fmtTime(selectedLeague.signupEnd) }}
+          </span>
+          <span v-if="!leagues.length && !loadingLeagues" class="qs-league-empty">该群组下暂无联赛</span>
+        </div>
+      </div>
+
+      <!-- 部落 Tab -->
+      <div class="qs-block">
+        <div class="qs-block-title"><span class="qs-tick"></span>选择部落<span class="qs-count" v-if="clans.length">共 {{ clans.length }} 个</span></div>
+        <div v-if="loadingClans" class="qs-loading"><span class="qs-spin"></span>部落加载中…</div>
+        <div v-else-if="loadError" class="qs-error">⚠ {{ loadError }}</div>
+        <div v-else-if="clans.length === 0" class="qs-empty-state"><span class="qs-empty-ico">🏕️</span>该群组下暂无部落</div>
+        <div v-else class="qs-clan-tabs">
+          <div
+            v-for="c in clans" :key="c.clanNo"
+            class="qs-clan-tab"
+            :class="{ 'is-active': c.clanNo === activeClanNo }"
+            @click="selectClan(c)"
+          >{{ c.clanName || c.clanNo }}</div>
+        </div>
+      </div>
+
+      <!-- 战绩总览 -->
+      <div class="qs-block">
+        <div class="qs-block-title"><span class="qs-tick"></span>战绩总览<span class="qs-count" v-if="records.length">共 {{ records.length }} 名成员</span></div>
+        <div v-if="loadingRecords" class="qs-loading"><span class="qs-spin"></span>战绩加载中…</div>
+        <div v-else-if="records.length === 0" class="qs-empty-state"><span class="qs-empty-ico">📊</span>暂无战绩数据</div>
+        <div v-else class="qs-stats">
+          <div class="qs-stat">
+            <span class="qs-stat-label">参赛成员</span>
+            <span><span class="qs-stat-value">{{ stats.members }}</span><span class="qs-stat-unit">人</span></span>
+          </div>
+          <div class="qs-stat">
+            <span class="qs-stat-label">总胜利之星</span>
+            <span><span class="qs-stat-value">{{ stats.win }}</span><span class="qs-stat-unit">★</span></span>
+          </div>
+          <div class="qs-stat">
+            <span class="qs-stat-label">平均摧毁率</span>
+            <span><span class="qs-stat-value">{{ stats.avgDr != null ? stats.avgDr.toFixed(1) : '-' }}</span><span class="qs-stat-unit">%</span></span>
+          </div>
+          <div class="qs-stat">
+            <span class="qs-stat-label">进攻完成率</span>
+            <span><span class="qs-stat-value">{{ stats.completion != null ? stats.completion.toFixed(1) : '-' }}</span><span class="qs-stat-unit">%</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 各部落战绩对比 -->
+      <div class="qs-block" v-if="clanStats.length > 1">
+        <div class="qs-block-title"><span class="qs-tick"></span>各部落胜利之星对比</div>
+        <div class="qs-compare">
+          <div class="qs-compare-row" v-for="c in clanStats" :key="c.clanNo">
+            <div class="qs-compare-name">{{ c.clanName || c.clanNo }}</div>
+            <div class="qs-compare-bar-track">
+              <div class="qs-compare-bar" :style="{ width: c.ratio + '%' }"></div>
+            </div>
+            <div class="qs-compare-val">{{ c.win }} ★（{{ c.members }}人）</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 成员战绩 -->
+      <div class="qs-block qs-main">
+        <div class="qs-block-title"><span class="qs-tick"></span>成员战绩</div>
+        <div v-if="loadingRecords" class="qs-loading"><span class="qs-spin"></span>战绩加载中…</div>
+        <div v-else-if="records.length === 0" class="qs-empty-state"><span class="qs-empty-ico">📋</span>暂无战绩数据</div>
+        <div v-else class="qs-table qs-table-records">
+          <div class="qs-table-head">
+            <div>排名</div>
+            <div>成员</div>
+            <div>部落</div>
+            <div>胜利之星</div>
+            <div>摧毁率</div>
+            <div>进攻(实/应)</div>
+            <div>额外</div>
+          </div>
+          <div class="qs-table-body">
+            <div class="qs-row" v-for="r in records" :key="(r.clanNo||'') + '-' + (r.memberNo||'') + '-' + (r.id||'')">
+              <div class="qs-rank">{{ r.memberRank != null ? r.memberRank : '-' }}</div>
+              <div class="qs-name"><span class="qs-avatar">{{ avatarText(r.memberName) }}</span>{{ r.memberName }}</div>
+              <div class="qs-clan">{{ r.clanName || r.clanNo || '-' }}</div>
+              <div class="qs-win">{{ r.winStars != null ? r.winStars : '-' }} ★</div>
+              <div>{{ r.destroyRate != null ? r.destroyRate + '%' : '-' }}</div>
+              <div>{{ (r.actualAttacks != null ? r.actualAttacks : 0) }} / {{ (r.requiredAttacks != null ? r.requiredAttacks : 0) }}</div>
+              <div>
+                <span v-if="r.hasExtra" class="qs-extra-yes">是</span>
+                <span v-else class="qs-extra-no">否</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+     <div class="qs-foot">联赛战绩 · 公开页面，无需登录即可查看</div>
+   </div>
+  </div>
+
+  <!-- 依赖 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus@2.7.0/dist/index.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus@2.7.0/dist/locale/zh-cn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js"></script>
+
+  <script>
+    /* 联赛战绩（公开页 / 不登录可访问）
+     * 设计要点：
+     *   1) 完全自包含：使用本页面 axios 实例直连后端，apiUrl 解析与主项目一致；
+     *   2) 不使用 hash 路由，便于通过普通 URL 直接分享；
+     *   3) 所有读操作走 /api/quick，战绩查询走 /api/quick/records，无需登录 token；
+     *   4) 登录态复用主项目 localStorage 的 coc_token，仅用于顶部展示，不影响数据查看。
+     */
+    (function () {
+      const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+      // API 地址解析（与主项目 api.js 保持一致：参数 > APP_CONFIG > 当前域名 > localhost:8080）
+      function resolveApiBase() {
+        const params = new URLSearchParams(location.search);
+        const fromQuery = params.get('api');
+        if (fromQuery) return fromQuery;
+        if (window.APP_CONFIG && window.APP_CONFIG.apiUrl) return window.APP_CONFIG.apiUrl;
+        if (window.APP_CONFIG && window.APP_CONFIG.env === 'production') return location.origin;
+        return 'http://localhost:8080';
+      }
+      const API_BASE = resolveApiBase();
+
+      // 独立 axios 实例（不带 token 拦截，避免与主项目 store 状态耦合）
+      const http = axios.create({ baseURL: API_BASE, timeout: 20000 });
+      http.interceptors.response.use(
+        function (res) {
+          const d = res.data;
+          if (d && d.code === 0) return d.data;
+          return Promise.reject(new Error((d && (d.errorMsg || d.message)) || ('HTTP ' + res.status)));
+        },
+        function (err) {
+          const msg = (err && err.response && err.response.data && err.response.data.errorMsg)
+            || (err && err.message) || '网络错误';
+          return Promise.reject(new Error(msg));
+        }
+      );
+
+      // 带 token 的请求（登录态相关接口，复用主项目 coc_token）
+      function authHeaders() {
+        const t = localStorage.getItem('coc_token') || '';
+        return t ? { Authorization: 'Bearer ' + t } : {};
+      }
+      function authGet(url) { return http.get(url, { headers: authHeaders() }); }
+      function authPost(url, body) { return http.post(url, body || {}, { headers: authHeaders() }); }
+
+      // 群组编号解析：?groupNo=xxx
+      const groupNo = new URLSearchParams(location.search).get('groupNo') || '';
+
+      const app = createApp({
+        setup() {
+          const clans = ref([]);
+          const activeClanNo = ref('');
+          const allRecords = ref([]);
+          const leagues = ref([]);
+          const selectedLeagueNo = ref('');
+          const loadingClans = ref(false);
+          const loadingLeagues = ref(false);
+          const loadingRecords = ref(false);
+          const loadError = ref('');
+
+          // 登录态
+          const loginUser = ref(null);
+          // 返回报名页面链接（保留 groupNo）
+          const signupUrl = 'quick-signup.html?groupNo=' + encodeURIComponent(groupNo);
+
+          function avatarText(name) {
+            if (!name) return '?';
+            return String(name).trim().charAt(0).toUpperCase();
+          }
+          function leagueLabel(l) {
+            if (!l) return '';
+            return (l.leagueName ? (l.leagueName + '（' + l.leagueNo + '）') : l.leagueNo);
+          }
+          // 当前选中的联赛对象
+          const selectedLeague = computed(function () {
+            if (!selectedLeagueNo.value || !leagues.value) return null;
+            const arr = leagues.value;
+            for (let i = 0; i < arr.length; i++) {
+              if (arr[i].leagueNo === selectedLeagueNo.value) return arr[i];
+            }
+            return null;
+          });
+          function fmtTime(v) {
+            if (!v) return '';
+            const d = new Date(v);
+            if (isNaN(d.getTime())) return String(v);
+            const p = function (n) { return (n < 10 ? '0' : '') + n; };
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+              + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+          }
+
+          // 按编号倒序（数值模式，避免字符串 "10" < "2"）
+          function sortLeagues(list) {
+            return (list || []).slice().sort(function (a, b) {
+              return String(b.leagueNo || '').localeCompare(String(a.leagueNo || ''), undefined, { numeric: true });
+            });
+          }
+
+          // 当前展示的战绩列表：按所选部落过滤，并按排名升序
+          const records = computed(function () {
+            const all = allRecords.value || [];
+            const list = activeClanNo.value
+              ? all.filter(function (r) { return r.clanNo === activeClanNo.value; })
+              : all;
+            return list.slice().sort(function (a, b) { return (a.memberRank || 0) - (b.memberRank || 0); });
+          });
+
+          // 战绩总览统计（基于当前展示列表）
+          const stats = computed(function () {
+            const list = records.value || [];
+            let members = list.length;
+            let win = 0, drSum = 0, drCnt = 0, actual = 0, required = 0;
+            for (let i = 0; i < list.length; i++) {
+              const r = list[i];
+              win += Number(r.winStars || 0);
+              if (r.destroyRate != null) { drSum += Number(r.destroyRate || 0); drCnt++; }
+              actual += Number(r.actualAttacks || 0);
+              required += Number(r.requiredAttacks || 0);
+            }
+            const avgDr = drCnt ? (drSum / drCnt * 100) : null;
+            const completion = required ? (actual / required * 100) : null;
+            return { members: members, win: win, avgDr: avgDr, completion: completion };
+          });
+
+          // 各部落胜利之星对比（基于全量战绩，始终为联赛整体视角）
+          const clanStats = computed(function () {
+            const all = allRecords.value || [];
+            const map = {};
+            for (let i = 0; i < all.length; i++) {
+              const r = all[i];
+              const key = r.clanNo || '-';
+              const name = r.clanName || key;
+              if (!map[key]) map[key] = { clanNo: key, clanName: name, win: 0, members: 0 };
+              map[key].win += Number(r.winStars || 0);
+              map[key].members++;
+            }
+            const arr = [];
+            const keys = Object.keys(map);
+            for (let i = 0; i < keys.length; i++) arr.push(map[keys[i]]);
+            arr.sort(function (a, b) { return b.win - a.win; });
+            const max = arr.length ? arr[0].win : 0;
+            for (let i = 0; i < arr.length; i++) arr[i].ratio = max ? (arr[i].win / max * 100) : 0;
+            return arr;
+          });
+
+          async function loadLoginUser() {
+            const token = localStorage.getItem('coc_token');
+            if (!token) { loginUser.value = null; return; }
+            try {
+              const d = await authGet('/api/auth/info');
+              loginUser.value = (d && d.user) || d || null;
+            } catch (e) {
+              localStorage.removeItem('coc_token');
+              loginUser.value = null;
+            }
+          }
+
+          function goLogin() {
+            const back = location.pathname + location.search;
+            location.href = '/index.html#/login?redirect=' + encodeURIComponent(back);
+          }
+
+          async function logout() {
+            try { await authPost('/api/auth/logout'); } catch (e) { /* 忽略 */ }
+            localStorage.removeItem('coc_token');
+            loginUser.value = null;
+            ElementPlus.ElMessage.success('已退出登录');
+          }
+
+          async function loadClans() {
+            if (!groupNo) {
+              loadError.value = '地址缺少群组编号：?groupNo=xxx';
+              return;
+            }
+            loadingClans.value = true;
+            loadError.value = '';
+            try {
+              await http.get('/api/quick/groups/' + encodeURIComponent(groupNo));
+              const list = await http.get('/api/quick/clans', { params: { groupNo } });
+              // 前置一个「全部部落」标签，用于查看整个联赛战绩
+              const real = list || [];
+              clans.value = [{ clanNo: '', clanName: '全部部落' }].concat(real);
+              if (activeClanNo.value === '' || !clans.value.some(function (c) { return c.clanNo === activeClanNo.value; })) {
+                selectClan(clans.value[0]);
+              }
+            } catch (e) {
+              loadError.value = e.message || '加载失败';
+            } finally {
+              loadingClans.value = false;
+            }
+          }
+
+          async function loadLeagues() {
+            if (!groupNo) return;
+            loadingLeagues.value = true;
+            try {
+              const list = await http.get('/api/quick/leagues', { params: { groupNo } });
+              leagues.value = sortLeagues(list);
+              if (leagues.value.length > 0) {
+                const first = leagues.value[0].leagueNo;
+                if (selectedLeagueNo.value !== first) {
+                  selectedLeagueNo.value = first;
+                  if (activeClanNo.value) await loadRecords();
+                }
+              }
+            } catch (e) {
+              leagues.value = [];
+            } finally {
+              loadingLeagues.value = false;
+            }
+          }
+
+          async function selectClan(c) {
+            activeClanNo.value = c.clanNo;
+            await loadRecords();
+          }
+
+          // 加载当前联赛的全部战绩（不限部落），由前端按需过滤
+          async function loadRecords() {
+            if (!selectedLeagueNo.value) {
+              allRecords.value = [];
+              return;
+            }
+            loadingRecords.value = true;
+            try {
+              const data = await http.get('/api/quick/records', {
+                params: { groupNo: groupNo, leagueNo: selectedLeagueNo.value || null }
+              });
+              allRecords.value = (data && data.records) || [];
+            } catch (e) {
+              allRecords.value = [];
+              ElementPlus.ElMessage.error(e.message || '战绩数据加载失败');
+            } finally {
+              loadingRecords.value = false;
+            }
+          }
+
+          function onLeagueChange() {
+            loadRecords();
+          }
+
+          onMounted(async function () {
+            await loadLoginUser();
+            loadClans();
+            loadLeagues();
+          });
+
+          return {
+            groupNo, clans, activeClanNo, allRecords, records, leagues, selectedLeagueNo,
+            loadingClans, loadingLeagues, loadingRecords, loadError,
+            loginUser, signupUrl, selectedLeague, stats, clanStats,
+            avatarText, leagueLabel, fmtTime,
+            selectClan, onLeagueChange,
+            goLogin, logout
+          };
+        }
+      });
+
+      app.use(ElementPlus, { locale: window.ElementPlusLocaleZhCn });
+      app.mount('#qs-app');
+    })();
+  </script>
+</body>
+</html>

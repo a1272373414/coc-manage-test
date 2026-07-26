@@ -137,12 +137,24 @@
     leagueImportTemplate: (type) => http.get('/api/league/record/import/template', { params: { type: type }, responseType: 'blob' }),
     leagueCheckMembers: (body) => http.post('/api/league/record/import/check-members', body),
 
+    // 部落成员 Excel 导入
+    clanMemberImportPreview: (formData) => http.post('/api/clan/member/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    clanMemberImportConfirm: (body) => http.post('/api/clan/member/import/confirm', body),
+    clanMemberImportTemplate: () => http.get('/api/clan/member/import/template', { responseType: 'blob' }),
+
     // 入组申请
     applyCreate: (body) => http.post('/api/clan/group/apply', body),
     applyPage: (params) => http.get('/api/clan/group/apply/page', { params }),
     applyApprove: (id) => http.put('/api/clan/group/apply/' + id + '/approve'),
     applyReject: (id) => http.put('/api/clan/group/apply/' + id + '/reject'),
-    applyDelete: (id) => http.delete('/api/clan/group/apply/' + id)
+    applyDelete: (id) => http.delete('/api/clan/group/apply/' + id),
+
+    // 联赛快速报名（公开接口，无需登录；由 quick-signup.html 独立页面调用）
+    quickGroup: (groupNo) => http.get('/api/quick/groups/' + encodeURIComponent(groupNo)),
+    quickClans: (groupNo) => http.get('/api/quick/clans', { params: { groupNo } }),
+    quickLeagues: (groupNo) => http.get('/api/quick/leagues', { params: { groupNo } }),
+    quickSignups: (params) => http.get('/api/quick/signups', { params }),
+    quickSubmit: (body) => http.post('/api/quick/signup', body)
   };
 
   // 全局字典分组 / 角色选项（登录后填充，供下拉使用）

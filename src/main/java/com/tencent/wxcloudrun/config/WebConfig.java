@@ -22,7 +22,9 @@ public class WebConfig implements WebMvcConfigurer {
       "/error",
       "/static/**",
       "/api/auth/login",
-      "/api/auth/register"
+      "/api/auth/register",
+      // 联赛快速报名：公开页面，前端入口 /league/quickSignup?groupNo=xxx
+      "/api/quick/**"
   };
 
   @Override

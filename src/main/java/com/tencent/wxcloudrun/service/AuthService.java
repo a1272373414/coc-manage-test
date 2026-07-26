@@ -107,7 +107,7 @@ public class AuthService {
    * 加载当前用户有权访问的菜单：
    * 所有用户（含超级管理员）都按 sys_user_role → sys_role_menu 关联查询其角色绑定的菜单，
    * 实现菜单可见性完全由角色菜单绑定表控制。
-   * 超级管理员的特殊待遇：通过 DataInitializer 默认为其绑定全部菜单来体现，
+   * 超级管理员的特殊待遇：通过 init_data.sql 默认为其绑定全部菜单来体现，
    * 而不是在这里硬编码绕过权限过滤。
    */
   private List<SysMenu> loadUserMenus(AuthUser au) {

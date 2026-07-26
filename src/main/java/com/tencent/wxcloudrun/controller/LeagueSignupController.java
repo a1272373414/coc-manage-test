@@ -131,6 +131,33 @@ public class LeagueSignupController {
     return ApiResponse.ok();
   }
 
+  /** 群主修改某条报名状态：按主键 id 更新，避免 memberNo 缺省导致无法定位记录。 */
+  @PutMapping("/status")
+  public ApiResponse updateStatus(@RequestBody Map<String, Object> body) {
+    Object idObj = body.get("id");
+    Object statusObj = body.get("signupStatus");
+    if (idObj == null) return ApiResponse.error("报名记录 id 不能为空");
+    if (statusObj == null) return ApiResponse.error("报名状态不能为空");
+    Long id;
+    try {
+      id = Long.valueOf(String.valueOf(idObj));
+    } catch (Exception e) {
+      return ApiResponse.error("报名记录 id 不合法");
+    }
+    int signupStatus;
+    try {
+      signupStatus = Integer.parseInt(String.valueOf(statusObj));
+    } catch (Exception e) {
+      return ApiResponse.error("报名状态不合法");
+    }
+    if (signupStatus < 1 || signupStatus > 3) return ApiResponse.error("报名状态不合法");
+    LeagueSignup existing = signupMapper.selectById(id);
+    if (existing == null) return ApiResponse.error(404, "未找到报名记录");
+    existing.setSignupStatus(signupStatus);
+    signupMapper.updateById(existing);
+    return ApiResponse.ok();
+  }
+
   private ApiResponse doSignup(LeagueSignup body) {
     if (body.getLeagueNo() == null || body.getMemberNo() == null) {
       return ApiResponse.error("leagueNo 与 memberNo 不能为空");

@@ -37,7 +37,13 @@
           COC.store.user = (info && info.user) || res.user;
           COC.store.menus = (info && info.menus) || [];
           await this.loadGlobals();
-          this.$router.replace('/dashboard');
+          const redirect = this.$route.query.redirect;
+          if (redirect) {
+            // 来自公开页（如联赛快速报名）的登录回跳
+            window.location.href = redirect;
+          } else {
+            this.$router.replace('/dashboard');
+          }
         } catch (e) { /* 拦截器已提示 */ }
         finally { this.loading = false; }
       },
@@ -200,7 +206,7 @@
           <div class="user">
             <span>欢迎，{{ user.nickname || user.username }}</span>
             <el-dropdown @command="c=>{ if(c==='pwd') pwdVisible=true; if(c==='logout') logout(); }">
-              <el-button size="small">{{ user.superAdmin ? '超级管理员' : '用户' }}<el-icon><ArrowDown /></el-icon></el-button>
+              <el-button size="small">用户<el-icon><ArrowDown /></el-icon></el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="pwd">修改密码</el-dropdown-item>
@@ -1000,9 +1006,9 @@
     computed: {
       user() { return COC.store.user || {}; },
       roleCodes() { return this.user.roleCodes || []; },
-      isAdmin() {
-        return !!this.user.superAdmin || this.roleCodes.includes('GROUP_ADMIN');
-      },
+    isAdmin() {
+      return this.roleCodes.includes('GROUP_ADMIN');
+    },
       statusOptions() {
         return [{ label: '申请中', value: 1 }, { label: '同意', value: 2 }, { label: '拒绝', value: 3 }];
       }

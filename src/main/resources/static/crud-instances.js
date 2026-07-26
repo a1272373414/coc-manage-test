@@ -22,7 +22,202 @@
     _clanOpenCreate.call(this);
     this.form.groupNo = groupNo;
   };
-  const memberCrud = createCrud({ name: 'MemberCrud', baseUrl: '/api/clan/member', cols: memberCols });
+  // 部落成员导入弹窗模板：选择部落 → 上传 Excel → 解析预览（按名称查重，已存在跳过）→ 确认导入
+  const CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE = `
+<div class="clan-member-import-dialog">
+  <el-dialog v-model="importDialogVisible" title="导入部落成员" width="720px" @closed="onImportClosed">
+    <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px"
+      title="导入说明"
+      description="选择部落并上传 Excel（含“名称”“编号”两列），按成员名称查重，已存在的成员自动跳过。" />
+
+    <el-form label-width="72px" style="margin-bottom:12px">
+      <el-form-item label="部落" required>
+        <el-select v-model="importClanNo" filterable placeholder="请选择部落" style="width:100%">
+          <el-option v-for="o in remoteOptions.clanNo" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+
+    <el-upload
+      ref="importUpload"
+      :auto-upload="false"
+      :limit="1"
+      accept=".xlsx,.xls"
+      :on-change="onImportFileChange"
+      :on-remove="onImportFileRemove"
+      :file-list="importFiles">
+      <template #trigger>
+        <el-button type="primary" plain>选择 Excel</el-button>
+      </template>
+      <el-button style="margin-left:8px" type="success" :loading="previewLoading" @click="doParseImport">解析预览</el-button>
+      <el-link type="primary" style="margin-left:12px" @click="downloadTemplate">下载导入模板</el-link>
+    </el-upload>
+
+    <div v-if="previewList.length" style="margin-top:12px">
+      <el-table :data="previewList" border size="small" max-height="320">
+        <el-table-column type="index" label="#" width="48" />
+        <el-table-column label="成员名称" min-width="140">
+          <template #default="scope">
+            <span :class="scope.row.exists ? 'member-exists-cell' : ''" style="padding:2px 4px;border-radius:4px">{{ scope.row.memberName }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="memberNo" label="编号" min-width="120" />
+        <el-table-column label="状态" width="104">
+          <template #default="scope">
+            <el-tag v-if="scope.row.exists" type="info" size="small">已存在·跳过</el-tag>
+            <el-tag v-else type="success" size="small">新增</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="70">
+          <template #default="scope">
+            <el-button link type="danger" size="small" @click="removeImportRow(scope.$index)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div style="margin-top:10px;text-align:right">
+        <span style="margin-right:12px;color:#909399;font-size:12px">
+          共 {{ previewList.length }} 条，已存在 {{ previewList.filter(function(r){return r.exists;}).length }} 条将被跳过
+        </span>
+        <el-button @click="importDialogVisible=false">取消</el-button>
+        <el-button type="primary" :loading="confirmLoading" @click="doConfirmImport">确认导入</el-button>
+      </div>
+    </div>
+  </el-dialog>
+</div>`;
+
+  const memberCrud = createCrud({
+    name: 'MemberCrud',
+    baseUrl: '/api/clan/member',
+    cols: memberCols,
+    extraButtons: [
+      { text: '导入成员', type: 'primary', click: 'openImport' }
+    ],
+    extraTemplate: CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE
+  });
+  // 部落成员导入弹窗所需的 data 字段（保留基类默认 data）
+  var _memberOrigData = memberCrud.data;
+  memberCrud.data = function () {
+    var d = _memberOrigData.call(this);
+    d.importDialogVisible = false;
+    d.importClanNo = '';
+    d.importFiles = [];
+    d.previewList = [];
+    d.previewLoading = false;
+    d.confirmLoading = false;
+    return d;
+  };
+
+  // 打开导入弹窗：预填当前筛选的部落
+  memberCrud.methods.openImport = function () {
+    // 确保“已存在”成员名称的绿色高亮样式已注入（仅一次）
+    if (!document.getElementById('clan-member-import-green-style')) {
+      var s = document.createElement('style');
+      s.id = 'clan-member-import-green-style';
+      s.textContent = '.member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;color:#2e7d32;font-weight:700;}';
+      document.head.appendChild(s);
+    }
+    this.importClanNo = (this.filters && this.filters.clanNo) || '';
+    this.importFiles = [];
+    this.previewList = [];
+    this.previewLoading = false;
+    this.confirmLoading = false;
+    this.importDialogVisible = true;
+  };
+
+  // 关闭弹窗后重置状态
+  memberCrud.methods.onImportClosed = function () {
+    this.importClanNo = '';
+    this.importFiles = [];
+    this.previewList = [];
+  };
+
+  memberCrud.methods.onImportFileChange = function (file, fileList) {
+    this.importFiles = fileList;
+  };
+  memberCrud.methods.onImportFileRemove = function (file, fileList) {
+    this.importFiles = fileList;
+  };
+
+  // 解析预览：将 Excel 发给后台，按成员名称查重并标注 exists
+  memberCrud.methods.doParseImport = async function () {
+    if (!this.importClanNo) {
+      ElementPlus.ElMessage.warning('请先选择部落');
+      return;
+    }
+    if (!this.importFiles.length) {
+      ElementPlus.ElMessage.warning('请选择 Excel 文件');
+      return;
+    }
+    this.previewLoading = true;
+    try {
+      var fd = new FormData();
+      fd.append('type', 'excel');
+      fd.append('clanNo', this.importClanNo);
+      var raw = this.importFiles[0].raw;
+      if (raw) fd.append('files', raw);
+      var res = await COC.api.clanMemberImportPreview(fd);
+      this.previewList = (res && res.records) || [];
+      // 同步后台返回的 clanNo/groupNo（预览时服务端已按当前群组处理）
+      if (res && res.clanNo) this.importClanNo = res.clanNo;
+      ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+    } catch (e) {
+      ElementPlus.ElMessage.error('解析失败：' + ((e && e.response && e.response.data && e.response.data.message) || '请检查文件格式'));
+    } finally {
+      this.previewLoading = false;
+    }
+  };
+
+  memberCrud.methods.removeImportRow = function (index) {
+    this.previewList.splice(index, 1);
+  };
+
+  // 下载导入模板
+  memberCrud.methods.downloadTemplate = async function () {
+    try {
+      var blob = await COC.api.clanMemberImportTemplate();
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '部落成员导入模板.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      ElementPlus.ElMessage.error('下载模板失败');
+    }
+  };
+
+  // 确认导入：跳过已存在成员，其余入库
+  memberCrud.methods.doConfirmImport = async function () {
+    if (!this.importClanNo) {
+      ElementPlus.ElMessage.warning('请先选择部落');
+      return;
+    }
+    if (!this.previewList.length) {
+      ElementPlus.ElMessage.warning('无导入数据');
+      return;
+    }
+    this.confirmLoading = true;
+    try {
+      var res = await COC.api.clanMemberImportConfirm({
+        clanNo: this.importClanNo,
+        records: this.previewList.map(function (r) {
+          return { memberName: r.memberName, memberNo: r.memberNo };
+        })
+      });
+      var inserted = (res && res.inserted) || 0;
+      var skipped = (res && res.skipped) || 0;
+      ElementPlus.ElMessage.success('导入完成：新增 ' + inserted + ' 条' + (skipped ? '，跳过 ' + skipped + ' 条' : ''));
+      this.importDialogVisible = false;
+      this.load();
+    } catch (e) {
+      ElementPlus.ElMessage.error('导入失败：' + ((e && e.response && e.response.data && e.response.data.message) || ''));
+    } finally {
+      this.confirmLoading = false;
+    }
+  };
+
   const warCrud = createCrud({ name: 'WarCrud', baseUrl: '/api/war', cols: warCols });
   const warRecordCrud = createCrud({ name: 'WarRecordCrud', baseUrl: '/api/war/record', cols: warRecordCols });
   const leagueCrud = createCrud({ name: 'LeagueCrud', baseUrl: '/api/league', cols: leagueCols });

@@ -104,8 +104,9 @@ Config (MyBatisPlusConfig：分页插件 + 多租户/group_no 隔离插件)
 - `WebConfig`：拦截器注册与白名单放行
 - `UserContext` / `AuthUser`：当前登录用户上下文
 - `AutoFillMetaObjectHandler`：created_at / updated_at 等公共字段自动填充
-- `DataInitializer`：初始数据初始化
 - `ApiResponse` / `PageResult`：统一响应与分页结果封装
+
+> 初始数据（角色、菜单、管理员账号、字典等）统一通过 `doc/db/init_data.sql` 脚本插入，不在启动时通过 Java 代码初始化。
 
 ## 六、API 接口
 
