@@ -5,10 +5,12 @@
   "description": "前端单元测试 - COC 部落冲突管理系统",
   "scripts": {
     "test": "jest --verbose",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "format": "prettier --write \"*.js\" \"tests/*.js\" \"helpers/*.js\" \"../src/main/resources/static/*.js\" \"../src/main/resources/static/style.css\""
   },
   "devDependencies": {
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0"
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "^3.9.6"
   }
 }

@@ -13,35 +13,28 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-  @Autowired
-  private JwtInterceptor jwtInterceptor;
+	@Autowired
+	private JwtInterceptor jwtInterceptor;
 
-  private static final String[] WHITELIST = {
-      "/",
-      "/index",
-      "/error",
-      "/static/**",
-      "/api/auth/login",
-      "/api/auth/register",
-      // 联赛快速报名：公开页面，前端入口 /league/quickSignup?groupNo=xxx
-      "/api/quick/**"
-  };
+	private static final String[] WHITELIST = { "/", "/index", "/error", "/static/**", "/api/auth/login",
+			"/api/auth/register",
+			// 联赛快速报名：公开页面，前端入口 /league/quickSignup?groupNo=xxx
+			"/api/quick/**" };
 
-  @Override
-  @SuppressWarnings("all")
-  public void addInterceptors(@NonNull InterceptorRegistry registry) {
-    registry.addInterceptor(jwtInterceptor)
-        .addPathPatterns("/api/**")
-        .excludePathPatterns(WHITELIST);
-  }
+	@Override
+	@SuppressWarnings("all")
+	public void addInterceptors(@NonNull InterceptorRegistry registry) {
+		registry.addInterceptor(jwtInterceptor).addPathPatterns("/api/**").excludePathPatterns(WHITELIST);
+	}
 
-  @Override
-  public void addCorsMappings(@NonNull CorsRegistry registry) {
-    registry.addMapping("/api/**")
-        .allowedOriginPatterns("*")
-        .allowedMethods("*")
-        .allowedHeaders("*")
-        .allowCredentials(true)
-        .maxAge(3600);
-  }
+	@Override
+	public void addCorsMappings(@NonNull CorsRegistry registry) {
+		registry.addMapping("/api/**")
+			.allowedOriginPatterns("*")
+			.allowedMethods("*")
+			.allowedHeaders("*")
+			.allowCredentials(true)
+			.maxAge(3600);
+	}
+
 }

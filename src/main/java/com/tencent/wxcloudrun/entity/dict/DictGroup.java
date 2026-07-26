@@ -13,8 +13,12 @@ import lombok.Setter;
 @TableName("dict_group")
 public class DictGroup extends BaseEntity {
 
-  private String groupCode;
-  private String groupName;
-  private String remark;
-  private Integer status;
+	private String groupCode;
+
+	private String groupName;
+
+	private String remark;
+
+	private Integer status;
+
 }

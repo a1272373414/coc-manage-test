@@ -5,54 +5,59 @@ package com.tencent.wxcloudrun.controller;
  */
 public class CombatPowerCalcRequest {
 
-  /** 目标部落编号 */
-  private String clanNo;
-  /** 进攻概率得分（权重，四项权重之和建议等于 10000） */
-  private Integer attackScore;
-  /** 参赛概率得分 */
-  private Integer participateScore;
-  /** 三星概率得分 */
-  private Integer threeStarScore;
-  /** 防御概率得分 */
-  private Integer defenseScore;
+	/** 目标部落编号 */
+	private String clanNo;
 
-  public String getClanNo() {
-    return clanNo;
-  }
+	/** 进攻概率得分（权重，四项权重之和建议等于 10000） */
+	private Integer attackScore;
 
-  public void setClanNo(String clanNo) {
-    this.clanNo = clanNo;
-  }
+	/** 参赛概率得分 */
+	private Integer participateScore;
 
-  public Integer getAttackScore() {
-    return attackScore;
-  }
+	/** 三星概率得分 */
+	private Integer threeStarScore;
 
-  public void setAttackScore(Integer attackScore) {
-    this.attackScore = attackScore;
-  }
+	/** 防御概率得分 */
+	private Integer defenseScore;
 
-  public Integer getParticipateScore() {
-    return participateScore;
-  }
+	public String getClanNo() {
+		return clanNo;
+	}
 
-  public void setParticipateScore(Integer participateScore) {
-    this.participateScore = participateScore;
-  }
+	public void setClanNo(String clanNo) {
+		this.clanNo = clanNo;
+	}
 
-  public Integer getThreeStarScore() {
-    return threeStarScore;
-  }
+	public Integer getAttackScore() {
+		return attackScore;
+	}
 
-  public void setThreeStarScore(Integer threeStarScore) {
-    this.threeStarScore = threeStarScore;
-  }
+	public void setAttackScore(Integer attackScore) {
+		this.attackScore = attackScore;
+	}
 
-  public Integer getDefenseScore() {
-    return defenseScore;
-  }
+	public Integer getParticipateScore() {
+		return participateScore;
+	}
 
-  public void setDefenseScore(Integer defenseScore) {
-    this.defenseScore = defenseScore;
-  }
+	public void setParticipateScore(Integer participateScore) {
+		this.participateScore = participateScore;
+	}
+
+	public Integer getThreeStarScore() {
+		return threeStarScore;
+	}
+
+	public void setThreeStarScore(Integer threeStarScore) {
+		this.threeStarScore = threeStarScore;
+	}
+
+	public Integer getDefenseScore() {
+		return defenseScore;
+	}
+
+	public void setDefenseScore(Integer defenseScore) {
+		this.defenseScore = defenseScore;
+	}
+
 }

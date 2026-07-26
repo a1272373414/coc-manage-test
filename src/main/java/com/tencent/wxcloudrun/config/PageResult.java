@@ -12,23 +12,28 @@ import java.util.List;
 @Data
 public class PageResult<T> {
 
-  private long current;
-  private long size;
-  private long total;
-  private long pages;
-  private List<T> records;
+	private long current;
 
-  public static <T> PageResult<T> of(IPage<T> page) {
-    PageResult<T> result = new PageResult<>();
-    result.setCurrent(page.getCurrent());
-    result.setSize(page.getSize());
-    result.setTotal(page.getTotal());
-    result.setPages(page.getPages());
-    result.setRecords(page.getRecords());
-    return result;
-  }
+	private long size;
 
-  public static <T> Page<T> page(long current, long size) {
-    return new Page<>(current < 1 ? 1 : current, size < 1 ? 10 : size);
-  }
+	private long total;
+
+	private long pages;
+
+	private List<T> records;
+
+	public static <T> PageResult<T> of(IPage<T> page) {
+		PageResult<T> result = new PageResult<>();
+		result.setCurrent(page.getCurrent());
+		result.setSize(page.getSize());
+		result.setTotal(page.getTotal());
+		result.setPages(page.getPages());
+		result.setRecords(page.getRecords());
+		return result;
+	}
+
+	public static <T> Page<T> page(long current, long size) {
+		return new Page<>(current < 1 ? 1 : current, size < 1 ? 10 : size);
+	}
+
 }

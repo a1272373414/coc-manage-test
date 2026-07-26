@@ -3,20 +3,36 @@
  * 暴露到 window.COC_CRUD 上，供 app.js 使用
  */
 (function () {
-  const { clanCols, memberCols, warCols, warRecordCols,
-    leagueCols, leagueClanScoreCols, leagueRecordCols, leagueSignupCols,
-    groupCols, menuCols, dictGroupCols, dictItemCols, configCols } = window.COC_COLS;
+  const {
+    clanCols,
+    memberCols,
+    warCols,
+    warRecordCols,
+    leagueCols,
+    leagueClanScoreCols,
+    leagueRecordCols,
+    leagueSignupCols,
+    groupCols,
+    menuCols,
+    dictGroupCols,
+    dictItemCols,
+    configCols,
+  } = window.COC_COLS;
 
-  const clanCrud = createCrud({ name: 'ClanCrud', baseUrl: '/api/clan', cols: clanCols,
-    perms: { create: 'clan:add', edit: 'clan:edit', delete: 'clan:delete' } });
+  const clanCrud = createCrud({
+    name: "ClanCrud",
+    baseUrl: "/api/clan",
+    cols: clanCols,
+    perms: { create: "clan:add", edit: "clan:edit", delete: "clan:delete" },
+  });
   // 部落新增：groupNo 自动从当前登录用户取（群主/部落管理员有 groupNo）；
   // 若为空（如超级管理员直接新增），提示需成为群主或部落管理员。
   const _clanOpenCreate = clanCrud.methods.openCreate;
   clanCrud.methods.openCreate = function () {
-    var groupNo = (COC.store.user && COC.store.user.groupNo) || '';
+    var groupNo = (COC.store.user && COC.store.user.groupNo) || "";
     if (!groupNo) {
       if (window.ElementPlus && ElementPlus.ElMessage) {
-        ElementPlus.ElMessage.warning('需成为群主或部落管理员才能新增部落');
+        ElementPlus.ElMessage.warning("需成为群主或部落管理员才能新增部落");
       }
       return;
     }
@@ -144,30 +160,50 @@
 </el-dialog>`;
 
   const memberCrud = createCrud({
-    name: 'MemberCrud',
-    baseUrl: '/api/clan/member',
+    name: "MemberCrud",
+    baseUrl: "/api/clan/member",
     cols: memberCols,
-    perms: { create: 'clan:member:add', edit: 'clan:member:edit', delete: 'clan:member:delete' },
+    perms: {
+      create: "clan:member:add",
+      edit: "clan:member:edit",
+      delete: "clan:member:delete",
+    },
     extraButtons: [
-      { text: '导入成员', type: 'primary', click: 'openImport', perm: 'clan:member:import' },
-      { text: '一键计算战斗力', type: 'warning', click: 'openCalcCombat', perm: 'clan:member:calc' }
+      {
+        text: "导入成员",
+        type: "primary",
+        click: "openImport",
+        perm: "clan:member:import",
+      },
+      {
+        text: "一键计算战斗力",
+        type: "warning",
+        click: "openCalcCombat",
+        perm: "clan:member:calc",
+      },
     ],
-    extraTemplate: CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE + CLAN_MEMBER_CALC_DIALOG_TEMPLATE
+    extraTemplate:
+      CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE + CLAN_MEMBER_CALC_DIALOG_TEMPLATE,
   });
   // 部落成员导入弹窗所需的 data 字段（保留基类默认 data）
   var _memberOrigData = memberCrud.data;
   memberCrud.data = function () {
     var d = _memberOrigData.call(this);
     d.importDialogVisible = false;
-    d.importClanNo = '';
+    d.importClanNo = "";
     d.importFiles = [];
     d.previewList = [];
     d.previewLoading = false;
     d.confirmLoading = false;
     // 一键计算战斗力弹窗字段
     d.calcDialogVisible = false;
-    d.calcClanNo = '';
-    d.calcScores = { attackScore: 2500, participateScore: 2500, threeStarScore: 2500, defenseScore: 2500 };
+    d.calcClanNo = "";
+    d.calcScores = {
+      attackScore: 2500,
+      participateScore: 2500,
+      threeStarScore: 2500,
+      defenseScore: 2500,
+    };
     d.calcInfo = { maxThLevel: 17, maxMatchValue: 0 };
     d.calcLoading = false;
     return d;
@@ -176,13 +212,14 @@
   // 打开导入弹窗：预填当前筛选的部落
   memberCrud.methods.openImport = function () {
     // 确保“已存在”成员名称的绿色高亮样式已注入（仅一次）
-    if (!document.getElementById('clan-member-import-green-style')) {
-      var s = document.createElement('style');
-      s.id = 'clan-member-import-green-style';
-      s.textContent = '.member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;color:#2e7d32;font-weight:700;}';
+    if (!document.getElementById("clan-member-import-green-style")) {
+      var s = document.createElement("style");
+      s.id = "clan-member-import-green-style";
+      s.textContent =
+        ".member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;color:#2e7d32;font-weight:700;}";
       document.head.appendChild(s);
     }
-    this.importClanNo = (this.filters && this.filters.clanNo) || '';
+    this.importClanNo = (this.filters && this.filters.clanNo) || "";
     this.importFiles = [];
     this.previewList = [];
     this.previewLoading = false;
@@ -192,7 +229,7 @@
 
   // 关闭弹窗后重置状态
   memberCrud.methods.onImportClosed = function () {
-    this.importClanNo = '';
+    this.importClanNo = "";
     this.importFiles = [];
     this.previewList = [];
   };
@@ -207,27 +244,33 @@
   // 解析预览：将 Excel 发给后台，按成员名称查重并标注 exists
   memberCrud.methods.doParseImport = async function () {
     if (!this.importClanNo) {
-      ElementPlus.ElMessage.warning('请先选择部落');
+      ElementPlus.ElMessage.warning("请先选择部落");
       return;
     }
     if (!this.importFiles.length) {
-      ElementPlus.ElMessage.warning('请选择 Excel 文件');
+      ElementPlus.ElMessage.warning("请选择 Excel 文件");
       return;
     }
     this.previewLoading = true;
     try {
       var fd = new FormData();
-      fd.append('type', 'excel');
-      fd.append('clanNo', this.importClanNo);
+      fd.append("type", "excel");
+      fd.append("clanNo", this.importClanNo);
       var raw = this.importFiles[0].raw;
-      if (raw) fd.append('files', raw);
+      if (raw) fd.append("files", raw);
       var res = await COC.api.clanMemberImportPreview(fd);
       this.previewList = (res && res.records) || [];
       // 同步后台返回的 clanNo/groupNo（预览时服务端已按当前群组处理）
       if (res && res.clanNo) this.importClanNo = res.clanNo;
-      ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+      ElementPlus.ElMessage.success(
+        "解析完成，共 " + this.previewList.length + " 条",
+      );
     } catch (e) {
-      ElementPlus.ElMessage.error('解析失败：' + ((e && e.response && e.response.data && e.response.data.message) || '请检查文件格式'));
+      ElementPlus.ElMessage.error(
+        "解析失败：" +
+          ((e && e.response && e.response.data && e.response.data.message) ||
+            "请检查文件格式"),
+      );
     } finally {
       this.previewLoading = false;
     }
@@ -242,26 +285,26 @@
     try {
       var blob = await COC.api.clanMemberImportTemplate();
       var url = window.URL.createObjectURL(blob);
-      var a = document.createElement('a');
+      var a = document.createElement("a");
       a.href = url;
-      a.download = '部落成员导入模板.xlsx';
+      a.download = "部落成员导入模板.xlsx";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      ElementPlus.ElMessage.error('下载模板失败');
+      ElementPlus.ElMessage.error("下载模板失败");
     }
   };
 
   // 确认导入：跳过已存在成员，其余入库
   memberCrud.methods.doConfirmImport = async function () {
     if (!this.importClanNo) {
-      ElementPlus.ElMessage.warning('请先选择部落');
+      ElementPlus.ElMessage.warning("请先选择部落");
       return;
     }
     if (!this.previewList.length) {
-      ElementPlus.ElMessage.warning('无导入数据');
+      ElementPlus.ElMessage.warning("无导入数据");
       return;
     }
     this.confirmLoading = true;
@@ -270,20 +313,41 @@
         clanNo: this.importClanNo,
         records: this.previewList.map(function (r) {
           var rec = { memberName: r.memberName, memberNo: r.memberNo };
-          if (r.thLevel !== '' && r.thLevel !== null && r.thLevel !== undefined) rec.thLevel = r.thLevel;
-          if (r.matchValue !== '' && r.matchValue !== null && r.matchValue !== undefined) rec.matchValue = r.matchValue;
-          if (r.combatPower !== '' && r.combatPower !== null && r.combatPower !== undefined) rec.combatPower = r.combatPower;
+          if (r.thLevel !== "" && r.thLevel !== null && r.thLevel !== undefined)
+            rec.thLevel = r.thLevel;
+          if (
+            r.matchValue !== "" &&
+            r.matchValue !== null &&
+            r.matchValue !== undefined
+          )
+            rec.matchValue = r.matchValue;
+          if (
+            r.combatPower !== "" &&
+            r.combatPower !== null &&
+            r.combatPower !== undefined
+          )
+            rec.combatPower = r.combatPower;
           return rec;
-        })
+        }),
       });
       var inserted = (res && res.inserted) || 0;
       var skipped = (res && res.skipped) || 0;
       var updated = (res && res.updated) || 0;
-      ElementPlus.ElMessage.success('导入完成：新增 ' + inserted + ' 条' + (updated ? '，更新 ' + updated + ' 条' : '') + (skipped ? '，跳过 ' + skipped + ' 条' : ''));
+      ElementPlus.ElMessage.success(
+        "导入完成：新增 " +
+          inserted +
+          " 条" +
+          (updated ? "，更新 " + updated + " 条" : "") +
+          (skipped ? "，跳过 " + skipped + " 条" : ""),
+      );
       this.importDialogVisible = false;
       this.load();
     } catch (e) {
-      ElementPlus.ElMessage.error('导入失败：' + ((e && e.response && e.response.data && e.response.data.message) || ''));
+      ElementPlus.ElMessage.error(
+        "导入失败：" +
+          ((e && e.response && e.response.data && e.response.data.message) ||
+            ""),
+      );
     } finally {
       this.confirmLoading = false;
     }
@@ -291,8 +355,13 @@
 
   // 一键计算战斗力：弹窗选部落 + 配置公式（得分分配从系统配置表读取默认值）
   memberCrud.methods.openCalcCombat = async function () {
-    this.calcClanNo = (this.filters && this.filters.clanNo) || '';
-    this.calcScores = { attackScore: 2500, participateScore: 2500, threeStarScore: 2500, defenseScore: 2500 };
+    this.calcClanNo = (this.filters && this.filters.clanNo) || "";
+    this.calcScores = {
+      attackScore: 2500,
+      participateScore: 2500,
+      threeStarScore: 2500,
+      defenseScore: 2500,
+    };
     this.calcInfo = { maxThLevel: 17, maxMatchValue: 0 };
     this.calcDialogVisible = true;
     try {
@@ -300,22 +369,25 @@
       if (c) {
         this.calcScores = {
           attackScore: c.attackScore != null ? c.attackScore : 2500,
-          participateScore: c.participateScore != null ? c.participateScore : 2500,
+          participateScore:
+            c.participateScore != null ? c.participateScore : 2500,
           threeStarScore: c.threeStarScore != null ? c.threeStarScore : 2500,
-          defenseScore: c.defenseScore != null ? c.defenseScore : 2500
+          defenseScore: c.defenseScore != null ? c.defenseScore : 2500,
         };
         this.calcInfo = {
           maxThLevel: c.maxThLevel != null ? c.maxThLevel : 17,
-          maxMatchValue: c.maxMatchValue != null ? c.maxMatchValue : 0
+          maxMatchValue: c.maxMatchValue != null ? c.maxMatchValue : 0,
         };
       }
-    } catch (e) { /* 使用默认值即可 */ }
+    } catch (e) {
+      /* 使用默认值即可 */
+    }
   };
 
   // 计算并保存到数据库，关闭弹窗后刷新列表
   memberCrud.methods.doCalcCombat = async function () {
     if (!this.calcClanNo) {
-      ElementPlus.ElMessage.warning('请选择部落');
+      ElementPlus.ElMessage.warning("请选择部落");
       return;
     }
     this.calcLoading = true;
@@ -325,27 +397,60 @@
         attackScore: Number(this.calcScores.attackScore),
         participateScore: Number(this.calcScores.participateScore),
         threeStarScore: Number(this.calcScores.threeStarScore),
-        defenseScore: Number(this.calcScores.defenseScore)
+        defenseScore: Number(this.calcScores.defenseScore),
       });
       var updated = (res && res.updated) || 0;
-      ElementPlus.ElMessage.success('计算完成，已更新 ' + updated + ' 名成员');
+      ElementPlus.ElMessage.success("计算完成，已更新 " + updated + " 名成员");
       this.calcDialogVisible = false;
       await this.load();
     } catch (e) {
-      ElementPlus.ElMessage.error('计算失败：' + ((e && e.response && e.response.data && e.response.data.message) || (e && e.message) || ''));
+      ElementPlus.ElMessage.error(
+        "计算失败：" +
+          ((e && e.response && e.response.data && e.response.data.message) ||
+            (e && e.message) ||
+            ""),
+      );
     } finally {
       this.calcLoading = false;
     }
   };
 
-  const warCrud = createCrud({ name: 'WarCrud', baseUrl: '/api/war', cols: warCols,
-    perms: { create: 'war:add', edit: 'war:edit', delete: 'war:delete' } });
-  const warRecordCrud = createCrud({ name: 'WarRecordCrud', baseUrl: '/api/war/record', cols: warRecordCols,
-    perms: { create: 'war:record:add', edit: 'war:record:edit', delete: 'war:record:delete' } });
-  const leagueCrud = createCrud({ name: 'LeagueCrud', baseUrl: '/api/league', cols: leagueCols,
-    perms: { create: 'league:add', edit: 'league:edit', delete: 'league:delete' } });
-  const leagueClanScoreCrud = createCrud({ name: 'LeagueClanScoreCrud', baseUrl: '/api/league/score', cols: leagueClanScoreCols,
-    perms: { create: 'league:score:add', edit: 'league:score:edit', delete: 'league:score:delete' } });
+  const warCrud = createCrud({
+    name: "WarCrud",
+    baseUrl: "/api/war",
+    cols: warCols,
+    perms: { create: "war:add", edit: "war:edit", delete: "war:delete" },
+  });
+  const warRecordCrud = createCrud({
+    name: "WarRecordCrud",
+    baseUrl: "/api/war/record",
+    cols: warRecordCols,
+    perms: {
+      create: "war:record:add",
+      edit: "war:record:edit",
+      delete: "war:record:delete",
+    },
+  });
+  const leagueCrud = createCrud({
+    name: "LeagueCrud",
+    baseUrl: "/api/league",
+    cols: leagueCols,
+    perms: {
+      create: "league:add",
+      edit: "league:edit",
+      delete: "league:delete",
+    },
+  });
+  const leagueClanScoreCrud = createCrud({
+    name: "LeagueClanScoreCrud",
+    baseUrl: "/api/league/score",
+    cols: leagueClanScoreCols,
+    perms: {
+      create: "league:score:add",
+      edit: "league:score:edit",
+      delete: "league:score:delete",
+    },
+  });
   // 联赛新增：自动填入联赛名称和编号
   // leagueName 格式 "yyyy年M月联赛"，leagueNo 格式 "yyyyMMdd"
   // 日期规则：
@@ -362,16 +467,19 @@
     var dd;
     if (day > 20) {
       month++;
-      if (month > 12) { month = 1; year++; }
-      dd = '01';
+      if (month > 12) {
+        month = 1;
+        year++;
+      }
+      dd = "01";
     } else if (day >= 10) {
-      dd = '15';
+      dd = "15";
     } else {
-      dd = '01';
+      dd = "01";
     }
-    var mm = month < 10 ? '0' + month : '' + month;
-    this.form.leagueName = year + '年' + month + '月联赛';
-    this.form.leagueNo = '' + year + mm + dd;
+    var mm = month < 10 ? "0" + month : "" + month;
+    this.form.leagueName = year + "年" + month + "月联赛";
+    this.form.leagueNo = "" + year + mm + dd;
     // 报名开始：当前时间；报名结束：当前时间 +5 天
     var fmt = function (d) {
       var y = d.getFullYear();
@@ -380,8 +488,12 @@
       var h = d.getHours();
       var mi = d.getMinutes();
       var s = d.getSeconds();
-      var p = function (n) { return n < 10 ? '0' + n : '' + n; };
-      return y + '-' + p(mo) + '-' + p(da) + ' ' + p(h) + ':' + p(mi) + ':' + p(s);
+      var p = function (n) {
+        return n < 10 ? "0" + n : "" + n;
+      };
+      return (
+        y + "-" + p(mo) + "-" + p(da) + " " + p(h) + ":" + p(mi) + ":" + p(s)
+      );
     };
     this.form.signupStart = fmt(now);
     var end = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
@@ -511,14 +623,23 @@
   </el-dialog>`;
 
   const leagueRecordCrud = createCrud({
-    name: 'LeagueRecordCrud',
-    baseUrl: '/api/league/record',
+    name: "LeagueRecordCrud",
+    baseUrl: "/api/league/record",
     cols: leagueRecordCols,
-    perms: { create: 'league:record:add', edit: 'league:record:edit', delete: 'league:record:delete' },
+    perms: {
+      create: "league:record:add",
+      edit: "league:record:edit",
+      delete: "league:record:delete",
+    },
     extraButtons: [
-      { text: '导入', type: 'primary', click: 'openImport', perm: 'league:record:import' }
+      {
+        text: "导入",
+        type: "primary",
+        click: "openImport",
+        perm: "league:record:import",
+      },
     ],
-    extraTemplate: IMPORT_DIALOG_TEMPLATE
+    extraTemplate: IMPORT_DIALOG_TEMPLATE,
   });
 
   // 导入弹窗所需的 data 字段
@@ -526,63 +647,68 @@
   leagueRecordCrud.data = function () {
     var d = _recOrigData.call(this);
     d.importDialogVisible = false;
-    d.importType = '';          // image | excel | json
-    d.importStep = 'select';   // select | upload | json | preview
-    d.importFiles = [];         // el-upload 选中的文件
-    d.importJsonText = '';      // JSON 粘贴文本
-    d.previewList = [];         // 预览数据
+    d.importType = ""; // image | excel | json
+    d.importStep = "select"; // select | upload | json | preview
+    d.importFiles = []; // el-upload 选中的文件
+    d.importJsonText = ""; // JSON 粘贴文本
+    d.previewList = []; // 预览数据
     d.previewLoading = false;
     d.confirmLoading = false;
-    d.importLeagueNo = '';
-    d.importClanNo = '';
-    d.importGroupNo = '';
-    d.importGroupLabel = '';
+    d.importLeagueNo = "";
+    d.importClanNo = "";
+    d.importGroupNo = "";
+    d.importGroupLabel = "";
     return d;
   };
 
   // 确保命中成员的绿色样式已注入全局（只注入一次）
   function ensureImportStyle() {
-    if (document.getElementById('league-import-green-style')) return;
-    var s = document.createElement('style');
-    s.id = 'league-import-green-style';
-    s.textContent = '' +
-      '.member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;padding:2px 2px;}' +
-      '.member-exists-cell .el-input__wrapper{background-color:transparent!important;box-shadow:none!important;}' +
-      '.member-exists-cell .el-input__inner{color:#2e7d32!important;font-weight:700;}';
+    if (document.getElementById("league-import-green-style")) return;
+    var s = document.createElement("style");
+    s.id = "league-import-green-style";
+    s.textContent =
+      "" +
+      ".member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;padding:2px 2px;}" +
+      ".member-exists-cell .el-input__wrapper{background-color:transparent!important;box-shadow:none!important;}" +
+      ".member-exists-cell .el-input__inner{color:#2e7d32!important;font-weight:700;}";
     document.head.appendChild(s);
   }
 
   // 打开导入弹窗：预填当前筛选的联赛/部落与登录用户群组，并加载群组下拉
   leagueRecordCrud.methods.openImport = async function () {
     ensureImportStyle();
-    this.importLeagueNo = (this.filters && this.filters.leagueNo) || '';
-    this.importClanNo = (this.filters && this.filters.clanNo) || '';
-    this.importGroupNo = (COC.store.user && COC.store.user.groupNo) || '';
-    this.importType = '';
-    this.importStep = 'select';
+    this.importLeagueNo = (this.filters && this.filters.leagueNo) || "";
+    this.importClanNo = (this.filters && this.filters.clanNo) || "";
+    this.importGroupNo = (COC.store.user && COC.store.user.groupNo) || "";
+    this.importType = "";
+    this.importStep = "select";
     this.previewList = [];
     this.importFiles = [];
-    this.importJsonText = '';
+    this.importJsonText = "";
     this.importDialogVisible = true;
     if (!this.remoteOptions.groupNo || !this.remoteOptions.groupNo.length) {
       try {
-        var r = await COC.api.page('/api/clan/group', { size: 9999 });
+        var r = await COC.api.page("/api/clan/group", { size: 9999 });
         this.remoteOptions.groupNo = (r.records || []).map(function (x) {
           return { label: x.groupName || x.groupNo, value: x.groupNo };
         });
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
     }
     // 用登录用户的 groupNo 反查群组名作为只读展示；查不到则回退为 groupNo
-    var hit = (this.remoteOptions.groupNo || []).find((x) => x.value === this.importGroupNo);
+    var hit = (this.remoteOptions.groupNo || []).find(
+      (x) => x.value === this.importGroupNo,
+    );
     this.importGroupLabel = (hit && hit.label) || this.importGroupNo;
   };
 
   leagueRecordCrud.methods.chooseImportType = function (t) {
     this.importType = t;
     this.importFiles = [];
-    this.importJsonText = '';
+    this.importJsonText = "";
     this.previewList = [];
-    this.importStep = (t === 'json') ? 'json' : 'upload';
+    this.importStep = t === "json" ? "json" : "upload";
   };
 
   leagueRecordCrud.methods.onImportFileChange = function (file, fileList) {
@@ -595,36 +721,40 @@
   leagueRecordCrud.methods.onJsonFileChange = function (file) {
     var self = this;
     var reader = new FileReader();
-    reader.onload = function (e) { self.importJsonText = e.target.result; };
+    reader.onload = function (e) {
+      self.importJsonText = e.target.result;
+    };
     reader.readAsText(file.raw);
   };
 
   leagueRecordCrud.methods.doParseImport = async function () {
     if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
-      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      ElementPlus.ElMessage.warning("请先选择联赛/部落/群组");
       return;
     }
     if (!this.importFiles.length) {
-      ElementPlus.ElMessage.warning('请选择文件');
+      ElementPlus.ElMessage.warning("请选择文件");
       return;
     }
     this.previewLoading = true;
     try {
       var fd = new FormData();
-      fd.append('type', this.importType);
-      fd.append('leagueNo', this.importLeagueNo);
-      fd.append('clanNo', this.importClanNo);
-      fd.append('groupNo', this.importGroupNo);
+      fd.append("type", this.importType);
+      fd.append("leagueNo", this.importLeagueNo);
+      fd.append("clanNo", this.importClanNo);
+      fd.append("groupNo", this.importGroupNo);
       for (var i = 0; i < this.importFiles.length; i++) {
         var raw = this.importFiles[i].raw;
-        if (raw) fd.append('files', raw);
+        if (raw) fd.append("files", raw);
       }
       var res = await COC.api.leagueImportPreview(fd);
       this.previewList = (res && res.records) || [];
-      this.importStep = 'preview';
-      ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+      this.importStep = "preview";
+      ElementPlus.ElMessage.success(
+        "解析完成，共 " + this.previewList.length + " 条",
+      );
     } catch (e) {
-      ElementPlus.ElMessage.error('解析失败');
+      ElementPlus.ElMessage.error("解析失败");
     } finally {
       this.previewLoading = false;
     }
@@ -632,51 +762,66 @@
 
   leagueRecordCrud.methods.doParseJson = function () {
     if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
-      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      ElementPlus.ElMessage.warning("请先选择联赛/部落/群组");
       return;
     }
     if (!this.importJsonText) {
-      ElementPlus.ElMessage.warning('请粘贴或选择 JSON');
+      ElementPlus.ElMessage.warning("请粘贴或选择 JSON");
       return;
     }
     var parsed;
     try {
       parsed = JSON.parse(this.importJsonText);
     } catch (e) {
-      ElementPlus.ElMessage.error('JSON 格式错误');
+      ElementPlus.ElMessage.error("JSON 格式错误");
       return;
     }
     // 兼容脚本输出：{metadata, data:[{...}], records:[[...]]}，以及纯数组
     var arr = parsed.data || parsed.records || parsed;
     if (!Array.isArray(arr)) {
-      ElementPlus.ElMessage.error('未识别到数据数组');
+      ElementPlus.ElMessage.error("未识别到数据数组");
       return;
     }
     var self = this;
     this.previewList = arr.map(function (item) {
       // 兼容对象 {rank,name,stars,destruction,attacks} 或数组 [rank,name,stars,destruction,attacks]
       var obj = Array.isArray(item)
-        ? { rank: item[0], name: item[1], stars: item[2], destruction: item[3], attacks: item[4] }
+        ? {
+            rank: item[0],
+            name: item[1],
+            stars: item[2],
+            destruction: item[3],
+            attacks: item[4],
+          }
         : item;
       // 进攻次数规范化（兼容 attacks:"7/7" 或 actualAttacks/requiredAttacks 两个字段）
-      var atkRaw = (obj.attacks != null ? obj.attacks
-        : (obj.actualAttacks != null && obj.requiredAttacks != null ? obj.actualAttacks + '/' + obj.requiredAttacks : ''));
+      var atkRaw =
+        obj.attacks != null
+          ? obj.attacks
+          : obj.actualAttacks != null && obj.requiredAttacks != null
+            ? obj.actualAttacks + "/" + obj.requiredAttacks
+            : "";
       var atkNorm = self.normalizeAttacks(atkRaw) || atkRaw;
-      var atk = String(atkNorm || '').split('/');
+      var atk = String(atkNorm || "").split("/");
       var actual = Number(atk[0]) || 0;
       var required = Number(atk[1]) || 0;
       var winStars = Number(obj.stars != null ? obj.stars : obj.winStars);
       if (isNaN(winStars)) winStars = 0;
-      var destroyRate = Number(obj.destruction != null ? obj.destruction : obj.destroyRate);
+      var destroyRate = Number(
+        obj.destruction != null ? obj.destruction : obj.destroyRate,
+      );
       if (isNaN(destroyRate)) destroyRate = 0;
       // 未参战行(0/0 或 0/1) → 胜利之星/摧毁率补0
-      if ((actual === 0 && required === 0) || (actual === 0 && required === 1)) {
+      if (
+        (actual === 0 && required === 0) ||
+        (actual === 0 && required === 1)
+      ) {
         winStars = 0;
         destroyRate = 0;
       }
       return {
-        rank: obj.rank != null ? String(obj.rank) : '',
-        memberName: obj.name || obj.memberName || '',
+        rank: obj.rank != null ? String(obj.rank) : "",
+        memberName: obj.name || obj.memberName || "",
         winStars: winStars,
         destroyRate: Math.round(destroyRate),
         actualAttacks: actual,
@@ -685,21 +830,24 @@
         signupStatus: null,
         leagueNo: self.importLeagueNo,
         clanNo: self.importClanNo,
-        groupNo: self.importGroupNo
+        groupNo: self.importGroupNo,
       };
     });
-    this.importStep = 'preview';
-    ElementPlus.ElMessage.success('解析完成，共 ' + this.previewList.length + ' 条');
+    this.importStep = "preview";
+    ElementPlus.ElMessage.success(
+      "解析完成，共 " + this.previewList.length + " 条",
+    );
     // JSON 本地解析后，查询后台判断成员是否存在，回填 memberExists
     this.checkMemberExists();
   };
 
   // 查询后台：批量判断 previewList 中的成员名是否存在于所选部落+群组，回填 memberExists
   leagueRecordCrud.methods.checkMemberExists = async function () {
-    if (!this.importClanNo || !this.importGroupNo || !this.previewList.length) return;
+    if (!this.importClanNo || !this.importGroupNo || !this.previewList.length)
+      return;
     var names = [];
     for (var i = 0; i < this.previewList.length; i++) {
-      var nm = (this.previewList[i].memberName || '').trim();
+      var nm = (this.previewList[i].memberName || "").trim();
       if (nm && names.indexOf(nm) === -1) names.push(nm);
     }
     if (!names.length) return;
@@ -707,14 +855,16 @@
       var res = await COC.api.leagueCheckMembers({
         clanNo: this.importClanNo,
         groupNo: this.importGroupNo,
-        names: names
+        names: names,
       });
       var exists = (res && res.exists) || [];
       for (var j = 0; j < this.previewList.length; j++) {
         var r = this.previewList[j];
-        r.memberExists = exists.indexOf((r.memberName || '').trim()) !== -1;
+        r.memberExists = exists.indexOf((r.memberName || "").trim()) !== -1;
       }
-    } catch (e) { /* 忽略，不影响预览 */ }
+    } catch (e) {
+      /* 忽略，不影响预览 */
+    }
   };
 
   // 进攻次数规范化：标准 X/Y 或 OCR 误读(777→7/7, 000→0/0)；无法识别返回 null
@@ -722,36 +872,36 @@
     if (val == null) return null;
     var s = String(val).trim();
     var m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
-    if (m) return m[1] + '/' + m[2];
+    if (m) return m[1] + "/" + m[2];
     m = s.match(/^(\d)\1{1,2}$/);
-    if (m && s.length <= 3) return m[1] + '/' + m[1];
+    if (m && s.length <= 3) return m[1] + "/" + m[1];
     return null;
   };
 
   leagueRecordCrud.methods.downloadTemplate = async function (type) {
     try {
       var blob = await COC.api.leagueImportTemplate(type);
-      var ext = type === 'json' ? 'json' : 'xlsx';
+      var ext = type === "json" ? "json" : "xlsx";
       var url = window.URL.createObjectURL(blob);
-      var a = document.createElement('a');
+      var a = document.createElement("a");
       a.href = url;
-      a.download = 'league-record-example.' + ext;
+      a.download = "league-record-example." + ext;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      ElementPlus.ElMessage.error('下载示例失败');
+      ElementPlus.ElMessage.error("下载示例失败");
     }
   };
 
   leagueRecordCrud.methods.doConfirmImport = async function () {
     if (!this.importLeagueNo || !this.importClanNo || !this.importGroupNo) {
-      ElementPlus.ElMessage.warning('请先选择联赛/部落/群组');
+      ElementPlus.ElMessage.warning("请先选择联赛/部落/群组");
       return;
     }
     if (!this.previewList.length) {
-      ElementPlus.ElMessage.warning('无导入数据');
+      ElementPlus.ElMessage.warning("无导入数据");
       return;
     }
     this.confirmLoading = true;
@@ -760,25 +910,38 @@
         leagueNo: this.importLeagueNo,
         clanNo: this.importClanNo,
         groupNo: this.importGroupNo,
-        records: this.previewList
+        records: this.previewList,
       });
-      ElementPlus.ElMessage.success('导入成功：' + ((res && res.inserted) || this.previewList.length) + ' 条');
+      ElementPlus.ElMessage.success(
+        "导入成功：" +
+          ((res && res.inserted) || this.previewList.length) +
+          " 条",
+      );
       this.importDialogVisible = false;
       this.load();
     } catch (e) {
-      ElementPlus.ElMessage.error('导入失败');
+      ElementPlus.ElMessage.error("导入失败");
     } finally {
       this.confirmLoading = false;
     }
   };
   const leagueSignupCrud = createCrud({
-    name: 'LeagueSignupCrud',
-    baseUrl: '/api/league/signup',
+    name: "LeagueSignupCrud",
+    baseUrl: "/api/league/signup",
     cols: leagueSignupCols,
-    perms: { create: 'league:signup:add', edit: 'league:signup:edit', delete: 'league:signup:delete' },
+    perms: {
+      create: "league:signup:add",
+      edit: "league:signup:edit",
+      delete: "league:signup:delete",
+    },
     extraButtons: [
-      { text: '一键初始化报名', type: 'warning', click: 'initSignup', perm: 'league:signup:init' }
-    ]
+      {
+        text: "一键初始化报名",
+        type: "warning",
+        click: "initSignup",
+        perm: "league:signup:init",
+      },
+    ],
   });
   // 首次加载时自动选最新联赛（id 最大 = 最新），设入搜索栏后查询该联赛报名数据
   var _signupOriginalLoad = leagueSignupCrud.methods.load;
@@ -797,31 +960,38 @@
   };
   // 一键初始化报名：弹窗选部落 → 调 /init 接口 → 重新加载列表
   leagueSignupCrud.methods.initSignup = function () {
-    this.initLeagueNo = '';
-    this.initClanNo = '';
+    this.initLeagueNo = "";
+    this.initClanNo = "";
     this.initDialogVisible = true;
   };
   leagueSignupCrud.methods.doInitSignup = async function () {
     if (!this.initLeagueNo) {
       if (window.ElementPlus && ElementPlus.ElMessage) {
-        ElementPlus.ElMessage.warning('请选择联赛');
+        ElementPlus.ElMessage.warning("请选择联赛");
       }
       return;
     }
     if (!this.initClanNo) {
       if (window.ElementPlus && ElementPlus.ElMessage) {
-        ElementPlus.ElMessage.warning('请选择部落');
+        ElementPlus.ElMessage.warning("请选择部落");
       }
       return;
     }
     this.initLoading = true;
     try {
-      var result = await COC.http.post('/api/league/signup/init', null, {
-        params: { leagueNo: this.initLeagueNo, clanNo: this.initClanNo }
+      var result = await COC.http.post("/api/league/signup/init", null, {
+        params: { leagueNo: this.initLeagueNo, clanNo: this.initClanNo },
       });
       var data = result || {};
       if (window.ElementPlus && ElementPlus.ElMessage) {
-        var msg = '初始化完成：新增 ' + (data.inserted||0) + ' 条，替换 ' + (data.replaced||0) + ' 条，跳过 ' + (data.skipped||0) + ' 条';
+        var msg =
+          "初始化完成：新增 " +
+          (data.inserted || 0) +
+          " 条，替换 " +
+          (data.replaced || 0) +
+          " 条，跳过 " +
+          (data.skipped || 0) +
+          " 条";
         ElementPlus.ElMessage.success(msg);
       }
       this.initDialogVisible = false;
@@ -831,30 +1001,65 @@
       await this.load();
     } catch (e) {
       if (window.ElementPlus && ElementPlus.ElMessage) {
-        ElementPlus.ElMessage.error('初始化失败：' + ((e && e.message) || ''));
+        ElementPlus.ElMessage.error("初始化失败：" + ((e && e.message) || ""));
       }
     } finally {
       this.initLoading = false;
     }
   };
-  const groupCrud = createCrud({ name: 'GroupCrud', baseUrl: '/api/clan/group', cols: groupCols,
-    perms: { create: 'group:add', edit: 'group:edit', delete: 'group:delete' } });
+  const groupCrud = createCrud({
+    name: "GroupCrud",
+    baseUrl: "/api/clan/group",
+    cols: groupCols,
+    perms: { create: "group:add", edit: "group:edit", delete: "group:delete" },
+  });
   // 菜单管理：使用专用树视图组件（替代通用 CRUD 列表），更适合层级数据维护。
   const menuTree = window.createMenuTree();
-  const dictGroupCrud = createCrud({ name: 'DictGroupCrud', baseUrl: '/api/dict/group', cols: dictGroupCols,
-    perms: { create: 'sys:dict:add', edit: 'sys:dict:edit', delete: 'sys:dict:delete' } });
-  const dictItemCrud = createCrud({ name: 'DictItemCrud', baseUrl: '/api/dict/item', cols: dictItemCols,
-    perms: { create: 'sys:dict:add', edit: 'sys:dict:edit', delete: 'sys:dict:delete' } });
-  const configCrud = createCrud({ name: 'ConfigCrud', baseUrl: '/api/sys/config', cols: configCols,
-    perms: { create: 'sys:config:add', edit: 'sys:config:edit', delete: 'sys:config:delete' } });
+  const dictGroupCrud = createCrud({
+    name: "DictGroupCrud",
+    baseUrl: "/api/dict/group",
+    cols: dictGroupCols,
+    perms: {
+      create: "sys:dict:add",
+      edit: "sys:dict:edit",
+      delete: "sys:dict:delete",
+    },
+  });
+  const dictItemCrud = createCrud({
+    name: "DictItemCrud",
+    baseUrl: "/api/dict/item",
+    cols: dictItemCols,
+    perms: {
+      create: "sys:dict:add",
+      edit: "sys:dict:edit",
+      delete: "sys:dict:delete",
+    },
+  });
+  const configCrud = createCrud({
+    name: "ConfigCrud",
+    baseUrl: "/api/sys/config",
+    cols: configCols,
+    perms: {
+      create: "sys:config:add",
+      edit: "sys:config:edit",
+      delete: "sys:config:delete",
+    },
+  });
 
   // 暴露到全局，供 app.js 使用
   window.COC_CRUD = {
-    clanCrud, memberCrud,
-    warCrud, warRecordCrud,
-    leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud,
-    groupCrud, menuTree,
-    dictGroupCrud, dictItemCrud,
-    configCrud
+    clanCrud,
+    memberCrud,
+    warCrud,
+    warRecordCrud,
+    leagueCrud,
+    leagueClanScoreCrud,
+    leagueRecordCrud,
+    leagueSignupCrud,
+    groupCrud,
+    menuTree,
+    dictGroupCrud,
+    dictItemCrud,
+    configCrud,
   };
 })();

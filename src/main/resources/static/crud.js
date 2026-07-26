@@ -4,7 +4,7 @@
     const o = {};
     Object.keys(obj).forEach((k) => {
       const v = obj[k];
-      if (v !== '' && v !== null && v !== undefined) o[k] = v;
+      if (v !== "" && v !== null && v !== undefined) o[k] = v;
     });
     return o;
   }
@@ -12,53 +12,75 @@
   // 通过 baseUrl + cols 生成一个 Vue 组件对象
   window.createCrud = function (opts) {
     return {
-      name: opts.name || 'CrudPage',
+      name: opts.name || "CrudPage",
       data() {
         return {
           baseUrl: opts.baseUrl,
-          listUrl: opts.listUrl || (opts.baseUrl + '/list'), // 列表接口地址
+          listUrl: opts.listUrl || opts.baseUrl + "/list", // 列表接口地址
           cols: opts.cols,
-          keyword: '',
+          keyword: "",
           filters: {},
-          sortField: '', // 当前排序列（prop 名）
-          sortOrder: '', // 'asc' | 'desc' | ''
+          sortField: "", // 当前排序列（prop 名）
+          sortOrder: "", // 'asc' | 'desc' | ''
           list: [],
           total: 0,
           page: 1,
           size: 10,
           loading: false,
           dialogVisible: false,
-          dialogTitle: '新增',
+          dialogTitle: "新增",
           form: {},
           dictOptions: {}, // { groupCode: [{label,value}] }
           remoteOptions: {}, // { propName: [{label,value}] } - 远程搜索下拉的候选
           extraButtons: opts.extraButtons || [], // 额外按钮（如"一键初始化报名"）
           initDialogVisible: false, // 初始化报名对话框
-          initLeagueNo: '', // 初始化报名选中的联赛
-          initClanNo: '', // 初始化报名选中的部落
+          initLeagueNo: "", // 初始化报名选中的联赛
+          initClanNo: "", // 初始化报名选中的部落
           initLoading: false, // 初始化报名执行中
           remoteLoading: {}, // { propName: boolean }
-          preset: opts.preset || {} // 固定查询条件（如字典项按群组过滤）
+          preset: opts.preset || {}, // 固定查询条件（如字典项按群组过滤）
         };
       },
       computed: {
-        searchCols() { return this.cols.filter((c) => c.search); },
-        tableCols() { return this.cols.filter((c) => !c.hideInTable); },
-        formCols() { return this.cols.filter((c) => !c.hideInForm); },
-        isListView() { return !!opts.listMode; },
+        searchCols() {
+          return this.cols.filter((c) => c.search);
+        },
+        tableCols() {
+          return this.cols.filter((c) => !c.hideInTable);
+        },
+        formCols() {
+          return this.cols.filter((c) => !c.hideInForm);
+        },
+        isListView() {
+          return !!opts.listMode;
+        },
         // 各写操作对应的菜单权限标识（在 crud-instances.js 的 opts.perms 中配置）。
         // 未配置时（perm 为空）该按钮不做权限拦截，默认可见。
-        createPerm() { return opts.perms && opts.perms.create; },
-        editPerm() { return opts.perms && opts.perms.edit; },
-        deletePerm() { return opts.perms && opts.perms.delete; },
+        createPerm() {
+          return opts.perms && opts.perms.create;
+        },
+        editPerm() {
+          return opts.perms && opts.perms.edit;
+        },
+        deletePerm() {
+          return opts.perms && opts.perms.delete;
+        },
         // 查询/重置按钮不做控制；其它按钮按菜单里配置的权限标识控制。
-        canCreate() { return !this.createPerm || COC.store.hasPerm(this.createPerm); },
-        canEdit() { return !this.editPerm || COC.store.hasPerm(this.editPerm); },
-        canDelete() { return !this.deletePerm || COC.store.hasPerm(this.deletePerm); },
+        canCreate() {
+          return !this.createPerm || COC.store.hasPerm(this.createPerm);
+        },
+        canEdit() {
+          return !this.editPerm || COC.store.hasPerm(this.editPerm);
+        },
+        canDelete() {
+          return !this.deletePerm || COC.store.hasPerm(this.deletePerm);
+        },
         // 经过权限过滤后可见的额外按钮（每个 extraButton 可带 perm 字段）
         visibleExtraButtons() {
-          return (opts.extraButtons || []).filter((b) => !b.perm || COC.store.hasPerm(b.perm));
-        }
+          return (opts.extraButtons || []).filter(
+            (b) => !b.perm || COC.store.hasPerm(b.perm),
+          );
+        },
       },
       async mounted() {
         await this.loadDicts();
@@ -79,47 +101,68 @@
                 this.dictOptions[c.dictCode] = (r.records || []).map((i) => ({
                   label: i.itemName,
                   // 将纯数字字串规范化为 Number，使 el-select 与表单绑定值类型一致，回显中文
-                  value: typeof i.itemValue === 'string' && /^-?\d+(\.\d+)?$/.test(i.itemValue.trim())
-                    ? Number(i.itemValue.trim())
-                    : i.itemValue
+                  value:
+                    typeof i.itemValue === "string" &&
+                    /^-?\d+(\.\d+)?$/.test(i.itemValue.trim())
+                      ? Number(i.itemValue.trim())
+                      : i.itemValue,
                 }));
-              } catch (e) { /* 无权限或字典未初始化 */ }
-            })
+              } catch (e) {
+                /* 无权限或字典未初始化 */
+              }
+            }),
           );
         },
         /** 预拉取所有远程下拉的默认候选，让表格列能把 id 翻译为 label */
         async preloadRemoteOptions() {
-          const remoteCols = this.cols.filter((c) => c.type === 'remote-select');
-          await Promise.all(remoteCols.map((c) => this.remoteSearch(c, '')));
+          const remoteCols = this.cols.filter(
+            (c) => c.type === "remote-select",
+          );
+          await Promise.all(remoteCols.map((c) => this.remoteSearch(c, "")));
         },
         /** 预拉取所有 tree-select 列的全量数据并转树，存入 dictOptions 复用 */
         async preloadTreeOptions() {
-          const treeCols = this.cols.filter((c) => c.type === 'tree-select' && c.url);
-          await Promise.all(treeCols.map(async (c) => {
-            try {
-              const r = await COC.api.page(c.url, { size: 9999 });
-              const records = r.records || [];
-              // 表格列翻译（id → 菜单名）也复用这份数据
-              const idToLabel = {};
-              records.forEach((m) => { idToLabel[m.id] = m.menuName || m.name; });
-              this.dictOptions[c.prop] = idToLabel;
-              // 把列表转成树
-              const map = new Map();
-              records.forEach((m) => map.set(m.id, {
-                id: m.id, parentId: m.parentId || 0, label: m.menuName || m.name, children: []
-              }));
-              const roots = [];
-              map.forEach((node) => {
-                if (node.parentId && map.has(node.parentId)) {
-                  map.get(node.parentId).children.push(node);
-                } else {
-                  roots.push(node);
-                }
-              });
-              // 给"无父"选项预留"顶级菜单"占位（id=0）
-              this.dictOptions[c.prop + 'Tree'] = [{ id: 0, label: '顶级菜单', children: roots }];
-            } catch (e) { /* 无权限或接口缺失 */ }
-          }));
+          const treeCols = this.cols.filter(
+            (c) => c.type === "tree-select" && c.url,
+          );
+          await Promise.all(
+            treeCols.map(async (c) => {
+              try {
+                const r = await COC.api.page(c.url, { size: 9999 });
+                const records = r.records || [];
+                // 表格列翻译（id → 菜单名）也复用这份数据
+                const idToLabel = {};
+                records.forEach((m) => {
+                  idToLabel[m.id] = m.menuName || m.name;
+                });
+                this.dictOptions[c.prop] = idToLabel;
+                // 把列表转成树
+                const map = new Map();
+                records.forEach((m) =>
+                  map.set(m.id, {
+                    id: m.id,
+                    parentId: m.parentId || 0,
+                    label: m.menuName || m.name,
+                    children: [],
+                  }),
+                );
+                const roots = [];
+                map.forEach((node) => {
+                  if (node.parentId && map.has(node.parentId)) {
+                    map.get(node.parentId).children.push(node);
+                  } else {
+                    roots.push(node);
+                  }
+                });
+                // 给"无父"选项预留"顶级菜单"占位（id=0）
+                this.dictOptions[c.prop + "Tree"] = [
+                  { id: 0, label: "顶级菜单", children: roots },
+                ];
+              } catch (e) {
+                /* 无权限或接口缺失 */
+              }
+            }),
+          );
         },
         async load() {
           this.loading = true;
@@ -128,17 +171,17 @@
               // 列表模式：调用 /list 接口，返回数组
               var params = Object.assign({}, this.filters, this.preset);
               var r = await COC.api.get(this.listUrl, clean(params));
-              this.list = Array.isArray(r) ? r : (r.records || []);
+              this.list = Array.isArray(r) ? r : r.records || [];
               this.total = this.list.length;
             } else {
               var params2 = Object.assign(
                 { keyword: this.keyword, current: this.page, size: this.size },
                 this.filters,
-                this.preset
+                this.preset,
               );
               if (this.sortField) {
                 params2.sortField = this.sortField;
-                params2.sortOrder = this.sortOrder || 'asc';
+                params2.sortOrder = this.sortOrder || "asc";
               }
               var r2 = await COC.api.page(this.baseUrl, clean(params2));
               this.list = r2.records || [];
@@ -148,68 +191,95 @@
             this.loading = false;
           }
         },
-        onSearch() { this.page = 1; this.load(); },
-        onReset() { this.keyword = ''; this.filters = {}; this.sortField = ''; this.sortOrder = ''; this.page = 1; this.load(); },
+        onSearch() {
+          this.page = 1;
+          this.load();
+        },
+        onReset() {
+          this.keyword = "";
+          this.filters = {};
+          this.sortField = "";
+          this.sortOrder = "";
+          this.page = 1;
+          this.load();
+        },
         /** 表头排序变化（仅 sortable:'custom' 列触发）：向分页接口传递排序参数 */
         onSortChange({ prop, order }) {
-          this.sortField = order ? prop : '';
-          this.sortOrder = order === 'descending' ? 'desc' : 'asc';
+          this.sortField = order ? prop : "";
+          this.sortOrder = order === "descending" ? "desc" : "asc";
           this.page = 1;
           this.load();
         },
         optionsFor(c) {
-          if (typeof c.options === 'function') return c.options() || [];
+          if (typeof c.options === "function") return c.options() || [];
           if (c.options) return c.options;
           if (c.dictCode) return this.dictOptions[c.dictCode] || [];
-          if (c.type === 'remote-select') return this.remoteOptions[c.prop] || [];
-          if (c.type === 'tree-select') return this.dictOptions[c.prop + 'Tree'] || [];
+          if (c.type === "remote-select")
+            return this.remoteOptions[c.prop] || [];
+          if (c.type === "tree-select")
+            return this.dictOptions[c.prop + "Tree"] || [];
           return [];
         },
         labelOf(c, val) {
           // 树形数据（tree-select）走 idToLabel 翻译
-          if (c.type === 'tree-select' && val !== '' && val != null) {
-            return this.dictOptions[c.prop] && this.dictOptions[c.prop][val] || val;
+          if (c.type === "tree-select" && val !== "" && val != null) {
+            return (
+              (this.dictOptions[c.prop] && this.dictOptions[c.prop][val]) || val
+            );
           }
-          const o = this.optionsFor(c).find((x) => String(x.value) === String(val));
+          const o = this.optionsFor(c).find(
+            (x) => String(x.value) === String(val),
+          );
           return o ? o.label : val;
         },
         defaultForm() {
           const f = {};
           this.formCols.forEach((c) => {
-            if (c.type === 'switch') f[c.prop] = c.default !== undefined ? c.default : 1;
-            else if (c.type === 'number') f[c.prop] = c.default !== undefined ? c.default : 0;
-            else f[c.prop] = c.default !== undefined ? c.default : '';
+            if (c.type === "switch")
+              f[c.prop] = c.default !== undefined ? c.default : 1;
+            else if (c.type === "number")
+              f[c.prop] = c.default !== undefined ? c.default : 0;
+            else f[c.prop] = c.default !== undefined ? c.default : "";
           });
           return f;
         },
         openCreate() {
-          this.dialogTitle = '新增';
+          this.dialogTitle = "新增";
           this.form = this.defaultForm();
           this.dialogVisible = true;
           // 预拉取远程下拉的默认项，避免首次打开无候选
-          this.formCols.filter((c) => c.type === 'remote-select').forEach((c) => {
-            if (!this.remoteOptions[c.prop]) this.remoteSearch(c, '');
-          });
-          this.$nextTick(() => this.$refs.formRef && this.$refs.formRef.clearValidate());
+          this.formCols
+            .filter((c) => c.type === "remote-select")
+            .forEach((c) => {
+              if (!this.remoteOptions[c.prop]) this.remoteSearch(c, "");
+            });
+          this.$nextTick(
+            () => this.$refs.formRef && this.$refs.formRef.clearValidate(),
+          );
         },
         openEdit(row) {
-          this.dialogTitle = '编辑';
+          this.dialogTitle = "编辑";
           const f = this.defaultForm();
           // 保留 id 用于 submit 判断编辑状态及提交给后端 update 接口
           if (row.id !== undefined && row.id !== null) f.id = row.id;
           this.formCols.forEach((c) => {
             let v = row[c.prop];
-            if (c.type === 'switch') v = v == null ? 1 : Number(v);
-            if (c.type === 'remote-select' && (v === '' || v === undefined)) v = null;
+            if (c.type === "switch") v = v == null ? 1 : Number(v);
+            if (c.type === "remote-select" && (v === "" || v === undefined))
+              v = null;
             f[c.prop] = v;
           });
           this.form = f;
           this.dialogVisible = true;
           // 编辑时拉一次候选，保证当前值可显示在选项中
-          this.formCols.filter((c) => c.type === 'remote-select').forEach((c) => {
-            this.remoteSearch(c, '');
-          });
-          this.$nextTick(() => this.$refs.formRef && this.$refs.formRef.clearValidate());
+          this.formCols
+            .filter((c) => c.type === "remote-select")
+            .forEach((c) => {
+              this.remoteSearch(c, "");
+            });
+          this.$nextTick(
+            () => this.$refs.formRef && this.$refs.formRef.clearValidate(),
+          );
         },
         /** 远程下拉搜索：根据输入的关键词请求分页接口，刷新候选列表 */
         async remoteSearch(c, query) {
@@ -217,53 +287,65 @@
           this.remoteLoading[c.prop] = true;
           try {
             const params = { size: c.pageSize || 20 };
-            const kw = (query || '').trim();
+            const kw = (query || "").trim();
             if (c.searchKey) params[c.searchKey] = kw;
             else params.keyword = kw;
             const r = await COC.api.page(c.url, params);
             this.remoteOptions[c.prop] = (r.records || []).map((x) => ({
               label: c.labelKey ? x[c.labelKey] : x.label,
-              value: c.valueKey ? x[c.valueKey] : x.id
+              value: c.valueKey ? x[c.valueKey] : x.id,
             }));
-          } catch (e) { /* 已在拦截器提示 */ }
-          finally { this.remoteLoading[c.prop] = false; }
+          } catch (e) {
+            /* 已在拦截器提示 */
+          } finally {
+            this.remoteLoading[c.prop] = false;
+          }
         },
         submit() {
           this.$refs.formRef.validate(async (valid) => {
             if (!valid) return;
             const payload = {};
             // 编辑时把 id 带入 payload，供后端 update 接口定位记录
-            if (this.form.id !== undefined && this.form.id !== null && this.form.id !== '') {
+            if (
+              this.form.id !== undefined &&
+              this.form.id !== null &&
+              this.form.id !== ""
+            ) {
               payload.id = this.form.id;
             }
             this.formCols.forEach((c) => {
               let v = this.form[c.prop];
               // 远程下拉的空值统一转为 null，避免 Long 类型字段收到空串
-              if (c.type === 'remote-select' && (v === '' || v === undefined)) v = null;
+              if (c.type === "remote-select" && (v === "" || v === undefined))
+                v = null;
               payload[c.prop] = v;
             });
             try {
               if (payload.id) await COC.api.update(this.baseUrl, payload);
               else await COC.api.create(this.baseUrl, payload);
-              ElementPlus.ElMessage.success('保存成功');
+              ElementPlus.ElMessage.success("保存成功");
               this.dialogVisible = false;
               this.load();
               // 数据变更后，tree-select 字段的候选树可能过期（如新增菜单后应出现在父菜单下拉中），重新加载
               this.preloadTreeOptions();
-            } catch (e) { /* 错误已在拦截器提示 */ }
+            } catch (e) {
+              /* 错误已在拦截器提示 */
+            }
           });
         },
         remove(row) {
-          ElementPlus.ElMessageBox.confirm('确定要删除该记录吗？', '提示', {
-            type: 'warning'
-          }).then(async () => {
-            await COC.api.remove(this.baseUrl, row.id);
-            ElementPlus.ElMessage.success('删除成功');
-            this.load();
-            // 删除后同样刷新 tree-select 候选，避免下拉树残留已删除项
-            this.preloadTreeOptions();
-          }).catch(() => {});
-        }
+          ElementPlus.ElMessageBox.confirm("确定要删除该记录吗？", "提示", {
+            type: "warning",
+          })
+            .then(async () => {
+              await COC.api.remove(this.baseUrl, row.id);
+              ElementPlus.ElMessage.success("删除成功");
+              this.load();
+              // 删除后同样刷新 tree-select 候选，避免下拉树残留已删除项
+              this.preloadTreeOptions();
+            })
+            .catch(() => {});
+        },
       },
       template: `
       <div>
@@ -391,8 +473,8 @@
             <el-button type="primary" :loading="initLoading" @click="doInitSignup">确认初始化</el-button>
           </template>
         </el-dialog>
-        ${opts.extraTemplate || ''}
-      </div>`
+        ${opts.extraTemplate || ""}
+      </div>`,
     };
   };
 
@@ -407,17 +489,20 @@
    */
   window.createMenuTree = function () {
     return {
-      name: 'MenuTree',
+      name: "MenuTree",
       data() {
         return {
           treeData: [],
-          keyword: '',
+          keyword: "",
           loading: false,
           dialogVisible: false,
-          dialogTitle: '新增菜单',
+          dialogTitle: "新增菜单",
           saving: false,
           form: this.makeEmptyForm(null),
-          treeProps: { children: 'children', label: (data, node) => data.menuName || '（未命名）' }
+          treeProps: {
+            children: "children",
+            label: (data, node) => data.menuName || "（未命名）",
+          },
         };
       },
       computed: {
@@ -436,9 +521,10 @@
             for (const n of nodes) {
               const children = Array.isArray(n.children) ? n.children : [];
               const childrenOut = walk(children);
-              const match = (n.menuName || '').toLowerCase().includes(kw)
-                || (n.path || '').toLowerCase().includes(kw)
-                || (n.permission || '').toLowerCase().includes(kw);
+              const match =
+                (n.menuName || "").toLowerCase().includes(kw) ||
+                (n.path || "").toLowerCase().includes(kw) ||
+                (n.permission || "").toLowerCase().includes(kw);
               if (match || childrenOut.length > 0) {
                 out.push(Object.assign({}, n, { children: childrenOut }));
               }
@@ -446,7 +532,7 @@
             return out;
           };
           return walk(this.treeData);
-        }
+        },
       },
       methods: {
         /** 创建空的菜单表单对象：parentId=null 表示顶级菜单 */
@@ -454,24 +540,26 @@
           return {
             id: null,
             parentId: parentId == null ? 0 : parentId,
-            menuName: '',
+            menuName: "",
             menuType: parentId == null ? 0 : 1,
-            path: '',
-            component: '',
-            icon: '',
-            permission: '',
-            sort: 0
+            path: "",
+            component: "",
+            icon: "",
+            permission: "",
+            sort: 0,
           };
         },
         /** 加载菜单树：调用 /api/sys/menu/tree */
         async loadTree() {
           this.loading = true;
           try {
-            const data = await COC.api.get('/api/sys/menu/tree');
+            const data = await COC.api.get("/api/sys/menu/tree");
             this.treeData = Array.isArray(data) ? data : [];
           } catch (e) {
             if (window.ElementPlus && ElementPlus.ElMessage) {
-              ElementPlus.ElMessage.error('加载菜单失败：' + ((e && e.message) || ''));
+              ElementPlus.ElMessage.error(
+                "加载菜单失败：" + ((e && e.message) || ""),
+              );
             }
             this.treeData = [];
           } finally {
@@ -479,28 +567,32 @@
           }
         },
         /** 类型标签显示文本（兼容 null） */
-        typeLabel(t) { return ['目录', '菜单', '按钮'][t == null ? 1 : t]; },
+        typeLabel(t) {
+          return ["目录", "菜单", "按钮"][t == null ? 1 : t];
+        },
         /** 类型标签 Element Plus tag 类型 */
-        typeTagType(t) { return ['success', 'primary', 'info'][t == null ? 1 : t]; },
+        typeTagType(t) {
+          return ["success", "primary", "info"][t == null ? 1 : t];
+        },
         /** 新增：parentId 为 null/falsy 表示顶级菜单 */
         openCreate(parentId) {
-          this.dialogTitle = parentId ? '新增子菜单' : '新增顶级菜单';
+          this.dialogTitle = parentId ? "新增子菜单" : "新增顶级菜单";
           this.form = this.makeEmptyForm(parentId || null);
           this.dialogVisible = true;
         },
         /** 编辑：把后端节点映射为表单字段（缺失字段兜底默认） */
         openEdit(node) {
-          this.dialogTitle = '编辑菜单';
+          this.dialogTitle = "编辑菜单";
           this.form = {
             id: node.id,
             parentId: node.parentId || 0,
-            menuName: node.menuName || '',
+            menuName: node.menuName || "",
             menuType: node.menuType == null ? 1 : node.menuType,
-            path: node.path || '',
-            component: node.component || '',
-            icon: node.icon || '',
-            permission: node.permission || '',
-            sort: node.sort || 0
+            path: node.path || "",
+            component: node.component || "",
+            icon: node.icon || "",
+            permission: node.permission || "",
+            sort: node.sort || 0,
           };
           this.dialogVisible = true;
         },
@@ -513,19 +605,23 @@
             if (!window.ElementPlus) return;
             await ElementPlus.ElMessageBox.confirm(
               `确定删除菜单"${node.menuName}"及其所有子菜单？此操作不可撤销。`,
-              '确认删除',
-              { type: 'warning' }
+              "确认删除",
+              { type: "warning" },
             );
           } catch (e) {
             return;
           }
           this.loading = true;
           try {
-            await COC.api.remove('/api/sys/menu/cascade', node.id);
-            if (ElementPlus.ElMessage) ElementPlus.ElMessage.success('删除成功');
+            await COC.api.remove("/api/sys/menu/cascade", node.id);
+            if (ElementPlus.ElMessage)
+              ElementPlus.ElMessage.success("删除成功");
             await this.loadTree();
           } catch (e) {
-            if (ElementPlus.ElMessage) ElementPlus.ElMessage.error('删除失败：' + ((e && e.message) || ''));
+            if (ElementPlus.ElMessage)
+              ElementPlus.ElMessage.error(
+                "删除失败：" + ((e && e.message) || ""),
+              );
           } finally {
             this.loading = false;
           }
@@ -539,33 +635,42 @@
          */
         async onSave() {
           if (!this.form.menuName) {
-            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入菜单名称');
+            if (window.ElementPlus)
+              ElementPlus.ElMessage.warning("请输入菜单名称");
             return;
           }
           if (this.form.menuType !== 2 && !this.form.path) {
-            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入路由路径');
+            if (window.ElementPlus)
+              ElementPlus.ElMessage.warning("请输入路由路径");
             return;
           }
-          if ((this.form.menuType === 1 || this.form.menuType === 2) && !this.form.permission) {
-            if (window.ElementPlus) ElementPlus.ElMessage.warning('请输入权限标识');
+          if (
+            (this.form.menuType === 1 || this.form.menuType === 2) &&
+            !this.form.permission
+          ) {
+            if (window.ElementPlus)
+              ElementPlus.ElMessage.warning("请输入权限标识");
             return;
           }
           this.saving = true;
           try {
             if (this.form.id) {
-              await COC.api.update('/api/sys/menu', this.form);
+              await COC.api.update("/api/sys/menu", this.form);
             } else {
-              await COC.api.create('/api/sys/menu', this.form);
+              await COC.api.create("/api/sys/menu", this.form);
             }
-            if (window.ElementPlus) ElementPlus.ElMessage.success('保存成功');
+            if (window.ElementPlus) ElementPlus.ElMessage.success("保存成功");
             this.dialogVisible = false;
             await this.loadTree();
           } catch (e) {
-            if (window.ElementPlus) ElementPlus.ElMessage.error('保存失败：' + ((e && e.message) || ''));
+            if (window.ElementPlus)
+              ElementPlus.ElMessage.error(
+                "保存失败：" + ((e && e.message) || ""),
+              );
           } finally {
             this.saving = false;
           }
-        }
+        },
       },
       mounted() {
         this.loadTree();
@@ -644,7 +749,7 @@
               <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
             </template>
           </el-dialog>
-        </div>`
+        </div>`,
     };
   };
 })();

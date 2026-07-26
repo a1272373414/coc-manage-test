@@ -13,10 +13,16 @@ import java.util.Set;
 @Data
 public class AuthUser {
 
-  private Long userId;
-  private String username;
-  private String groupNo;
-  private boolean superAdmin;
-  private List<String> roleCodes = new ArrayList<>();
-  private Set<String> permissions = new HashSet<>();
+	private Long userId;
+
+	private String username;
+
+	private String groupNo;
+
+	private boolean superAdmin;
+
+	private List<String> roleCodes = new ArrayList<>();
+
+	private Set<String> permissions = new HashSet<>();
+
 }

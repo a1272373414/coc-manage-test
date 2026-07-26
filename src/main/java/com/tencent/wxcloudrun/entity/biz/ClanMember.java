@@ -13,20 +13,31 @@ import lombok.Setter;
 @TableName("clan_member")
 public class ClanMember extends BaseEntity {
 
-  private String memberName;
-  private String memberNo;
-  private String clanNo;
-  private String groupNo;
-  /** 在组状态 0=已退出 1=已加入 */
-  private Integer memberStatus;
-  /** 参战状态 0=不参战 1=参战（字典项） */
-  private Integer warStatus;
-  private String intro;
-  private Long userId;
-  /** 大本等级 */
-  private Integer thLevel;
-  /** 匹配值 */
-  private Integer matchValue;
-  /** 战斗力 */
-  private Integer combatPower;
+	private String memberName;
+
+	private String memberNo;
+
+	private String clanNo;
+
+	private String groupNo;
+
+	/** 在组状态 0=已退出 1=已加入 */
+	private Integer memberStatus;
+
+	/** 参战状态 0=不参战 1=参战（字典项） */
+	private Integer warStatus;
+
+	private String intro;
+
+	private Long userId;
+
+	/** 大本等级 */
+	private Integer thLevel;
+
+	/** 匹配值 */
+	private Integer matchValue;
+
+	/** 战斗力 */
+	private Integer combatPower;
+
 }

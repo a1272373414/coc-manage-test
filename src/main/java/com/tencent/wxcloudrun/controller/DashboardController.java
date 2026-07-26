@@ -12,21 +12,22 @@ import javax.annotation.Resource;
 @RequestMapping("/api/dashboard")
 public class DashboardController {
 
-  @Resource
-  private DashboardService dashboardService;
+	@Resource
+	private DashboardService dashboardService;
 
-  @GetMapping("/overview")
-  public ApiResponse overview() {
-    return ApiResponse.ok(dashboardService.overview());
-  }
+	@GetMapping("/overview")
+	public ApiResponse overview() {
+		return ApiResponse.ok(dashboardService.overview());
+	}
 
-  @GetMapping("/war-stat")
-  public ApiResponse warStat() {
-    return ApiResponse.ok(dashboardService.warStat());
-  }
+	@GetMapping("/war-stat")
+	public ApiResponse warStat() {
+		return ApiResponse.ok(dashboardService.warStat());
+	}
 
-  @GetMapping("/league-rank")
-  public ApiResponse leagueRank() {
-    return ApiResponse.ok(dashboardService.leagueRank());
-  }
+	@GetMapping("/league-rank")
+	public ApiResponse leagueRank() {
+		return ApiResponse.ok(dashboardService.leagueRank());
+	}
+
 }

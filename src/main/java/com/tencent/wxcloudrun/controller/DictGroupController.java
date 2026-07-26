@@ -14,16 +14,17 @@ import java.util.List;
 @RequestMapping("/api/dict/group")
 public class DictGroupController extends BaseCrudController<DictGroup> {
 
-  @Resource
-  private DictGroupMapper dictGroupMapper;
+	@Resource
+	private DictGroupMapper dictGroupMapper;
 
-  @Override
-  protected BaseMapper<DictGroup> mapper() {
-    return dictGroupMapper;
-  }
+	@Override
+	protected BaseMapper<DictGroup> mapper() {
+		return dictGroupMapper;
+	}
 
-  @Override
-  protected List<String> keywordFields() {
-    return Arrays.asList("group_code", "group_name");
-  }
+	@Override
+	protected List<String> keywordFields() {
+		return Arrays.asList("group_code", "group_name");
+	}
+
 }

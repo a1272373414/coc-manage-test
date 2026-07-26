@@ -13,13 +13,21 @@ import lombok.Setter;
 @TableName("sys_menu")
 public class SysMenu extends BaseEntity {
 
-  private Long parentId;
-  /** 0 目录 1 菜单 2 按钮 */
-  private Integer menuType;
-  private String menuName;
-  private String path;
-  private String component;
-  private String icon;
-  private String permission;
-  private Integer sort;
+	private Long parentId;
+
+	/** 0 目录 1 菜单 2 按钮 */
+	private Integer menuType;
+
+	private String menuName;
+
+	private String path;
+
+	private String component;
+
+	private String icon;
+
+	private String permission;
+
+	private Integer sort;
+
 }

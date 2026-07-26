@@ -13,8 +13,12 @@ import lombok.Setter;
 @TableName("sys_role")
 public class SysRole extends BaseEntity {
 
-  private String roleCode;
-  private String roleName;
-  private Integer status;
-  private String remark;
+	private String roleCode;
+
+	private String roleName;
+
+	private Integer status;
+
+	private String remark;
+
 }

@@ -14,16 +14,17 @@ import java.util.List;
 @RequestMapping("/api/war")
 public class ClanWarController extends BaseCrudController<ClanWar> {
 
-  @Resource
-  private ClanWarMapper clanWarMapper;
+	@Resource
+	private ClanWarMapper clanWarMapper;
 
-  @Override
-  protected BaseMapper<ClanWar> mapper() {
-    return clanWarMapper;
-  }
+	@Override
+	protected BaseMapper<ClanWar> mapper() {
+		return clanWarMapper;
+	}
 
-  @Override
-  protected List<String> keywordFields() {
-    return Arrays.asList("war_no", "clan_no", "win_status");
-  }
+	@Override
+	protected List<String> keywordFields() {
+		return Arrays.asList("war_no", "clan_no", "win_status");
+	}
+
 }

@@ -31,184 +31,181 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * AuthController MockMvc 测试（standalone 模式）：
- * - 不启动 Spring 上下文，避免 MyBatis Mapper / DataSource 加载问题
- * - 使用 MockMvcBuilders.standaloneSetup() 直接挂载 Controller + Mock 依赖
- * - 聚焦 Controller 层的请求参数解析与响应封装逻辑
+ * AuthController MockMvc 测试（standalone 模式）： - 不启动 Spring 上下文，避免 MyBatis Mapper /
+ * DataSource 加载问题 - 使用 MockMvcBuilders.standaloneSetup() 直接挂载 Controller + Mock 依赖 - 聚焦
+ * Controller 层的请求参数解析与响应封装逻辑
  */
 @SuppressWarnings("null")
 @DisplayName("认证接口测试")
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
 
-  private MockMvc mockMvc;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+	private MockMvc mockMvc;
 
-  @Mock
-  private AuthService authService;
-  @Mock
-  private JwtUtil jwtUtil;
-  @Mock
-  private com.tencent.wxcloudrun.mapper.SysUserRoleMapper userRoleMapper;
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
-  @InjectMocks
-  private AuthController authController;
+	@Mock
+	private AuthService authService;
 
-  @BeforeEach
-  void setUp() {
-    mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
-  }
+	@Mock
+	private JwtUtil jwtUtil;
 
-  @AfterEach
-  void tearDown() {
-    UserContext.clear();
-  }
+	@Mock
+	private com.tencent.wxcloudrun.mapper.SysUserRoleMapper userRoleMapper;
 
-  // ==================== POST /api/auth/login ====================
+	@InjectMocks
+	private AuthController authController;
 
-  @Test
-  @DisplayName("登录成功 - 返回 token 与用户信息")
-  void login_success() throws Exception {
-    LoginRequest req = new LoginRequest();
-    req.setUsername("admin");
-    req.setPassword("123456");
+	@BeforeEach
+	void setUp() {
+		mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
+	}
 
-    AuthUser mockUser = new AuthUser();
-    mockUser.setUserId(1L);
-    mockUser.setUsername("admin");
+	@AfterEach
+	void tearDown() {
+		UserContext.clear();
+	}
 
-    when(authService.login("admin", "123456")).thenReturn(mockUser);
-    when(jwtUtil.generateToken(any(AuthUser.class))).thenReturn("mock-jwt-token");
+	// ==================== POST /api/auth/login ====================
 
-    mockMvc.perform(post("/api/auth/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0))
-        .andExpect(jsonPath("$.data.token").value("mock-jwt-token"))
-        .andExpect(jsonPath("$.data.user.username").value("admin"));
-  }
+	@Test
+	@DisplayName("登录成功 - 返回 token 与用户信息")
+	void login_success() throws Exception {
+		LoginRequest req = new LoginRequest();
+		req.setUsername("admin");
+		req.setPassword("123456");
 
-  @Test
-  @DisplayName("登录失败 - 用户名或密码为空")
-  void login_missingCredentials() throws Exception {
-    LoginRequest req = new LoginRequest();
-    req.setUsername(null);
-    req.setPassword(null);
+		AuthUser mockUser = new AuthUser();
+		mockUser.setUserId(1L);
+		mockUser.setUsername("admin");
 
-    mockMvc.perform(post("/api/auth/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(400))
-        .andExpect(jsonPath("$.errorMsg").value("用户名和密码不能为空"));
+		when(authService.login("admin", "123456")).thenReturn(mockUser);
+		when(jwtUtil.generateToken(any(AuthUser.class))).thenReturn("mock-jwt-token");
 
-    verify(authService, never()).login(any(), any());
-  }
+		mockMvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(req)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(0))
+			.andExpect(jsonPath("$.data.token").value("mock-jwt-token"))
+			.andExpect(jsonPath("$.data.user.username").value("admin"));
+	}
 
+	@Test
+	@DisplayName("登录失败 - 用户名或密码为空")
+	void login_missingCredentials() throws Exception {
+		LoginRequest req = new LoginRequest();
+		req.setUsername(null);
+		req.setPassword(null);
 
-  @Test
-  @DisplayName("登录失败 - 服务层抛异常（用户不存在）")
-  void login_serviceThrows() throws Exception {
-    LoginRequest req = new LoginRequest();
-    req.setUsername("ghost");
-    req.setPassword("123456");
+		mockMvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(req)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(400))
+			.andExpect(jsonPath("$.errorMsg").value("用户名和密码不能为空"));
 
-    when(authService.login("ghost", "123456"))
-        .thenThrow(new RuntimeException("用户不存在"));
+		verify(authService, never()).login(any(), any());
+	}
 
-    // standalone MockMvc 模式下未处理异常会以 NestedServletException 向上抛出
-    Exception ex = assertThrows(Exception.class, () ->
-        mockMvc.perform(post("/api/auth/login")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(req)))
-    );
-    assertTrue(ex.getCause() != null || ex.getMessage().contains("用户不存在"));
-  }
+	@Test
+	@DisplayName("登录失败 - 服务层抛异常（用户不存在）")
+	void login_serviceThrows() throws Exception {
+		LoginRequest req = new LoginRequest();
+		req.setUsername("ghost");
+		req.setPassword("123456");
 
-  // ==================== POST /api/auth/register ====================
+		when(authService.login("ghost", "123456")).thenThrow(new RuntimeException("用户不存在"));
 
+		// standalone MockMvc 模式下未处理异常会以 NestedServletException 向上抛出
+		Exception ex = assertThrows(Exception.class,
+				() -> mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(req))));
+		assertTrue(ex.getCause() != null || ex.getMessage().contains("用户不存在"));
+	}
 
-  @Test
-  @DisplayName("注册成功 - 返回 code=0")
-  void register_success() throws Exception {
-    RegisterRequest req = new RegisterRequest();
-    req.setUsername("newuser");
-    req.setPassword("password123");
+	// ==================== POST /api/auth/register ====================
 
-    SysUser createdUser = new SysUser();
-    createdUser.setId(1L);
-    createdUser.setUsername("newuser");
-    when(authService.register(any(RegisterRequest.class))).thenReturn(createdUser);
+	@Test
+	@DisplayName("注册成功 - 返回 code=0")
+	void register_success() throws Exception {
+		RegisterRequest req = new RegisterRequest();
+		req.setUsername("newuser");
+		req.setPassword("password123");
 
-    mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0));
-  }
+		SysUser createdUser = new SysUser();
+		createdUser.setId(1L);
+		createdUser.setUsername("newuser");
+		when(authService.register(any(RegisterRequest.class))).thenReturn(createdUser);
 
-  // ==================== GET /api/auth/info ====================
+		mockMvc
+			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(req)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(0));
+	}
 
-  @Test
-  @DisplayName("获取当前用户信息 - 已登录")
-  void info_authenticated() throws Exception {
-    AuthUser currentUser = new AuthUser();
-    currentUser.setUserId(1L);
-    currentUser.setUsername("admin");
-    UserContext.set(currentUser);
+	// ==================== GET /api/auth/info ====================
 
-    Map<String, Object> infoData = new HashMap<>();
-    infoData.put("user", currentUser);
-    infoData.put("menus", java.util.Collections.emptyList());
-    when(authService.info(any(AuthUser.class))).thenReturn(infoData);
+	@Test
+	@DisplayName("获取当前用户信息 - 已登录")
+	void info_authenticated() throws Exception {
+		AuthUser currentUser = new AuthUser();
+		currentUser.setUserId(1L);
+		currentUser.setUsername("admin");
+		UserContext.set(currentUser);
 
-    mockMvc.perform(get("/api/auth/info"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0))
-        .andExpect(jsonPath("$.data.user.username").value("admin"));
-  }
+		Map<String, Object> infoData = new HashMap<>();
+		infoData.put("user", currentUser);
+		infoData.put("menus", java.util.Collections.emptyList());
+		when(authService.info(any(AuthUser.class))).thenReturn(infoData);
 
-  @Test
-  @DisplayName("获取当前用户信息 - 未登录返回 401")
-  void info_notAuthenticated() throws Exception {
-    UserContext.clear();
+		mockMvc.perform(get("/api/auth/info"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(0))
+			.andExpect(jsonPath("$.data.user.username").value("admin"));
+	}
 
-    mockMvc.perform(get("/api/auth/info"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(401))
-        .andExpect(jsonPath("$.errorMsg").value("未登录"));
-  }
+	@Test
+	@DisplayName("获取当前用户信息 - 未登录返回 401")
+	void info_notAuthenticated() throws Exception {
+		UserContext.clear();
 
-  // ==================== POST /api/auth/assign-role ====================
+		mockMvc.perform(get("/api/auth/info"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(401))
+			.andExpect(jsonPath("$.errorMsg").value("未登录"));
+	}
 
+	// ==================== POST /api/auth/assign-role ====================
 
-  @Test
-  @DisplayName("分配角色 - 成功")
-  void assignRole_success() throws Exception {
-    Map<String, Object> body = new HashMap<>();
-    body.put("userId", 1);
-    body.put("roleIds", java.util.Arrays.asList(10, 20));
+	@Test
+	@DisplayName("分配角色 - 成功")
+	void assignRole_success() throws Exception {
+		Map<String, Object> body = new HashMap<>();
+		body.put("userId", 1);
+		body.put("roleIds", java.util.Arrays.asList(10, 20));
 
-    mockMvc.perform(post("/api/auth/assign-role")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(body)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0))
-        .andExpect(jsonPath("$.data.count").exists());
-  }
+		mockMvc
+			.perform(post("/api/auth/assign-role").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(body)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(0))
+			.andExpect(jsonPath("$.data.count").exists());
+	}
 
-  @Test
-  @DisplayName("分配角色 - 缺少 userId")
-  void assignRole_missingUserId() throws Exception {
-    Map<String, Object> body = new HashMap<>();
-    body.put("roleIds", java.util.Arrays.asList(10));
+	@Test
+	@DisplayName("分配角色 - 缺少 userId")
+	void assignRole_missingUserId() throws Exception {
+		Map<String, Object> body = new HashMap<>();
+		body.put("roleIds", java.util.Arrays.asList(10));
 
-    mockMvc.perform(post("/api/auth/assign-role")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(body)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(400))
-        .andExpect(jsonPath("$.errorMsg").value("userId 不能为空"));
-  }
+		mockMvc
+			.perform(post("/api/auth/assign-role").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(body)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.code").value(400))
+			.andExpect(jsonPath("$.errorMsg").value("userId 不能为空"));
+	}
+
 }

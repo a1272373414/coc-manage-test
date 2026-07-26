@@ -29,81 +29,83 @@ import java.util.Set;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-  @Resource
-  private AuthService authService;
-  @Resource
-  private JwtUtil jwtUtil;
-  @Resource
-  private SysUserRoleMapper userRoleMapper;
+	@Resource
+	private AuthService authService;
 
-  @PostMapping("/login")
-  public ApiResponse login(@RequestBody LoginRequest req) {
-    if (req.getUsername() == null || req.getPassword() == null) {
-      return ApiResponse.error("用户名和密码不能为空");
-    }
-    AuthUser user = authService.login(req.getUsername(), req.getPassword());
-    String token = jwtUtil.generateToken(user);
-    Map<String, Object> data = new HashMap<>();
-    data.put("token", token);
-    data.put("user", user);
-    return ApiResponse.ok(data);
-  }
+	@Resource
+	private JwtUtil jwtUtil;
 
-  @PostMapping("/register")
-  public ApiResponse register(@RequestBody RegisterRequest req) {
-    authService.register(req);
-    return ApiResponse.ok();
-  }
+	@Resource
+	private SysUserRoleMapper userRoleMapper;
 
-  @GetMapping("/info")
-  public ApiResponse info() {
-    AuthUser current = UserContext.get();
-    if (current == null) {
-      return ApiResponse.error(401, "未登录");
-    }
-    return ApiResponse.ok(authService.info(current));
-  }
+	@PostMapping("/login")
+	public ApiResponse login(@RequestBody LoginRequest req) {
+		if (req.getUsername() == null || req.getPassword() == null) {
+			return ApiResponse.error("用户名和密码不能为空");
+		}
+		AuthUser user = authService.login(req.getUsername(), req.getPassword());
+		String token = jwtUtil.generateToken(user);
+		Map<String, Object> data = new HashMap<>();
+		data.put("token", token);
+		data.put("user", user);
+		return ApiResponse.ok(data);
+	}
 
-  /**
-   * 分配角色给用户：先删后插，全量替换。
-   * 请求体：{ userId, roleIds }
-   * - userId 为目标用户 id
-   * - roleIds 为新角色 id 集合，空数组表示清空角色
-   */
-  /**
-   * 退出登录。JWT 无状态，服务端无需额外操作，前端只需清空本地 token。
-   */
-  @PostMapping("/logout")
-  public ApiResponse logout() {
-    return ApiResponse.ok();
-  }
+	@PostMapping("/register")
+	public ApiResponse register(@RequestBody RegisterRequest req) {
+		authService.register(req);
+		return ApiResponse.ok();
+	}
 
-  @PostMapping("/assign-role")
-  @Transactional
-  public ApiResponse assignRole(@RequestBody Map<String, Object> body) {
-    Object userIdObj = body.get("userId");
-    Object roleIdsObj = body.get("roleIds");
-    if (userIdObj == null) {
-      return ApiResponse.error("userId 不能为空");
-    }
-    Long userId = ((Number) userIdObj).longValue();
-    // 先物理删除该用户的所有角色关联
-    userRoleMapper.delete(new QueryWrapper<SysUserRole>().eq("user_id", userId));
-    int count = 0;
-    if (roleIdsObj instanceof List) {
-      // 用 LinkedHashSet 去重，避免重复插入触发唯一索引冲突
-      Set<Long> roleIds = new HashSet<>();
-      for (Object o : (List<?>) roleIdsObj) {
-        if (o != null) roleIds.add(((Number) o).longValue());
-      }
-      for (Long roleId : roleIds) {
-        SysUserRole ur = new SysUserRole();
-        ur.setUserId(userId);
-        ur.setRoleId(roleId);
-        userRoleMapper.insert(ur);
-        count++;
-      }
-    }
-    return ApiResponse.ok(Collections.singletonMap("count", count));
-  }
+	@GetMapping("/info")
+	public ApiResponse info() {
+		AuthUser current = UserContext.get();
+		if (current == null) {
+			return ApiResponse.error(401, "未登录");
+		}
+		return ApiResponse.ok(authService.info(current));
+	}
+
+	/**
+	 * 分配角色给用户：先删后插，全量替换。 请求体：{ userId, roleIds } - userId 为目标用户 id - roleIds 为新角色 id
+	 * 集合，空数组表示清空角色
+	 */
+	/**
+	 * 退出登录。JWT 无状态，服务端无需额外操作，前端只需清空本地 token。
+	 */
+	@PostMapping("/logout")
+	public ApiResponse logout() {
+		return ApiResponse.ok();
+	}
+
+	@PostMapping("/assign-role")
+	@Transactional
+	public ApiResponse assignRole(@RequestBody Map<String, Object> body) {
+		Object userIdObj = body.get("userId");
+		Object roleIdsObj = body.get("roleIds");
+		if (userIdObj == null) {
+			return ApiResponse.error("userId 不能为空");
+		}
+		Long userId = ((Number) userIdObj).longValue();
+		// 先物理删除该用户的所有角色关联
+		userRoleMapper.delete(new QueryWrapper<SysUserRole>().eq("user_id", userId));
+		int count = 0;
+		if (roleIdsObj instanceof List) {
+			// 用 LinkedHashSet 去重，避免重复插入触发唯一索引冲突
+			Set<Long> roleIds = new HashSet<>();
+			for (Object o : (List<?>) roleIdsObj) {
+				if (o != null)
+					roleIds.add(((Number) o).longValue());
+			}
+			for (Long roleId : roleIds) {
+				SysUserRole ur = new SysUserRole();
+				ur.setUserId(userId);
+				ur.setRoleId(roleId);
+				userRoleMapper.insert(ur);
+				count++;
+			}
+		}
+		return ApiResponse.ok(Collections.singletonMap("count", count));
+	}
+
 }

@@ -14,16 +14,17 @@ import java.util.List;
 @RequestMapping("/api/clan")
 public class ClanController extends BaseCrudController<Clan> {
 
-  @Resource
-  private ClanMapper clanMapper;
+	@Resource
+	private ClanMapper clanMapper;
 
-  @Override
-  protected BaseMapper<Clan> mapper() {
-    return clanMapper;
-  }
+	@Override
+	protected BaseMapper<Clan> mapper() {
+		return clanMapper;
+	}
 
-  @Override
-  protected List<String> keywordFields() {
-    return Arrays.asList("clan_name", "clan_no");
-  }
+	@Override
+	protected List<String> keywordFields() {
+		return Arrays.asList("clan_name", "clan_no");
+	}
+
 }

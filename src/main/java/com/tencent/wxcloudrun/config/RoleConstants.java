@@ -5,20 +5,25 @@ package com.tencent.wxcloudrun.config;
  */
 public final class RoleConstants {
 
-  /** 超级管理员：跨部落组（group_no 为空），可管理平台全部数据 */
-  public static final String SUPER_ADMIN = "SUPER_ADMIN";
-  /** 部落组管理员/群主：管理本人所属 group_no 下的成员与部落 */
-  public static final String GROUP_ADMIN = "GROUP_ADMIN";
-  /** 部落管理员：负责联赛与部落战组织 */
-  public static final String LEAGUE_ADMIN = "LEAGUE_ADMIN";
-  /** 普通成员：仅查看 */
-  public static final String MEMBER = "MEMBER";
-    /** 游客：新注册用户 */
-  public static final String VISITOR = "VISITOR";
+	/** 超级管理员：跨部落组（group_no 为空），可管理平台全部数据 */
+	public static final String SUPER_ADMIN = "SUPER_ADMIN";
 
-  /** 系统管理类权限，仅 SUPER_ADMIN / GROUP_ADMIN 拥有 */
-  public static final String PERM_SYSTEM_MANAGE = "system:manage";
+	/** 部落组管理员/群主：管理本人所属 group_no 下的成员与部落 */
+	public static final String GROUP_ADMIN = "GROUP_ADMIN";
 
-  private RoleConstants() {
-  }
+	/** 部落管理员：负责联赛与部落战组织 */
+	public static final String LEAGUE_ADMIN = "LEAGUE_ADMIN";
+
+	/** 普通成员：仅查看 */
+	public static final String MEMBER = "MEMBER";
+
+	/** 游客：新注册用户 */
+	public static final String VISITOR = "VISITOR";
+
+	/** 系统管理类权限，仅 SUPER_ADMIN / GROUP_ADMIN 拥有 */
+	public static final String PERM_SYSTEM_MANAGE = "system:manage";
+
+	private RoleConstants() {
+	}
+
 }

@@ -15,34 +15,35 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-  @Value("${debug.errorMsgShow:false}")
-  private boolean errorMsgShow;
+	@Value("${debug.errorMsgShow:false}")
+	private boolean errorMsgShow;
 
-  @ExceptionHandler(RuntimeException.class)
-  public ApiResponse handleRuntimeException(RuntimeException e) {
-    log.error("RuntimeException: {}", e.getMessage(), e);
-    if (errorMsgShow) {
-      return ApiResponse.error(e.getMessage(), buildStackTrace(e));
-    }
-    return ApiResponse.error(e.getMessage());
-  }
+	@ExceptionHandler(RuntimeException.class)
+	public ApiResponse handleRuntimeException(RuntimeException e) {
+		log.error("RuntimeException: {}", e.getMessage(), e);
+		if (errorMsgShow) {
+			return ApiResponse.error(e.getMessage(), buildStackTrace(e));
+		}
+		return ApiResponse.error(e.getMessage());
+	}
 
-  @ExceptionHandler(Exception.class)
-  public ApiResponse handleException(Exception e) {
-    log.error("Exception: {}", e.getMessage(), e);
-    if (errorMsgShow) {
-      return ApiResponse.error("系统繁忙，请稍后重试", buildStackTrace(e));
-    }
-    return ApiResponse.error("系统繁忙，请稍后重试");
-  }
+	@ExceptionHandler(Exception.class)
+	public ApiResponse handleException(Exception e) {
+		log.error("Exception: {}", e.getMessage(), e);
+		if (errorMsgShow) {
+			return ApiResponse.error("系统繁忙，请稍后重试", buildStackTrace(e));
+		}
+		return ApiResponse.error("系统繁忙，请稍后重试");
+	}
 
-  private String buildStackTrace(Throwable t) {
-    StringWriter sw = new StringWriter();
-    PrintWriter pw = new PrintWriter(sw);
-    t.printStackTrace(pw);
-    pw.flush();
-    return sw.toString();
-  }
+	private String buildStackTrace(Throwable t) {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		t.printStackTrace(pw);
+		pw.flush();
+		return sw.toString();
+	}
+
 }

@@ -12,23 +12,24 @@ import java.time.LocalDateTime;
 @Component
 public class AutoFillMetaObjectHandler implements MetaObjectHandler {
 
-  private String currentUser() {
-    AuthUser user = UserContext.get();
-    return user == null ? null : user.getUsername();
-  }
+	private String currentUser() {
+		AuthUser user = UserContext.get();
+		return user == null ? null : user.getUsername();
+	}
 
-  @Override
-  public void insertFill(MetaObject metaObject) {
-    LocalDateTime now = LocalDateTime.now();
-    strictInsertFill(metaObject, "createdAt", LocalDateTime.class, now);
-    strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, now);
-    setFieldValByName("createdBy", currentUser(), metaObject);
-    setFieldValByName("updatedBy", currentUser(), metaObject);
-  }
+	@Override
+	public void insertFill(MetaObject metaObject) {
+		LocalDateTime now = LocalDateTime.now();
+		strictInsertFill(metaObject, "createdAt", LocalDateTime.class, now);
+		strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, now);
+		setFieldValByName("createdBy", currentUser(), metaObject);
+		setFieldValByName("updatedBy", currentUser(), metaObject);
+	}
 
-  @Override
-  public void updateFill(MetaObject metaObject) {
-    strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
-    setFieldValByName("updatedBy", currentUser(), metaObject);
-  }
+	@Override
+	public void updateFill(MetaObject metaObject) {
+		strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+		setFieldValByName("updatedBy", currentUser(), metaObject);
+	}
+
 }

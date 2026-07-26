@@ -35,138 +35,139 @@ import java.util.stream.Collectors;
 @SuppressWarnings("all")
 public class SysUserController extends BaseCrudController<SysUser> {
 
-  @Resource
-  private SysUserMapper sysUserMapper;
-  @Resource
-  private SysUserRoleMapper userRoleMapper;
+	@Resource
+	private SysUserMapper sysUserMapper;
 
-  private final PasswordEncoder encoder =
-      new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+	@Resource
+	private SysUserRoleMapper userRoleMapper;
 
-  @Override
-  protected BaseMapper<SysUser> mapper() {
-    return sysUserMapper;
-  }
+	private final PasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
-  @Override
-  protected List<String> keywordFields() {
-    return Arrays.asList("username", "nickname", "phone");
-  }
+	@Override
+	protected BaseMapper<SysUser> mapper() {
+		return sysUserMapper;
+	}
 
-  /** 重写分页接口：分页后批量查询 sys_user_role 填充 roleIds，避免 N+1 */
-  @Override
-  @GetMapping("/page")
-  public ApiResponse page(
-      @RequestParam(required = false) String keyword,
-      @RequestParam(defaultValue = "1") long current,
-      @RequestParam(defaultValue = "10") long size) {
-    Page<SysUser> page = PageResult.page(current, size);
-    QueryWrapper<SysUser> qw = new QueryWrapper<>();
-    List<String> fields = keywordFields();
-    if (keyword != null && !keyword.trim().isEmpty() && !fields.isEmpty()) {
-      String kw = keyword.trim();
-      qw.and(w -> {
-        boolean first = true;
-        for (String field : fields) {
-          if (!first) w.or();
-          w.like(field, kw);
-          first = false;
-        }
-      });
-    }
-    qw.orderByDesc("id");
-    // 非超级管理员仅展示本群组用户
-    if (!UserContext.isSuperAdmin()) {
-      String groupNo = UserContext.getGroupNo();
-      qw.eq("group_no", groupNo == null ? "" : groupNo);
-    }
-    mapper().selectPage(page, qw);
+	@Override
+	protected List<String> keywordFields() {
+		return Arrays.asList("username", "nickname", "phone");
+	}
 
-    List<SysUser> records = page.getRecords();
-    fillRoleIds(records);
-    return ApiResponse.ok(PageResult.of(page));
-  }
+	/** 重写分页接口：分页后批量查询 sys_user_role 填充 roleIds，避免 N+1 */
+	@Override
+	@GetMapping("/page")
+	public ApiResponse page(@RequestParam(required = false) String keyword,
+			@RequestParam(defaultValue = "1") long current, @RequestParam(defaultValue = "10") long size) {
+		Page<SysUser> page = PageResult.page(current, size);
+		QueryWrapper<SysUser> qw = new QueryWrapper<>();
+		List<String> fields = keywordFields();
+		if (keyword != null && !keyword.trim().isEmpty() && !fields.isEmpty()) {
+			String kw = keyword.trim();
+			qw.and(w -> {
+				boolean first = true;
+				for (String field : fields) {
+					if (!first)
+						w.or();
+					w.like(field, kw);
+					first = false;
+				}
+			});
+		}
+		qw.orderByDesc("id");
+		// 非超级管理员仅展示本群组用户
+		if (!UserContext.isSuperAdmin()) {
+			String groupNo = UserContext.getGroupNo();
+			qw.eq("group_no", groupNo == null ? "" : groupNo);
+		}
+		mapper().selectPage(page, qw);
 
-  /** 重写详情接口：填充 roleIds，非超管时校验用户所属群组 */
-  @Override
-  @GetMapping("/{id}")
-  public ApiResponse getById(@PathVariable Long id) {
-    SysUser user = mapper().selectById(id);
-    if (user != null) {
-      // 非超级管理员只能查看本群组用户
-      if (!UserContext.isSuperAdmin()) {
-        String groupNo = UserContext.getGroupNo();
-        if (!Objects.equals(groupNo, user.getGroupNo())) {
-          return ApiResponse.error("无权查看该用户");
-        }
-      }
-      fillRoleIds(Collections.singletonList(user));
-    }
-    return ApiResponse.ok(user);
-  }
+		List<SysUser> records = page.getRecords();
+		fillRoleIds(records);
+		return ApiResponse.ok(PageResult.of(page));
+	}
 
-  /** 批量查询 sys_user_role，回填每个用户的 roleIds */
-  @SuppressWarnings("all")
-  private void fillRoleIds(List<SysUser> users) {
-    if (users == null || users.isEmpty()) return;
-    Set<Long> userIds = users.stream()
-        .filter(java.util.Objects::nonNull)
-        .map(SysUser::getId)
-        .filter(java.util.Objects::nonNull)
-        .collect(Collectors.toSet());
-    if (userIds.isEmpty()) return;
-    List<SysUserRole> all = userRoleMapper.selectList(
-        new QueryWrapper<SysUserRole>().in("user_id", userIds));
-    Map<Long, List<Long>> userIdToRoleIds = new HashMap<>();
-    for (SysUserRole ur : all) {
-      userIdToRoleIds.computeIfAbsent(ur.getUserId(), k -> new java.util.ArrayList<>())
-          .add(ur.getRoleId());
-    }
-    for (SysUser u : users) {
-      u.setRoleIds(userIdToRoleIds.getOrDefault(u.getId(), Collections.emptyList()));
-    }
-  }
+	/** 重写详情接口：填充 roleIds，非超管时校验用户所属群组 */
+	@Override
+	@GetMapping("/{id}")
+	public ApiResponse getById(@PathVariable Long id) {
+		SysUser user = mapper().selectById(id);
+		if (user != null) {
+			// 非超级管理员只能查看本群组用户
+			if (!UserContext.isSuperAdmin()) {
+				String groupNo = UserContext.getGroupNo();
+				if (!Objects.equals(groupNo, user.getGroupNo())) {
+					return ApiResponse.error("无权查看该用户");
+				}
+			}
+			fillRoleIds(Collections.singletonList(user));
+		}
+		return ApiResponse.ok(user);
+	}
 
-  @Override
-  @PostMapping
-  public ApiResponse create(@RequestBody SysUser body) {
-    if (body.getPassword() != null && !body.getPassword().isEmpty()) {
-      body.setPassword(encoder.encode(body.getPassword()));
-    } else {
-      body.setPassword(encoder.encode("123456"));
-    }
-    body.setId(null);
-    // 非超级管理员创建用户时，自动设置 group_no 为当前用户的 group_no
-    if (!UserContext.isSuperAdmin()) {
-      body.setGroupNo(UserContext.getGroupNo());
-    }
-    mapper().insert(body);
-    return ApiResponse.ok(body);
-  }
+	/** 批量查询 sys_user_role，回填每个用户的 roleIds */
+	@SuppressWarnings("all")
+	private void fillRoleIds(List<SysUser> users) {
+		if (users == null || users.isEmpty())
+			return;
+		Set<Long> userIds = users.stream()
+			.filter(java.util.Objects::nonNull)
+			.map(SysUser::getId)
+			.filter(java.util.Objects::nonNull)
+			.collect(Collectors.toSet());
+		if (userIds.isEmpty())
+			return;
+		List<SysUserRole> all = userRoleMapper.selectList(new QueryWrapper<SysUserRole>().in("user_id", userIds));
+		Map<Long, List<Long>> userIdToRoleIds = new HashMap<>();
+		for (SysUserRole ur : all) {
+			userIdToRoleIds.computeIfAbsent(ur.getUserId(), k -> new java.util.ArrayList<>()).add(ur.getRoleId());
+		}
+		for (SysUser u : users) {
+			u.setRoleIds(userIdToRoleIds.getOrDefault(u.getId(), Collections.emptyList()));
+		}
+	}
 
-  @Override
-  @PutMapping
-  public ApiResponse update(@RequestBody SysUser body) {
-    if (body.getId() == null) {
-      return ApiResponse.error("id 不能为空");
-    }
-    // 非超级管理员只能更新本群组用户
-    if (!UserContext.isSuperAdmin()) {
-      SysUser existing = mapper().selectById(body.getId());
-      if (existing == null) {
-        return ApiResponse.error("用户不存在");
-      }
-      String groupNo = UserContext.getGroupNo();
-      if (!Objects.equals(groupNo, existing.getGroupNo())) {
-        return ApiResponse.error("无权修改该用户");
-      }
-      // 防止越权修改 group_no
-      body.setGroupNo(existing.getGroupNo());
-    }
-    if (body.getPassword() != null && !body.getPassword().isEmpty()) {
-      body.setPassword(encoder.encode(body.getPassword()));
-    }
-    mapper().updateById(body);
-    return ApiResponse.ok(body);
-  }
+	@Override
+	@PostMapping
+	public ApiResponse create(@RequestBody SysUser body) {
+		if (body.getPassword() != null && !body.getPassword().isEmpty()) {
+			body.setPassword(encoder.encode(body.getPassword()));
+		}
+		else {
+			body.setPassword(encoder.encode("123456"));
+		}
+		body.setId(null);
+		// 非超级管理员创建用户时，自动设置 group_no 为当前用户的 group_no
+		if (!UserContext.isSuperAdmin()) {
+			body.setGroupNo(UserContext.getGroupNo());
+		}
+		mapper().insert(body);
+		return ApiResponse.ok(body);
+	}
+
+	@Override
+	@PutMapping
+	public ApiResponse update(@RequestBody SysUser body) {
+		if (body.getId() == null) {
+			return ApiResponse.error("id 不能为空");
+		}
+		// 非超级管理员只能更新本群组用户
+		if (!UserContext.isSuperAdmin()) {
+			SysUser existing = mapper().selectById(body.getId());
+			if (existing == null) {
+				return ApiResponse.error("用户不存在");
+			}
+			String groupNo = UserContext.getGroupNo();
+			if (!Objects.equals(groupNo, existing.getGroupNo())) {
+				return ApiResponse.error("无权修改该用户");
+			}
+			// 防止越权修改 group_no
+			body.setGroupNo(existing.getGroupNo());
+		}
+		if (body.getPassword() != null && !body.getPassword().isEmpty()) {
+			body.setPassword(encoder.encode(body.getPassword()));
+		}
+		mapper().updateById(body);
+		return ApiResponse.ok(body);
+	}
+
 }

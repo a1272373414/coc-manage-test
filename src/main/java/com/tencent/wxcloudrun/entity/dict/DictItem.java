@@ -13,9 +13,14 @@ import lombok.Setter;
 @TableName("dict_item")
 public class DictItem extends BaseEntity {
 
-  private String groupCode;
-  private String itemName;
-  private String itemValue;
-  private Integer sort;
-  private Integer status;
+	private String groupCode;
+
+	private String itemName;
+
+	private String itemValue;
+
+	private Integer sort;
+
+	private Integer status;
+
 }

@@ -38,182 +38,178 @@ import java.util.stream.Collectors;
 @SuppressWarnings("all")
 public class ClanGroupController extends BaseCrudController<ClanGroup> {
 
-  @Resource
-  private ClanGroupMapper clanGroupMapper;
-  @Resource
-  private SysUserMapper sysUserMapper;
-  @Resource
-  private SysRoleMapper sysRoleMapper;
-  @Resource
-  private SysUserRoleMapper sysUserRoleMapper;
+	@Resource
+	private ClanGroupMapper clanGroupMapper;
 
-  @Override
-  protected BaseMapper<ClanGroup> mapper() {
-    return clanGroupMapper;
-  }
+	@Resource
+	private SysUserMapper sysUserMapper;
 
-  @Override
-  protected List<String> keywordFields() {
-    return Arrays.asList("group_no", "group_name");
-  }
+	@Resource
+	private SysRoleMapper sysRoleMapper;
 
-  /**
-   * 重写新增：插入群组后，若指定了 ownerId，同步绑定群主：
-   * 1) 更新 sys_user.group_no 为群组的 group_no
-   * 2) 为该用户添加 GROUP_ADMIN 角色绑定（已存在则跳过）
-   */
-  @Override
-  @PostMapping
-  public ApiResponse create(@RequestBody ClanGroup body) {
-    body.setId(null);
-    clanGroupMapper.insert(body);
-    if (body.getOwnerId() != null) {
-      bindOwner(body.getOwnerId(), body.getGroupNo());
-    }
-    return ApiResponse.ok(body);
-  }
+	@Resource
+	private SysUserRoleMapper sysUserRoleMapper;
 
-  /**
-   * 重写更新：若 ownerId 发生变化，同步绑定/解绑群主：
-   * 1) 解绑旧群主：清空 sys_user.group_no + 删除 GROUP_ADMIN 角色绑定
-   * 2) 绑定新群主：设置 sys_user.group_no + 添加 GROUP_ADMIN 角色绑定
-   * 注意：先用 selectById 取旧记录的 ownerId，再 updateById，避免覆盖丢失。
-   */
-  @Override
-  @PutMapping
-  public ApiResponse update(@RequestBody ClanGroup body) {
-    if (body.getId() == null) {
-      return ApiResponse.error("id 不能为空");
-    }
-    ClanGroup old = clanGroupMapper.selectById(body.getId());
-    Long oldOwnerId = old != null ? old.getOwnerId() : null;
-    Long newOwnerId = body.getOwnerId();
+	@Override
+	protected BaseMapper<ClanGroup> mapper() {
+		return clanGroupMapper;
+	}
 
-    clanGroupMapper.updateById(body);
+	@Override
+	protected List<String> keywordFields() {
+		return Arrays.asList("group_no", "group_name");
+	}
 
-    if (!Objects.equals(oldOwnerId, newOwnerId)) {
-      if (oldOwnerId != null) {
-        unbindOwner(oldOwnerId);
-      }
-      if (newOwnerId != null) {
-        bindOwner(newOwnerId, body.getGroupNo());
-      }
-    }
-    return ApiResponse.ok(body);
-  }
+	/**
+	 * 重写新增：插入群组后，若指定了 ownerId，同步绑定群主： 1) 更新 sys_user.group_no 为群组的 group_no 2) 为该用户添加
+	 * GROUP_ADMIN 角色绑定（已存在则跳过）
+	 */
+	@Override
+	@PostMapping
+	public ApiResponse create(@RequestBody ClanGroup body) {
+		body.setId(null);
+		clanGroupMapper.insert(body);
+		if (body.getOwnerId() != null) {
+			bindOwner(body.getOwnerId(), body.getGroupNo());
+		}
+		return ApiResponse.ok(body);
+	}
 
-  /**
-   * 绑定群主：
-   * - 设置 sys_user.group_no 为群组的 group_no
-   * - 添加 GROUP_ADMIN 角色绑定（若不存在）
-   */
-  private void bindOwner(Long userId, String groupNo) {
-    SysUser user = sysUserMapper.selectById(userId);
-    if (user != null) {
-      user.setGroupNo(groupNo);
-      sysUserMapper.updateById(user);
-    }
-    Long ownerRoleId = getOwnerRoleId();
-    if (ownerRoleId != null) {
-      SysUserRole existing = sysUserRoleMapper.selectOne(
-          new QueryWrapper<SysUserRole>().eq("user_id", userId).eq("role_id", ownerRoleId));
-      if (existing == null) {
-        SysUserRole ur = new SysUserRole();
-        ur.setUserId(userId);
-        ur.setRoleId(ownerRoleId);
-        sysUserRoleMapper.insert(ur);
-      }
-    }
-  }
+	/**
+	 * 重写更新：若 ownerId 发生变化，同步绑定/解绑群主： 1) 解绑旧群主：清空 sys_user.group_no + 删除 GROUP_ADMIN 角色绑定
+	 * 2) 绑定新群主：设置 sys_user.group_no + 添加 GROUP_ADMIN 角色绑定 注意：先用 selectById 取旧记录的
+	 * ownerId，再 updateById，避免覆盖丢失。
+	 */
+	@Override
+	@PutMapping
+	public ApiResponse update(@RequestBody ClanGroup body) {
+		if (body.getId() == null) {
+			return ApiResponse.error("id 不能为空");
+		}
+		ClanGroup old = clanGroupMapper.selectById(body.getId());
+		Long oldOwnerId = old != null ? old.getOwnerId() : null;
+		Long newOwnerId = body.getOwnerId();
 
-  /**
-   * 解绑群主：
-   * - 清空 sys_user.group_no
-   * - 删除 GROUP_ADMIN 角色绑定
-   */
-  private void unbindOwner(Long userId) {
-    SysUser user = sysUserMapper.selectById(userId);
-    if (user != null) {
-      user.setGroupNo(null);
-      sysUserMapper.updateById(user);
-    }
-    Long ownerRoleId = getOwnerRoleId();
-    if (ownerRoleId != null) {
-      sysUserRoleMapper.delete(
-          new QueryWrapper<SysUserRole>().eq("user_id", userId).eq("role_id", ownerRoleId));
-    }
-  }
+		clanGroupMapper.updateById(body);
 
-  /** 查询 GROUP_ADMIN（部落组管理员/群主）角色 ID，缓存避免重复查询 */
-  private Long cachedOwnerRoleId = null;
-  private Long getOwnerRoleId() {
-    if (cachedOwnerRoleId != null) return cachedOwnerRoleId;
-    SysRole role = sysRoleMapper.selectOne(
-        new QueryWrapper<SysRole>().eq("role_code", RoleConstants.GROUP_ADMIN));
-    cachedOwnerRoleId = role != null ? role.getId() : null;
-    return cachedOwnerRoleId;
-  }
+		if (!Objects.equals(oldOwnerId, newOwnerId)) {
+			if (oldOwnerId != null) {
+				unbindOwner(oldOwnerId);
+			}
+			if (newOwnerId != null) {
+				bindOwner(newOwnerId, body.getGroupNo());
+			}
+		}
+		return ApiResponse.ok(body);
+	}
 
-  /** 重写分页接口：查询完成后批量关联 sys_user 填充 ownerName，避免 N+1 查询 */
-  @Override
-  @GetMapping("/page")
-  public ApiResponse page(
-      @RequestParam(required = false) String keyword,
-      @RequestParam(defaultValue = "1") long current,
-      @RequestParam(defaultValue = "10") long size) {
-    Page<ClanGroup> page = PageResult.page(current, size);
-    QueryWrapper<ClanGroup> qw = new QueryWrapper<>();
-    List<String> fields = keywordFields();
-    if (keyword != null && !keyword.trim().isEmpty() && !fields.isEmpty()) {
-      String kw = keyword.trim();
-      qw.and(w -> {
-        boolean first = true;
-        for (String field : fields) {
-          if (!first) {
-            w.or();
-          }
-          w.like(field, kw);
-          first = false;
-        }
-      });
-    }
-    qw.orderByDesc("id");
-    mapper().selectPage(page, qw);
+	/**
+	 * 绑定群主： - 设置 sys_user.group_no 为群组的 group_no - 添加 GROUP_ADMIN 角色绑定（若不存在）
+	 */
+	private void bindOwner(Long userId, String groupNo) {
+		SysUser user = sysUserMapper.selectById(userId);
+		if (user != null) {
+			user.setGroupNo(groupNo);
+			sysUserMapper.updateById(user);
+		}
+		Long ownerRoleId = getOwnerRoleId();
+		if (ownerRoleId != null) {
+			SysUserRole existing = sysUserRoleMapper
+				.selectOne(new QueryWrapper<SysUserRole>().eq("user_id", userId).eq("role_id", ownerRoleId));
+			if (existing == null) {
+				SysUserRole ur = new SysUserRole();
+				ur.setUserId(userId);
+				ur.setRoleId(ownerRoleId);
+				sysUserRoleMapper.insert(ur);
+			}
+		}
+	}
 
-    List<ClanGroup> records = page.getRecords();
-    if (records != null && !records.isEmpty()) {
-      // 收集所有非空 ownerId，批量查询用户名
-      Set<Long> ownerIds = StreamUtils.mapNonNullToSet(records, ClanGroup::getOwnerId);
-      if (!ownerIds.isEmpty()) {
-        List<SysUser> users = sysUserMapper.selectBatchIds(ownerIds);
-        Map<Long, String> idToName = new HashMap<>();
-        for (SysUser u : users) {
-          // 优先显示昵称，其次用户名
-          idToName.put(u.getId(), u.getNickname() != null && !u.getNickname().isEmpty()
-              ? u.getNickname() : u.getUsername());
-        }
-        for (ClanGroup g : records) {
-          if (g.getOwnerId() != null) {
-            g.setOwnerName(idToName.get(g.getOwnerId()));
-          }
-        }
-      }
-    }
-    return ApiResponse.ok(PageResult.of(page));
-  }
+	/**
+	 * 解绑群主： - 清空 sys_user.group_no - 删除 GROUP_ADMIN 角色绑定
+	 */
+	private void unbindOwner(Long userId) {
+		SysUser user = sysUserMapper.selectById(userId);
+		if (user != null) {
+			user.setGroupNo(null);
+			sysUserMapper.updateById(user);
+		}
+		Long ownerRoleId = getOwnerRoleId();
+		if (ownerRoleId != null) {
+			sysUserRoleMapper.delete(new QueryWrapper<SysUserRole>().eq("user_id", userId).eq("role_id", ownerRoleId));
+		}
+	}
 
-  /** 重写详情接口：填充 ownerName */
-  @Override
-  @GetMapping("/{id}")
-  public ApiResponse getById(@PathVariable Long id) {
-    ClanGroup group = clanGroupMapper.selectById(id);
-    if (group != null && group.getOwnerId() != null) {
-      SysUser user = sysUserMapper.selectById(group.getOwnerId());
-      if (user != null) {
-        group.setOwnerName(user.getNickname() != null && !user.getNickname().isEmpty()
-            ? user.getNickname() : user.getUsername());
-      }
-    }
-    return ApiResponse.ok(group);
-  }
+	/** 查询 GROUP_ADMIN（部落组管理员/群主）角色 ID，缓存避免重复查询 */
+	private Long cachedOwnerRoleId = null;
+
+	private Long getOwnerRoleId() {
+		if (cachedOwnerRoleId != null)
+			return cachedOwnerRoleId;
+		SysRole role = sysRoleMapper.selectOne(new QueryWrapper<SysRole>().eq("role_code", RoleConstants.GROUP_ADMIN));
+		cachedOwnerRoleId = role != null ? role.getId() : null;
+		return cachedOwnerRoleId;
+	}
+
+	/** 重写分页接口：查询完成后批量关联 sys_user 填充 ownerName，避免 N+1 查询 */
+	@Override
+	@GetMapping("/page")
+	public ApiResponse page(@RequestParam(required = false) String keyword,
+			@RequestParam(defaultValue = "1") long current, @RequestParam(defaultValue = "10") long size) {
+		Page<ClanGroup> page = PageResult.page(current, size);
+		QueryWrapper<ClanGroup> qw = new QueryWrapper<>();
+		List<String> fields = keywordFields();
+		if (keyword != null && !keyword.trim().isEmpty() && !fields.isEmpty()) {
+			String kw = keyword.trim();
+			qw.and(w -> {
+				boolean first = true;
+				for (String field : fields) {
+					if (!first) {
+						w.or();
+					}
+					w.like(field, kw);
+					first = false;
+				}
+			});
+		}
+		qw.orderByDesc("id");
+		mapper().selectPage(page, qw);
+
+		List<ClanGroup> records = page.getRecords();
+		if (records != null && !records.isEmpty()) {
+			// 收集所有非空 ownerId，批量查询用户名
+			Set<Long> ownerIds = StreamUtils.mapNonNullToSet(records, ClanGroup::getOwnerId);
+			if (!ownerIds.isEmpty()) {
+				List<SysUser> users = sysUserMapper.selectBatchIds(ownerIds);
+				Map<Long, String> idToName = new HashMap<>();
+				for (SysUser u : users) {
+					// 优先显示昵称，其次用户名
+					idToName.put(u.getId(),
+							u.getNickname() != null && !u.getNickname().isEmpty() ? u.getNickname() : u.getUsername());
+				}
+				for (ClanGroup g : records) {
+					if (g.getOwnerId() != null) {
+						g.setOwnerName(idToName.get(g.getOwnerId()));
+					}
+				}
+			}
+		}
+		return ApiResponse.ok(PageResult.of(page));
+	}
+
+	/** 重写详情接口：填充 ownerName */
+	@Override
+	@GetMapping("/{id}")
+	public ApiResponse getById(@PathVariable Long id) {
+		ClanGroup group = clanGroupMapper.selectById(id);
+		if (group != null && group.getOwnerId() != null) {
+			SysUser user = sysUserMapper.selectById(group.getOwnerId());
+			if (user != null) {
+				group.setOwnerName(user.getNickname() != null && !user.getNickname().isEmpty() ? user.getNickname()
+						: user.getUsername());
+			}
+		}
+		return ApiResponse.ok(group);
+	}
+
 }

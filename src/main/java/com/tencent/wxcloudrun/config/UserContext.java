@@ -5,32 +5,33 @@ package com.tencent.wxcloudrun.config;
  */
 public final class UserContext {
 
-  private static final ThreadLocal<AuthUser> CURRENT = new ThreadLocal<>();
+	private static final ThreadLocal<AuthUser> CURRENT = new ThreadLocal<>();
 
-  public static void set(AuthUser user) {
-    CURRENT.set(user);
-  }
+	public static void set(AuthUser user) {
+		CURRENT.set(user);
+	}
 
-  public static AuthUser get() {
-    return CURRENT.get();
-  }
+	public static AuthUser get() {
+		return CURRENT.get();
+	}
 
-  public static Long getUserId() {
-    AuthUser user = CURRENT.get();
-    return user == null ? null : user.getUserId();
-  }
+	public static Long getUserId() {
+		AuthUser user = CURRENT.get();
+		return user == null ? null : user.getUserId();
+	}
 
-  public static String getGroupNo() {
-    AuthUser user = CURRENT.get();
-    return user == null ? null : user.getGroupNo();
-  }
+	public static String getGroupNo() {
+		AuthUser user = CURRENT.get();
+		return user == null ? null : user.getGroupNo();
+	}
 
-  public static boolean isSuperAdmin() {
-    AuthUser user = CURRENT.get();
-    return user != null && user.isSuperAdmin();
-  }
+	public static boolean isSuperAdmin() {
+		AuthUser user = CURRENT.get();
+		return user != null && user.isSuperAdmin();
+	}
 
-  public static void clear() {
-    CURRENT.remove();
-  }
+	public static void clear() {
+		CURRENT.remove();
+	}
+
 }

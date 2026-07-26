@@ -15,11 +15,17 @@ import java.time.LocalDateTime;
 @TableName("clan_war")
 public class ClanWar extends BaseEntity {
 
-  private String warNo;
-  private String clanNo;
-  private String groupNo;
-  /** 胜利状态 1=胜 2=平 3=败（字典项） */
-  private Integer winStatus;
-  private LocalDateTime startTime;
-  private String intro;
+	private String warNo;
+
+	private String clanNo;
+
+	private String groupNo;
+
+	/** 胜利状态 1=胜 2=平 3=败（字典项） */
+	private Integer winStatus;
+
+	private LocalDateTime startTime;
+
+	private String intro;
+
 }

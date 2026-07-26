@@ -13,8 +13,12 @@ import lombok.Setter;
 @TableName("clan")
 public class Clan extends BaseEntity {
 
-  private String clanName;
-  private String clanNo;
-  private String groupNo;
-  private String intro;
+	private String clanName;
+
+	private String clanNo;
+
+	private String groupNo;
+
+	private String intro;
+
 }

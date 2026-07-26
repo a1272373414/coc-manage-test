@@ -5,34 +5,44 @@
 
   // 从全局加载列配置和 CRUD 组件实例（由 cols.js / crud-instances.js 暴露）
   const {
-    clanCrud, memberCrud,
-    warCrud, warRecordCrud,
-    leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud,
-    groupCrud, menuTree,
-    dictGroupCrud, dictItemCrud,
-    configCrud
+    clanCrud,
+    memberCrud,
+    warCrud,
+    warRecordCrud,
+    leagueCrud,
+    leagueClanScoreCrud,
+    leagueRecordCrud,
+    leagueSignupCrud,
+    groupCrud,
+    menuTree,
+    dictGroupCrud,
+    dictItemCrud,
+    configCrud,
   } = window.COC_CRUD;
 
   /* ============ 登录页 ============ */
   const Login = {
     data() {
       return {
-        mode: 'login',
-        loginForm: { username: '', password: '' },
-        regForm: { username: '', password: '', nickname: '' },
-        loading: false
+        mode: "login",
+        loginForm: { username: "", password: "" },
+        regForm: { username: "", password: "", nickname: "" },
+        loading: false,
       };
     },
     methods: {
       async doLogin() {
         if (!this.loginForm.username || !this.loginForm.password) {
-          ElementPlus.ElMessage.warning('请输入用户名和密码');
+          ElementPlus.ElMessage.warning("请输入用户名和密码");
           return;
         }
         this.loading = true;
         try {
-          const res = await COC.api.login(this.loginForm.username, this.loginForm.password);
-          localStorage.setItem('coc_token', res.token);
+          const res = await COC.api.login(
+            this.loginForm.username,
+            this.loginForm.password,
+          );
+          localStorage.setItem("coc_token", res.token);
           COC.store.token = res.token;
           const info = await COC.api.info();
           COC.store.user = (info && info.user) || res.user;
@@ -43,35 +53,47 @@
             // 来自公开页（如联赛快速报名）的登录回跳
             window.location.href = redirect;
           } else {
-            this.$router.replace('/dashboard');
+            this.$router.replace("/dashboard");
           }
-        } catch (e) { /* 拦截器已提示 */ }
-        finally { this.loading = false; }
+        } catch (e) {
+          /* 拦截器已提示 */
+        } finally {
+          this.loading = false;
+        }
       },
       async doRegister() {
         if (!this.regForm.username || !this.regForm.password) {
-          ElementPlus.ElMessage.warning('请输入用户名和密码');
+          ElementPlus.ElMessage.warning("请输入用户名和密码");
           return;
         }
         this.loading = true;
         try {
           await COC.api.register(this.regForm);
-          ElementPlus.ElMessage.success('注册成功，请登录');
-          this.mode = 'login';
+          ElementPlus.ElMessage.success("注册成功，请登录");
+          this.mode = "login";
           this.loginForm.username = this.regForm.username;
-        } catch (e) { /* 提示 */ }
-        finally { this.loading = false; }
+        } catch (e) {
+          /* 提示 */
+        } finally {
+          this.loading = false;
+        }
       },
       async loadGlobals() {
         try {
-          const g = await COC.api.page('/api/dict/group', { size: 9999 });
-          COC.dictGroups = (g.records || []).map((x) => ({ label: x.groupName + '(' + x.groupCode + ')', value: x.groupCode }));
+          const g = await COC.api.page("/api/dict/group", { size: 9999 });
+          COC.dictGroups = (g.records || []).map((x) => ({
+            label: x.groupName + "(" + x.groupCode + ")",
+            value: x.groupCode,
+          }));
         } catch (e) {}
         try {
-          const r = await COC.api.page('/api/sys/role', { size: 9999 });
-          COC.roles = (r.records || []).map((x) => ({ label: x.roleName, value: x.id }));
+          const r = await COC.api.page("/api/sys/role", { size: 9999 });
+          COC.roles = (r.records || []).map((x) => ({
+            label: x.roleName,
+            value: x.id,
+          }));
         } catch (e) {}
-      }
+      },
     },
     template: `
     <div class="login-wrap">
@@ -100,18 +122,18 @@
           <div style="margin-top:12px;text-align:right"><el-link type="primary" @click="mode='login'">返回登录</el-link></div>
         </el-form>
       </div>
-    </div>`
+    </div>`,
   };
 
   /* ============ 布局 ============ */
   /* ============ 布局 ============ */
   // 导航图标默认映射（数据库中 menu.icon 为空时使用 Element Plus 内置图标名）
   const ICON_FALLBACK = {
-    '/dashboard': 'Odometer',
-    '/clan': 'OfficeBuilding',
-    '/war': 'DataAnalysis',
-    '/league': 'Trophy',
-    '/system': 'Setting'
+    "/dashboard": "Odometer",
+    "/clan": "OfficeBuilding",
+    "/war": "DataAnalysis",
+    "/league": "Trophy",
+    "/system": "Setting",
   };
 
   /**
@@ -132,10 +154,15 @@
 
   const Layout = {
     data() {
-      return { pwdVisible: false, pwdForm: { oldPassword: '', newPassword: '' } };
+      return {
+        pwdVisible: false,
+        pwdForm: { oldPassword: "", newPassword: "" },
+      };
     },
     computed: {
-      user() { return COC.store.user || {}; },
+      user() {
+        return COC.store.user || {};
+      },
       /**
        * 左侧导航菜单从 COC.store.menus（后端按当前用户角色过滤）动态计算：
        * - 仅取顶级菜单（parentId 为 0 或 null）
@@ -146,15 +173,17 @@
        */
       visibleNav() {
         const all = COC.store.menus || [];
-        const filtered = all.filter((m) => (m.parentId == null || m.parentId === 0) && m.path);
+        const filtered = all.filter(
+          (m) => (m.parentId == null || m.parentId === 0) && m.path,
+        );
         const sorted = filtered.slice().sort(menuSortCompare);
         return sorted.map((m) => ({
           path: m.path,
           title: m.menuName,
-          icon: (m.icon && m.icon.trim()) || ICON_FALLBACK[m.path] || 'Menu',
-          perm: m.permission || null
+          icon: (m.icon && m.icon.trim()) || ICON_FALLBACK[m.path] || "Menu",
+          perm: m.permission || null,
         }));
-      }
+      },
     },
     async mounted() {
       // 保障首屏：若 menus 为空（页面刷新时 beforeCreate 的 info 请求未完成）补一次
@@ -163,33 +192,42 @@
           const info = await COC.api.info();
           if (info && info.user) COC.store.user = info.user;
           if (info && info.menus) COC.store.menus = info.menus;
-        } catch (e) { /* token 失效由拦截器处理 */ }
+        } catch (e) {
+          /* token 失效由拦截器处理 */
+        }
       }
     },
     methods: {
-      active(p) { return this.$route.path === p; },
+      active(p) {
+        return this.$route.path === p;
+      },
       async logout() {
-        try { await COC.api.logout(); } catch (e) {}
-        localStorage.removeItem('coc_token');
-        COC.store.token = '';
+        try {
+          await COC.api.logout();
+        } catch (e) {}
+        localStorage.removeItem("coc_token");
+        COC.store.token = "";
         COC.store.user = null;
-        this.$router.replace('/login');
+        this.$router.replace("/login");
       },
       async changePwd() {
         if (!this.pwdForm.oldPassword || !this.pwdForm.newPassword) {
-          ElementPlus.ElMessage.warning('请输入原密码与新密码');
+          ElementPlus.ElMessage.warning("请输入原密码与新密码");
           return;
         }
         try {
-          await COC.api.changePassword(this.pwdForm.oldPassword, this.pwdForm.newPassword);
-          ElementPlus.ElMessage.success('密码修改成功，请重新登录');
+          await COC.api.changePassword(
+            this.pwdForm.oldPassword,
+            this.pwdForm.newPassword,
+          );
+          ElementPlus.ElMessage.success("密码修改成功，请重新登录");
           this.pwdVisible = false;
-          localStorage.removeItem('coc_token');
-          COC.store.token = '';
+          localStorage.removeItem("coc_token");
+          COC.store.token = "";
           COC.store.user = null;
-          this.$router.replace('/login');
+          this.$router.replace("/login");
         } catch (e) {}
-      }
+      },
     },
     template: `
     <div class="layout">
@@ -228,24 +266,37 @@
         </el-form>
         <template #footer><el-button @click="pwdVisible=false">取消</el-button><el-button type="primary" @click="changePwd">确定</el-button></template>
       </el-dialog>
-    </div>`
+    </div>`,
   };
 
   /* ============ 看板 ============ */
   const Dashboard = {
     data() {
       return {
-        stats: {}, warStat: [], rank: [], loading: true, pie: null, bar: null
+        stats: {},
+        warStat: [],
+        rank: [],
+        loading: true,
+        pie: null,
+        bar: null,
       };
     },
-    mounted() { this.load(); },
+    mounted() {
+      this.load();
+    },
     computed: {
-      warWin() { return this.sumBy(1); },
-      warLose() { return this.sumBy(0); },
-      warUnknown() { return this.sumBy(-1); },
+      warWin() {
+        return this.sumBy(1);
+      },
+      warLose() {
+        return this.sumBy(0);
+      },
+      warUnknown() {
+        return this.sumBy(-1);
+      },
       warTotal() {
         return this.warStat.reduce((s, x) => s + (x.count || 0), 0);
-      }
+      },
     },
     methods: {
       sumBy(status) {
@@ -256,41 +307,70 @@
         this.loading = true;
         try {
           const [o, w, r] = await Promise.all([
-            COC.api.dashboardOverview(), COC.api.dashboardWarStat(), COC.api.dashboardLeagueRank()
+            COC.api.dashboardOverview(),
+            COC.api.dashboardWarStat(),
+            COC.api.dashboardLeagueRank(),
           ]);
           this.stats = o || {};
           this.warStat = w || [];
           this.rank = r || [];
           await nextTick();
           this.renderCharts();
-        } finally { this.loading = false; }
+        } finally {
+          this.loading = false;
+        }
       },
       renderCharts() {
         if (this.pie) this.pie.dispose();
         if (this.bar) this.bar.dispose();
         this.pie = echarts.init(this.$refs.pie);
         this.pie.setOption({
-          title: { text: '部落战胜负分布', left: 'center' },
-          tooltip: { trigger: 'item' },
+          title: { text: "部落战胜负分布", left: "center" },
+          tooltip: { trigger: "item" },
           legend: { bottom: 0 },
-          series: [{
-            type: 'pie', radius: '55%',
-            data: [
-              { name: '胜', value: this.warWin, itemStyle: { color: '#67c23a' } },
-              { name: '负', value: this.warLose, itemStyle: { color: '#f56c6c' } },
-              { name: '未知', value: this.warUnknown, itemStyle: { color: '#c0c4cc' } }
-            ]
-          }]
+          series: [
+            {
+              type: "pie",
+              radius: "55%",
+              data: [
+                {
+                  name: "胜",
+                  value: this.warWin,
+                  itemStyle: { color: "#67c23a" },
+                },
+                {
+                  name: "负",
+                  value: this.warLose,
+                  itemStyle: { color: "#f56c6c" },
+                },
+                {
+                  name: "未知",
+                  value: this.warUnknown,
+                  itemStyle: { color: "#c0c4cc" },
+                },
+              ],
+            },
+          ],
         });
         this.bar = echarts.init(this.$refs.bar);
         this.bar.setOption({
-          title: { text: '成员战力排行(Top10)', left: 'center' },
-          tooltip: { trigger: 'axis' },
-          xAxis: { type: 'category', data: this.rank.map((x) => x.memberName), axisLabel: { interval: 0, rotate: 20 } },
-          yAxis: { type: 'value' },
-          series: [{ type: 'bar', data: this.rank.map((x) => x.score), itemStyle: { color: '#409eff' } }]
+          title: { text: "成员战力排行(Top10)", left: "center" },
+          tooltip: { trigger: "axis" },
+          xAxis: {
+            type: "category",
+            data: this.rank.map((x) => x.memberName),
+            axisLabel: { interval: 0, rotate: 20 },
+          },
+          yAxis: { type: "value" },
+          series: [
+            {
+              type: "bar",
+              data: this.rank.map((x) => x.score),
+              itemStyle: { color: "#409eff" },
+            },
+          ],
         });
-      }
+      },
     },
     template: `
     <div v-loading="loading">
@@ -321,7 +401,7 @@
           <el-table-column prop="score" label="综合战力" width="110" />
         </el-table>
       </el-card>
-    </div>`
+    </div>`,
   };
 
   /* ============ 业务页（标签页组合 CRUD） ============ */
@@ -336,7 +416,7 @@
   function makeSubTabsMixin(parentPath, paneMap, extraOptions) {
     const base = {
       data() {
-        return { t: '' };
+        return { t: "" };
       },
       computed: {
         /** 当前父菜单的子菜单列表（受角色菜单绑定管控）。
@@ -364,11 +444,11 @@
               return {
                 name: pane.name,
                 label: m.menuName || pane.label,
-                component: pane.component
+                component: pane.component,
               };
             })
             .filter(Boolean);
-        }
+        },
       },
       watch: {
         visiblePanes: {
@@ -378,55 +458,109 @@
               this.t = panes[0].name;
             }
           },
-          immediate: true
-        }
+          immediate: true,
+        },
       },
       template: `
       <el-tabs class="coc-tabs" v-model="t">
         <el-tab-pane v-for="p in visiblePanes" :key="p.name" :label="p.label" :name="p.name">
           <component :is="p.component" />
         </el-tab-pane>
-      </el-tabs>`
+      </el-tabs>`,
     };
     return Object.assign({}, base, extraOptions || {});
   }
 
   // 配置每个父菜单的二级 tab：path → { name, label, component }
   // name 必须与原 v-model="t" 的初值一致，保持 URL 不变
-  const ClanPage = makeSubTabsMixin('/clan', {
-    '/clan/crud':   { name: 'clan',   label: '部落管理', component: 'clanCrud' },
-    '/clan/member': { name: 'member', label: '部落成员', component: 'memberCrud' }
-  }, {
-    components: { clanCrud, memberCrud }
-  });
+  const ClanPage = makeSubTabsMixin(
+    "/clan",
+    {
+      "/clan/crud": { name: "clan", label: "部落管理", component: "clanCrud" },
+      "/clan/member": {
+        name: "member",
+        label: "部落成员",
+        component: "memberCrud",
+      },
+    },
+    {
+      components: { clanCrud, memberCrud },
+    },
+  );
 
-  const WarPage = makeSubTabsMixin('/war', {
-    '/war/crud':   { name: 'war', label: '部落战',     component: 'warCrud' },
-    '/war/record': { name: 'rec', label: '部落战战绩', component: 'warRecordCrud' }
-  }, {
-    components: { warCrud, warRecordCrud }
-  });
+  const WarPage = makeSubTabsMixin(
+    "/war",
+    {
+      "/war/crud": { name: "war", label: "部落战", component: "warCrud" },
+      "/war/record": {
+        name: "rec",
+        label: "部落战战绩",
+        component: "warRecordCrud",
+      },
+    },
+    {
+      components: { warCrud, warRecordCrud },
+    },
+  );
 
-  const LeaguePage = makeSubTabsMixin('/league', {
-    '/league/crud':   { name: 'lg',   label: '联赛管理', component: 'leagueCrud' },
-    '/league/score':  { name: 'sco',  label: '部落成绩', component: 'leagueClanScoreCrud' },
-    '/league/record': { name: 'rec',  label: '联赛战绩', component: 'leagueRecordCrud' },
-    '/league/signup': { name: 'sign', label: '联赛报名', component: 'leagueSignupCrud' }
-  }, {
-    components: { leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud }
-  });
+  const LeaguePage = makeSubTabsMixin(
+    "/league",
+    {
+      "/league/crud": {
+        name: "lg",
+        label: "联赛管理",
+        component: "leagueCrud",
+      },
+      "/league/score": {
+        name: "sco",
+        label: "部落成绩",
+        component: "leagueClanScoreCrud",
+      },
+      "/league/record": {
+        name: "rec",
+        label: "联赛战绩",
+        component: "leagueRecordCrud",
+      },
+      "/league/signup": {
+        name: "sign",
+        label: "联赛报名",
+        component: "leagueSignupCrud",
+      },
+    },
+    {
+      components: {
+        leagueCrud,
+        leagueClanScoreCrud,
+        leagueRecordCrud,
+        leagueSignupCrud,
+      },
+    },
+  );
 
   /* ============ 用户管理（含角色分配） ============ */
   const UserManage = {
     data() {
       return {
-        list: [], total: 0, page: 1, size: 10, filters: {}, keyword: '',
-        loading: false, dialogVisible: false, dialogTitle: '新增用户', form: {},
-        roleDialog: false, roleUserId: null, roleSel: [], savingRole: false,
-        roleOptions: [] // 角色下拉选项，组件本地维护避免 COC.roles 异步加载竞态
+        list: [],
+        total: 0,
+        page: 1,
+        size: 10,
+        filters: {},
+        keyword: "",
+        loading: false,
+        dialogVisible: false,
+        dialogTitle: "新增用户",
+        form: {},
+        roleDialog: false,
+        roleUserId: null,
+        roleSel: [],
+        savingRole: false,
+        roleOptions: [], // 角色下拉选项，组件本地维护避免 COC.roles 异步加载竞态
       };
     },
-    async mounted() { await this.load(); },
+    async mounted() {
+      await this.load();
+    },
     methods: {
       async ensureRoleOptions() {
         // 优先用 COC.roles（登录/启动时已加载），空则主动拉一次
@@ -435,54 +569,83 @@
           return;
         }
         try {
-          const r = await COC.api.page('/api/sys/role', { size: 9999 });
-          this.roleOptions = (r.records || []).map((x) => ({ label: x.roleName, value: x.id }));
+          const r = await COC.api.page("/api/sys/role", { size: 9999 });
+          this.roleOptions = (r.records || []).map((x) => ({
+            label: x.roleName,
+            value: x.id,
+          }));
           // 同步到全局供其他组件复用
           COC.roles = this.roleOptions;
-        } catch (e) { this.roleOptions = []; }
+        } catch (e) {
+          this.roleOptions = [];
+        }
       },
       async load() {
         this.loading = true;
         try {
-          const p = { keyword: this.keyword, current: this.page, size: this.size };
-          Object.keys(this.filters).forEach((k) => { if (this.filters[k] !== '') p[k] = this.filters[k]; });
-          const r = await COC.api.page('/api/sys/user', p);
+          const p = {
+            keyword: this.keyword,
+            current: this.page,
+            size: this.size,
+          };
+          Object.keys(this.filters).forEach((k) => {
+            if (this.filters[k] !== "") p[k] = this.filters[k];
+          });
+          const r = await COC.api.page("/api/sys/user", p);
           this.list = r.records || [];
           this.total = r.total || 0;
-        } finally { this.loading = false; }
+        } finally {
+          this.loading = false;
+        }
       },
-      resetSearch() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
+      resetSearch() {
+        this.keyword = "";
+        this.filters = {};
+        this.page = 1;
+        this.load();
+      },
       openCreate() {
-        this.dialogTitle = '新增用户';
-        this.form = { username: '', nickname: '', phone: '', email: '', status: 1, password: '123456' };
+        this.dialogTitle = "新增用户";
+        this.form = {
+          username: "",
+          nickname: "",
+          phone: "",
+          email: "",
+          status: 1,
+          password: "123456",
+        };
         this.dialogVisible = true;
       },
       openEdit(row) {
-        this.dialogTitle = '编辑用户';
-        this.form = Object.assign({}, row, { password: '' });
+        this.dialogTitle = "编辑用户";
+        this.form = Object.assign({}, row, { password: "" });
         this.dialogVisible = true;
       },
       async submit() {
         const payload = Object.assign({}, this.form);
         if (!payload.username) {
-          ElementPlus.ElMessage.warning('用户名不能为空');
+          ElementPlus.ElMessage.warning("用户名不能为空");
           return;
         }
         if (!payload.password) delete payload.password;
         try {
-          if (payload.id) await COC.api.update('/api/sys/user', payload);
-          else await COC.api.create('/api/sys/user', payload);
-          ElementPlus.ElMessage.success('保存成功');
+          if (payload.id) await COC.api.update("/api/sys/user", payload);
+          else await COC.api.create("/api/sys/user", payload);
+          ElementPlus.ElMessage.success("保存成功");
           this.dialogVisible = false;
           this.load();
         } catch (e) {}
       },
       remove(row) {
-        ElementPlus.ElMessageBox.confirm('确定删除该用户？', '提示', { type: 'warning' }).then(async () => {
-          await COC.api.remove('/api/sys/user', row.id);
-          ElementPlus.ElMessage.success('删除成功');
-          this.load();
-        }).catch(() => {});
+        ElementPlus.ElMessageBox.confirm("确定删除该用户？", "提示", {
+          type: "warning",
+        })
+          .then(async () => {
+            await COC.api.remove("/api/sys/user", row.id);
+            ElementPlus.ElMessage.success("删除成功");
+            this.load();
+          })
+          .catch(() => {});
       },
       async openRole(row) {
         this.roleUserId = row.id;
@@ -494,11 +657,13 @@
         this.savingRole = true;
         try {
           await COC.api.assignRole(this.roleUserId, this.roleSel);
-          ElementPlus.ElMessage.success('角色分配成功');
+          ElementPlus.ElMessage.success("角色分配成功");
           this.roleDialog = false;
           this.load();
-        } finally { this.savingRole = false; }
-      }
+        } finally {
+          this.savingRole = false;
+        }
+      },
     },
     template: `
     <div>
@@ -559,58 +724,90 @@
         </el-select>
         <template #footer><el-button @click="roleDialog=false">取消</el-button><el-button type="primary" :loading="savingRole" @click="saveRole">保存</el-button></template>
       </el-dialog>
-    </div>`
+    </div>`,
   };
 
   /* ============ 角色管理（含菜单分配） ============ */
   const RoleManage = {
     data() {
       return {
-        list: [], total: 0, page: 1, size: 10, filters: {}, keyword: '',
-        loading: false, dialogVisible: false, dialogTitle: '新增角色', form: {},
-        menuDialog: false, menuRoleId: null, menuRoleName: '',
-        menuTreeData: [], menuCheckedIds: [], menuTreeProps: { children: 'children', label: 'menuName' },
-        savingMenu: false, menuTreeRef: null
+        list: [],
+        total: 0,
+        page: 1,
+        size: 10,
+        filters: {},
+        keyword: "",
+        loading: false,
+        dialogVisible: false,
+        dialogTitle: "新增角色",
+        form: {},
+        menuDialog: false,
+        menuRoleId: null,
+        menuRoleName: "",
+        menuTreeData: [],
+        menuCheckedIds: [],
+        menuTreeProps: { children: "children", label: "menuName" },
+        savingMenu: false,
+        menuTreeRef: null,
       };
     },
-    async mounted() { await this.load(); },
+    async mounted() {
+      await this.load();
+    },
     methods: {
       async load() {
         this.loading = true;
         try {
-          const p = { keyword: this.keyword, current: this.page, size: this.size };
-          Object.keys(this.filters).forEach((k) => { if (this.filters[k] !== '') p[k] = this.filters[k]; });
-          const r = await COC.api.page('/api/sys/role', p);
+          const p = {
+            keyword: this.keyword,
+            current: this.page,
+            size: this.size,
+          };
+          Object.keys(this.filters).forEach((k) => {
+            if (this.filters[k] !== "") p[k] = this.filters[k];
+          });
+          const r = await COC.api.page("/api/sys/role", p);
           this.list = r.records || [];
           this.total = r.total || 0;
-        } finally { this.loading = false; }
+        } finally {
+          this.loading = false;
+        }
       },
-      resetSearch() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
+      resetSearch() {
+        this.keyword = "";
+        this.filters = {};
+        this.page = 1;
+        this.load();
+      },
       openCreate() {
-        this.dialogTitle = '新增角色';
-        this.form = { roleCode: '', roleName: '', status: 1, remark: '' };
+        this.dialogTitle = "新增角色";
+        this.form = { roleCode: "", roleName: "", status: 1, remark: "" };
         this.dialogVisible = true;
       },
       openEdit(row) {
-        this.dialogTitle = '编辑角色';
+        this.dialogTitle = "编辑角色";
         this.form = Object.assign({}, row);
         this.dialogVisible = true;
       },
       async submit() {
         try {
-          if (this.form.id) await COC.api.update('/api/sys/role', this.form);
-          else await COC.api.create('/api/sys/role', this.form);
-          ElementPlus.ElMessage.success('保存成功');
+          if (this.form.id) await COC.api.update("/api/sys/role", this.form);
+          else await COC.api.create("/api/sys/role", this.form);
+          ElementPlus.ElMessage.success("保存成功");
           this.dialogVisible = false;
           this.load();
         } catch (e) {}
       },
       remove(row) {
-        ElementPlus.ElMessageBox.confirm('确定删除该角色？', '提示', { type: 'warning' }).then(async () => {
-          await COC.api.remove('/api/sys/role', row.id);
-          ElementPlus.ElMessage.success('删除成功');
-          this.load();
-        }).catch(() => {});
+        ElementPlus.ElMessageBox.confirm("确定删除该角色？", "提示", {
+          type: "warning",
+        })
+          .then(async () => {
+            await COC.api.remove("/api/sys/role", row.id);
+            ElementPlus.ElMessage.success("删除成功");
+            this.load();
+          })
+          .catch(() => {});
       },
       /** 打开分配菜单弹窗：拉取菜单树 + 当前角色已勾选的菜单 id */
       async openAssignMenu(row) {
@@ -663,7 +860,9 @@
             }
           }
         } finally {
-          this.$nextTick(() => { this._menuCascading = false; });
+          this.$nextTick(() => {
+            this._menuCascading = false;
+          });
         }
       },
       async saveAssignMenu() {
@@ -672,7 +871,7 @@
         try {
           const treeRef = this.$refs.menuTreeRef;
           if (!treeRef) {
-            ElementPlus.ElMessage.error('菜单树未初始化');
+            ElementPlus.ElMessage.error("菜单树未初始化");
             return;
           }
           // 收集勾选节点 + 半选节点（父目录半选时可能携带权限标识，如 system:manage，必须保存）
@@ -687,9 +886,11 @@
             }
           }
           await COC.api.assignMenus(this.menuRoleId, menuIds);
-          ElementPlus.ElMessage.success('菜单分配成功');
+          ElementPlus.ElMessage.success("菜单分配成功");
           this.menuDialog = false;
-        } finally { this.savingMenu = false; }
+        } finally {
+          this.savingMenu = false;
+        }
       },
     },
     template: `
@@ -752,7 +953,7 @@
           <el-button type="primary" :loading="savingMenu" @click="saveAssignMenu">保存</el-button>
         </template>
       </el-dialog>
-    </div>`
+    </div>`,
   };
 
   /* ============ 字典管理（二级树：分组 → 字典项） ============ */
@@ -760,20 +961,22 @@
     data() {
       return {
         treeData: [],
-        keyword: '',
+        keyword: "",
         loading: false,
         groupDialogVisible: false,
-        groupDialogTitle: '',
+        groupDialogTitle: "",
         groupForm: {},
         itemDialogVisible: false,
-        itemDialogTitle: '',
+        itemDialogTitle: "",
         itemForm: {},
         treeProps: {
-          children: 'children',
+          children: "children",
           label: function (data) {
-            return data.nodeType === 'group' ? (data.groupName || '') : (data.itemName || '');
-          }
-        }
+            return data.nodeType === "group"
+              ? data.groupName || ""
+              : data.itemName || "";
+          },
+        },
       };
     },
     computed: {
@@ -786,12 +989,14 @@
             var n = nodes[i];
             var children = Array.isArray(n.children) ? walk(n.children) : [];
             var match = false;
-            if (n.nodeType === 'group') {
-              match = (n.groupCode || '').toLowerCase().indexOf(kw) !== -1 ||
-                      (n.groupName || '').toLowerCase().indexOf(kw) !== -1;
+            if (n.nodeType === "group") {
+              match =
+                (n.groupCode || "").toLowerCase().indexOf(kw) !== -1 ||
+                (n.groupName || "").toLowerCase().indexOf(kw) !== -1;
             } else {
-              match = (n.itemName || '').toLowerCase().indexOf(kw) !== -1 ||
-                      (n.itemValue || '').toLowerCase().indexOf(kw) !== -1;
+              match =
+                (n.itemName || "").toLowerCase().indexOf(kw) !== -1 ||
+                (n.itemValue || "").toLowerCase().indexOf(kw) !== -1;
             }
             if (match || children.length > 0) {
               out.push(Object.assign({}, n, { children: children }));
@@ -800,7 +1005,7 @@
           return out;
         };
         return walk(this.treeData);
-      }
+      },
     },
     async mounted() {
       await this.loadTree();
@@ -810,14 +1015,17 @@
         this.loading = true;
         try {
           var results = await Promise.all([
-            COC.api.page('/api/dict/group', { size: 9999 }),
-            COC.api.page('/api/dict/item', { size: 9999 })
+            COC.api.page("/api/dict/group", { size: 9999 }),
+            COC.api.page("/api/dict/item", { size: 9999 }),
           ]);
           var groups = results[0].records || [];
           var items = results[1].records || [];
           // 同步全局 COC.dictGroups（供其他模块下拉使用）
           COC.dictGroups = groups.map(function (x) {
-            return { label: x.groupName + '(' + x.groupCode + ')', value: x.groupCode };
+            return {
+              label: x.groupName + "(" + x.groupCode + ")",
+              value: x.groupCode,
+            };
           });
           // 按 groupCode 分组字典项，并按 sort 升序排列
           var itemMap = {};
@@ -827,127 +1035,155 @@
             itemMap[key].push(it);
           });
           Object.keys(itemMap).forEach(function (key) {
-            itemMap[key].sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+            itemMap[key].sort(function (a, b) {
+              return (a.sort || 0) - (b.sort || 0);
+            });
           });
           // 组装二级树：分组（一级） → 字典项（二级）
           this.treeData = groups.map(function (g) {
             var children = (itemMap[g.groupCode] || []).map(function (it) {
               return {
-                id: 'item_' + it.id,
+                id: "item_" + it.id,
                 realId: it.id,
-                nodeType: 'item',
+                nodeType: "item",
                 groupCode: g.groupCode,
                 itemName: it.itemName,
                 itemValue: it.itemValue,
                 sort: it.sort,
-                status: it.status
+                status: it.status,
               };
             });
             return {
-              id: 'group_' + g.id,
+              id: "group_" + g.id,
               realId: g.id,
-              nodeType: 'group',
+              nodeType: "group",
               groupCode: g.groupCode,
               groupName: g.groupName,
               status: g.status,
               remark: g.remark,
-              children: children
+              children: children,
             };
           });
         } catch (e) {
           if (window.ElementPlus && ElementPlus.ElMessage) {
-            ElementPlus.ElMessage.error('加载字典失败：' + ((e && e.message) || ''));
+            ElementPlus.ElMessage.error(
+              "加载字典失败：" + ((e && e.message) || ""),
+            );
           }
         } finally {
           this.loading = false;
         }
       },
       openGroupCreate() {
-        this.groupDialogTitle = '新增字典分组';
-        this.groupForm = { groupCode: '', groupName: '', remark: '', status: 1 };
+        this.groupDialogTitle = "新增字典分组";
+        this.groupForm = {
+          groupCode: "",
+          groupName: "",
+          remark: "",
+          status: 1,
+        };
         this.groupDialogVisible = true;
       },
       openGroupEdit(data) {
-        this.groupDialogTitle = '编辑字典分组';
+        this.groupDialogTitle = "编辑字典分组";
         this.groupForm = {
           id: data.realId,
           groupCode: data.groupCode,
           groupName: data.groupName,
           remark: data.remark,
-          status: data.status
+          status: data.status,
         };
         this.groupDialogVisible = true;
       },
       async submitGroup() {
         if (!this.groupForm.groupCode || !this.groupForm.groupName) {
-          ElementPlus.ElMessage.warning('分组编码和名称不能为空');
+          ElementPlus.ElMessage.warning("分组编码和名称不能为空");
           return;
         }
         try {
-          if (this.groupForm.id) await COC.api.update('/api/dict/group', this.groupForm);
-          else await COC.api.create('/api/dict/group', this.groupForm);
-          ElementPlus.ElMessage.success('保存成功');
+          if (this.groupForm.id)
+            await COC.api.update("/api/dict/group", this.groupForm);
+          else await COC.api.create("/api/dict/group", this.groupForm);
+          ElementPlus.ElMessage.success("保存成功");
           this.groupDialogVisible = false;
           await this.loadTree();
-        } catch (e) { /* 拦截器已提示 */ }
+        } catch (e) {
+          /* 拦截器已提示 */
+        }
       },
       openItemCreate(groupNode) {
-        this.itemDialogTitle = '新增字典项';
+        this.itemDialogTitle = "新增字典项";
         this.itemForm = {
           groupCode: groupNode.groupCode,
-          itemName: '',
-          itemValue: '',
+          itemName: "",
+          itemValue: "",
           sort: 0,
-          status: 1
+          status: 1,
         };
         this.itemDialogVisible = true;
       },
       openItemEdit(data) {
-        this.itemDialogTitle = '编辑字典项';
+        this.itemDialogTitle = "编辑字典项";
         this.itemForm = {
           id: data.realId,
           groupCode: data.groupCode,
           itemName: data.itemName,
           itemValue: data.itemValue,
           sort: data.sort,
-          status: data.status
+          status: data.status,
         };
         this.itemDialogVisible = true;
       },
       async submitItem() {
         if (!this.itemForm.itemName || !this.itemForm.itemValue) {
-          ElementPlus.ElMessage.warning('字典名称和值不能为空');
+          ElementPlus.ElMessage.warning("字典名称和值不能为空");
           return;
         }
         try {
-          if (this.itemForm.id) await COC.api.update('/api/dict/item', this.itemForm);
-          else await COC.api.create('/api/dict/item', this.itemForm);
-          ElementPlus.ElMessage.success('保存成功');
+          if (this.itemForm.id)
+            await COC.api.update("/api/dict/item", this.itemForm);
+          else await COC.api.create("/api/dict/item", this.itemForm);
+          ElementPlus.ElMessage.success("保存成功");
           this.itemDialogVisible = false;
           await this.loadTree();
-        } catch (e) { /* 拦截器已提示 */ }
+        } catch (e) {
+          /* 拦截器已提示 */
+        }
       },
       onDelete(data) {
         var self = this;
-        if (data.nodeType === 'group') {
+        if (data.nodeType === "group") {
           var childCount = (data.children || []).length;
-          var msg = '确定删除分组「' + data.groupName + '」？';
+          var msg = "确定删除分组「" + data.groupName + "」？";
           if (childCount > 0) {
-            msg = '分组「' + data.groupName + '」下有 ' + childCount + ' 个字典项，删除分组后这些字典项不会被自动删除。确定继续？';
+            msg =
+              "分组「" +
+              data.groupName +
+              "」下有 " +
+              childCount +
+              " 个字典项，删除分组后这些字典项不会被自动删除。确定继续？";
           }
-          ElementPlus.ElMessageBox.confirm(msg, '提示', { type: 'warning' }).then(async () => {
-            await COC.api.remove('/api/dict/group', data.realId);
-            ElementPlus.ElMessage.success('删除成功');
-            await self.loadTree();
-          }).catch(function () {});
+          ElementPlus.ElMessageBox.confirm(msg, "提示", { type: "warning" })
+            .then(async () => {
+              await COC.api.remove("/api/dict/group", data.realId);
+              ElementPlus.ElMessage.success("删除成功");
+              await self.loadTree();
+            })
+            .catch(function () {});
         } else {
-          ElementPlus.ElMessageBox.confirm('确定删除字典项「' + data.itemName + '」？', '提示', { type: 'warning' }).then(async () => {
-            await COC.api.remove('/api/dict/item', data.realId);
-            ElementPlus.ElMessage.success('删除成功');
-            await self.loadTree();
-          }).catch(function () {});
+          ElementPlus.ElMessageBox.confirm(
+            "确定删除字典项「" + data.itemName + "」？",
+            "提示",
+            { type: "warning" },
+          )
+            .then(async () => {
+              await COC.api.remove("/api/dict/item", data.realId);
+              ElementPlus.ElMessage.success("删除成功");
+              await self.loadTree();
+            })
+            .catch(function () {});
         }
-      }
+      },
     },
     template: `
     <div class="dict-manage">
@@ -1005,7 +1241,7 @@
         </el-form>
         <template #footer><el-button @click="itemDialogVisible=false">取消</el-button><el-button type="primary" @click="submitItem">确定</el-button></template>
       </el-dialog>
-    </div>`
+    </div>`,
   };
 
   /* ============ 入组申请页面 ============ */
@@ -1018,88 +1254,129 @@
         total: 0,
         page: 1,
         size: 10,
-        query: { applyStatus: '' },
-        form: { groupNo: '' },
+        query: { applyStatus: "" },
+        form: { groupNo: "" },
         groups: [],
-        groupLoading: false
+        groupLoading: false,
       };
     },
     computed: {
-      user() { return COC.store.user || {}; },
-      roleCodes() { return this.user.roleCodes || []; },
-      isSuperAdmin() { return !!this.user.superAdmin; },
-    canApprove() {
-      return COC.store.hasPerm('group:apply:approve');
-    },
+      user() {
+        return COC.store.user || {};
+      },
+      roleCodes() {
+        return this.user.roleCodes || [];
+      },
+      isSuperAdmin() {
+        return !!this.user.superAdmin;
+      },
+      canApprove() {
+        return COC.store.hasPerm("group:apply:approve");
+      },
       statusOptions() {
-        return [{ label: '申请中', value: 1 }, { label: '同意', value: 2 }, { label: '拒绝', value: 3 }];
-      }
+        return [
+          { label: "申请中", value: 1 },
+          { label: "同意", value: 2 },
+          { label: "拒绝", value: 3 },
+        ];
+      },
     },
-    async mounted() { await this.load(); },
+    async mounted() {
+      await this.load();
+    },
     methods: {
       statusLabel(status) {
         const s = Number(status);
-        if (s === 1) return '申请中';
-        if (s === 2) return '同意';
-        if (s === 3) return '拒绝';
+        if (s === 1) return "申请中";
+        if (s === 2) return "同意";
+        if (s === 3) return "拒绝";
         return status;
       },
       async load() {
         this.loading = true;
         try {
           const params = { current: this.page, size: this.size };
-          if (this.query.applyStatus !== '') params.applyStatus = this.query.applyStatus;
+          if (this.query.applyStatus !== "")
+            params.applyStatus = this.query.applyStatus;
           const r = await COC.api.applyPage(params);
           this.records = r.records || [];
           this.total = r.total || 0;
-        } finally { this.loading = false; }
+        } finally {
+          this.loading = false;
+        }
       },
       async searchGroups(keyword) {
-        if (!keyword || keyword.length < 1) { this.groups = []; return; }
+        if (!keyword || keyword.length < 1) {
+          this.groups = [];
+          return;
+        }
         this.groupLoading = true;
         try {
-          const r = await COC.api.page('/api/clan/group', { keyword, size: 20 });
+          const r = await COC.api.page("/api/clan/group", {
+            keyword,
+            size: 20,
+          });
           this.groups = r.records || [];
-        } finally { this.groupLoading = false; }
+        } finally {
+          this.groupLoading = false;
+        }
       },
       async submit() {
         if (!this.form.groupNo) {
-          ElementPlus.ElMessage.warning('请选择要申请的群组');
+          ElementPlus.ElMessage.warning("请选择要申请的群组");
           return;
         }
         this.submitting = true;
         try {
           await COC.api.applyCreate({ groupNo: this.form.groupNo });
-          ElementPlus.ElMessage.success('申请已提交');
-          this.form.groupNo = '';
+          ElementPlus.ElMessage.success("申请已提交");
+          this.form.groupNo = "";
           this.page = 1;
           await this.load();
-        } finally { this.submitting = false; }
+        } finally {
+          this.submitting = false;
+        }
       },
       async approve(row) {
         try {
-          await ElementPlus.ElMessageBox.confirm('确认同意该用户的入组申请？', '提示', { type: 'warning' });
+          await ElementPlus.ElMessageBox.confirm(
+            "确认同意该用户的入组申请？",
+            "提示",
+            { type: "warning" },
+          );
           await COC.api.applyApprove(row.id);
-          ElementPlus.ElMessage.success('已同意');
+          ElementPlus.ElMessage.success("已同意");
           await this.load();
-        } catch (e) { /* 取消 */ }
+        } catch (e) {
+          /* 取消 */
+        }
       },
       async reject(row) {
         try {
-          await ElementPlus.ElMessageBox.confirm('确认拒绝该用户的入组申请？', '提示', { type: 'warning' });
+          await ElementPlus.ElMessageBox.confirm(
+            "确认拒绝该用户的入组申请？",
+            "提示",
+            { type: "warning" },
+          );
           await COC.api.applyReject(row.id);
-          ElementPlus.ElMessage.success('已拒绝');
+          ElementPlus.ElMessage.success("已拒绝");
           await this.load();
-        } catch (e) { /* 取消 */ }
+        } catch (e) {
+          /* 取消 */
+        }
       },
       async cancel(row) {
         try {
-          await ElementPlus.ElMessageBox.confirm('确认撤销该申请？', '提示', { type: 'warning' });
+          await ElementPlus.ElMessageBox.confirm("确认撤销该申请？", "提示", {
+            type: "warning",
+          });
           await COC.api.applyDelete(row.id);
-          ElementPlus.ElMessage.success('已撤销');
+          ElementPlus.ElMessage.success("已撤销");
           await this.load();
-        } catch (e) { /* 取消 */ }
-      }
+        } catch (e) {
+          /* 取消 */
+        }
+      },
     },
     template: `
     <div class="page-apply" style="padding:16px">
@@ -1163,13 +1440,13 @@
           :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
           @current-change="load" @size-change="load" />
       </div>
-    </div>`
+    </div>`,
   };
 
   // SystemPage 必须放在 UserManage / RoleManage / DictManage / ClanGroupApplyPage 之后定义，
   // 否则 const 的 TDZ（Temporal Dead Zone）会触发 "Cannot access 'X' before initialization"
   const GroupMemberPage = {
-    template: /*html*/`
+    template: /*html*/ `
       <div>
         <el-form inline @submit.prevent class="coc-toolbar">
           <el-form-item label="关键字"><el-input v-model="keyword" placeholder="用户名/昵称" clearable style="width:180px" @keyup.enter="search" /></el-form-item>
@@ -1223,87 +1500,148 @@
         records: [],
         page: { current: 1, size: 10, total: 0 },
         loading: false,
-        keyword: ''
+        keyword: "",
       };
     },
     computed: {
-      me() { return COC.store.user || {}; },
-      myRoleCodes() { return this.me.roleCodes || []; },
-      isGroupAdmin() { return this.myRoleCodes.indexOf('GROUP_ADMIN') !== -1; },
+      me() {
+        return COC.store.user || {};
+      },
+      myRoleCodes() {
+        return this.me.roleCodes || [];
+      },
+      isGroupAdmin() {
+        return this.myRoleCodes.indexOf("GROUP_ADMIN") !== -1;
+      },
       // 是否可设置/取消部落管理员（由菜单按钮权限 group:user:setAdmin / cancelAdmin 控制）
       canSetOrCancelAdmin() {
-        return COC.store.hasPerm('group:user:setAdmin') || COC.store.hasPerm('group:user:cancelAdmin');
-      }
+        return (
+          COC.store.hasPerm("group:user:setAdmin") ||
+          COC.store.hasPerm("group:user:cancelAdmin")
+        );
+      },
     },
-    mounted() { this.load(); },
+    mounted() {
+      this.load();
+    },
     methods: {
       async load(size, current) {
         this.loading = true;
         try {
           var s = size || this.page.size;
           var c = current || 1;
-          var res = await COC.api.groupMemberPage({ current: c, size: s, keyword: this.keyword });
+          var res = await COC.api.groupMemberPage({
+            current: c,
+            size: s,
+            keyword: this.keyword,
+          });
           var data = res.data || res;
           this.records = data.records || [];
-          this.page = { current: data.current || c, size: data.size || s, total: data.total || 0 };
-        } catch(e) {
-          ElementPlus.ElMessage.error('加载失败');
-        } finally { this.loading = false; }
+          this.page = {
+            current: data.current || c,
+            size: data.size || s,
+            total: data.total || 0,
+          };
+        } catch (e) {
+          ElementPlus.ElMessage.error("加载失败");
+        } finally {
+          this.loading = false;
+        }
       },
-      search() { this.load(10, 1); },
-      resetSearch() { this.keyword = ''; this.load(10, 1); },
+      search() {
+        this.load(10, 1);
+      },
+      resetSearch() {
+        this.keyword = "";
+        this.load(10, 1);
+      },
       hasRole(row, code) {
         return (row.roleCodes || []).indexOf(code) !== -1;
       },
       onlyMember(row) {
-        return this.hasRole(row, 'MEMBER')
-          && !this.hasRole(row, 'LEAGUE_ADMIN')
-          && !this.hasRole(row, 'GROUP_ADMIN')
-          && !this.hasRole(row, 'SUPER_ADMIN')
-          && !this.hasRole(row, 'VISITOR');
+        return (
+          this.hasRole(row, "MEMBER") &&
+          !this.hasRole(row, "LEAGUE_ADMIN") &&
+          !this.hasRole(row, "GROUP_ADMIN") &&
+          !this.hasRole(row, "SUPER_ADMIN") &&
+          !this.hasRole(row, "VISITOR")
+        );
       },
       canKick(row) {
-        return COC.store.hasPerm('group:user:kick') && this.onlyMember(row);
+        return COC.store.hasPerm("group:user:kick") && this.onlyMember(row);
       },
       roleLabel(code) {
-        var m = {SUPER_ADMIN:'超级管理员',GROUP_ADMIN:'群主',LEAGUE_ADMIN:'部落管理员',MEMBER:'成员',VISITOR:'游客'};
+        var m = {
+          SUPER_ADMIN: "超级管理员",
+          GROUP_ADMIN: "群主",
+          LEAGUE_ADMIN: "部落管理员",
+          MEMBER: "成员",
+          VISITOR: "游客",
+        };
         return m[code] || code;
       },
       async doSetAdmin(row) {
         try {
           await COC.api.groupMemberSetAdmin(row.id);
-          ElementPlus.ElMessage.success('已设为部落管理员');
+          ElementPlus.ElMessage.success("已设为部落管理员");
           this.load(this.page.size, this.page.current);
-        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
+        } catch (e) {
+          ElementPlus.ElMessage.error("操作失败");
+        }
       },
       async doKick(row) {
         try {
           await COC.api.groupMemberKick(row.id);
-          ElementPlus.ElMessage.success('已踢出成员');
+          ElementPlus.ElMessage.success("已踢出成员");
           this.load(this.page.size, this.page.current);
-        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
+        } catch (e) {
+          ElementPlus.ElMessage.error("操作失败");
+        }
       },
       async doCancelAdmin(row) {
         try {
           await COC.api.groupMemberCancelAdmin(row.id);
-          ElementPlus.ElMessage.success('已取消部落管理员');
+          ElementPlus.ElMessage.success("已取消部落管理员");
           this.load(this.page.size, this.page.current);
-        } catch(e) { ElementPlus.ElMessage.error('操作失败'); }
-      }
-    }
+        } catch (e) {
+          ElementPlus.ElMessage.error("操作失败");
+        }
+      },
+    },
   };
-  const SystemPage = makeSubTabsMixin('/system', {
-    '/clan/group': { name: 'g', label: '部落群组', component: 'groupCrud' },
-    '/clan/group/user': { name: 'gu', label: '群组成员', component: 'GroupMemberPage' },
-    '/clan/group/apply': { name: 'a', label: '入组申请', component: 'ClanGroupApplyPage' },
-    '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
-    '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
-    '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuTree' },
-    '/sys/config': { name: 'c', label: '系统配置', component: 'configCrud' },
-    '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
-  }, {
-    components: { groupCrud, GroupMemberPage, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage, configCrud }
-  });
+  const SystemPage = makeSubTabsMixin(
+    "/system",
+    {
+      "/clan/group": { name: "g", label: "部落群组", component: "groupCrud" },
+      "/clan/group/user": {
+        name: "gu",
+        label: "群组成员",
+        component: "GroupMemberPage",
+      },
+      "/clan/group/apply": {
+        name: "a",
+        label: "入组申请",
+        component: "ClanGroupApplyPage",
+      },
+      "/sys/user": { name: "u", label: "用户管理", component: "UserManage" },
+      "/sys/role": { name: "r", label: "角色管理", component: "RoleManage" },
+      "/sys/menu": { name: "m", label: "菜单管理", component: "menuTree" },
+      "/sys/config": { name: "c", label: "系统配置", component: "configCrud" },
+      "/dict": { name: "d", label: "字典管理", component: "DictManage" },
+    },
+    {
+      components: {
+        groupCrud,
+        GroupMemberPage,
+        ClanGroupApplyPage,
+        UserManage,
+        RoleManage,
+        menuTree,
+        DictManage,
+        configCrud,
+      },
+    },
+  );
 
   /* ============ 404 页面 ============ */
   const NotFound = {
@@ -1314,38 +1652,50 @@
           <el-button type="primary" @click="$router.replace('/dashboard')">返回首页</el-button>
         </template>
       </el-result>
-    </div>`
+    </div>`,
   };
 
   /** 将后端返回的扁平菜单数组展开为 path 集合（用于菜单地址拦截判断） */
   function flattenMenuPaths(menus) {
     const set = new Set();
-    (Array.isArray(menus) ? menus : []).forEach((m) => { if (m && m.path) set.add(m.path); });
+    (Array.isArray(menus) ? menus : []).forEach((m) => {
+      if (m && m.path) set.add(m.path);
+    });
     return set;
   }
 
   /* ============ 路由 ============ */
   const routes = [
-    { path: '/login', component: Login, meta: { public: true } },
+    { path: "/login", component: Login, meta: { public: true } },
     {
-      path: '/', component: Layout, children: [
-        { path: '', redirect: '/dashboard' },
-        { path: 'dashboard', component: Dashboard, meta: { title: '数据看板' } },
-        { path: 'clan', component: ClanPage },
-        { path: 'clan/group/apply', component: ClanGroupApplyPage, meta: { title: '入组申请', perm: 'group:apply:list' } },
-        { path: 'war', component: WarPage },
-        { path: 'league', component: LeaguePage },
-        { path: 'system', component: SystemPage }
-      ]
+      path: "/",
+      component: Layout,
+      children: [
+        { path: "", redirect: "/dashboard" },
+        {
+          path: "dashboard",
+          component: Dashboard,
+          meta: { title: "数据看板" },
+        },
+        { path: "clan", component: ClanPage },
+        {
+          path: "clan/group/apply",
+          component: ClanGroupApplyPage,
+          meta: { title: "入组申请", perm: "group:apply:list" },
+        },
+        { path: "war", component: WarPage },
+        { path: "league", component: LeaguePage },
+        { path: "system", component: SystemPage },
+      ],
     },
-    { path: '/404', component: NotFound },
-    { path: '/:pathMatch(.*)*', redirect: '/404' }
+    { path: "/404", component: NotFound },
+    { path: "/:pathMatch(.*)*", redirect: "/404" },
   ];
 
   const router = createRouter({ history: createWebHashHistory(), routes });
   router.beforeEach(async (to) => {
-    if (!to.meta.public && !COC.store.token) return '/login';
-    if (to.path === '/login' && COC.store.token) return '/dashboard';
+    if (!to.meta.public && !COC.store.token) return "/login";
+    if (to.path === "/login" && COC.store.token) return "/dashboard";
     // 首次进入或刷新页面：info 接口可能还没完成，先等待加载用户信息/权限/菜单
     if (COC.store.token && !COC.store.user) {
       try {
@@ -1354,24 +1704,27 @@
         if (info && info.menus) COC.store.menus = info.menus;
       } catch (e) {
         // token 失效或网络错误，留在原页面或去登录
-        return '/login';
+        return "/login";
       }
     }
     if (to.meta.perm && !COC.store.hasPerm(to.meta.perm)) {
-      ElementPlus.ElMessage.error('无访问权限');
-      return '/dashboard';
+      ElementPlus.ElMessage.error("无访问权限");
+      return "/dashboard";
     }
     // 菜单地址拦截：导航到后台菜单页面但当前用户无对应菜单数据时，跳转到 404 页面。
     // （/dashboard 为所有登录用户首页，不在此拦截，避免无菜单数据时锁死首页）
     var MENU_ROUTE_MAP = {
-      '/clan': '/clan',
-      '/clan/group/apply': '/clan/group/apply',
-      '/war': '/war',
-      '/league': '/league',
-      '/system': '/system'
+      "/clan": "/clan",
+      "/clan/group/apply": "/clan/group/apply",
+      "/war": "/war",
+      "/league": "/league",
+      "/system": "/system",
     };
-    if (MENU_ROUTE_MAP[to.path] && !flattenMenuPaths(COC.store.menus).has(MENU_ROUTE_MAP[to.path])) {
-      return '/404';
+    if (
+      MENU_ROUTE_MAP[to.path] &&
+      !flattenMenuPaths(COC.store.menus).has(MENU_ROUTE_MAP[to.path])
+    ) {
+      return "/404";
     }
   });
 
@@ -1385,19 +1738,28 @@
           COC.store.user = info.user || info;
           // 同步填充菜单树，供 Layout 组件渲染左侧导航
           COC.store.menus = (info && info.menus) || [];
-          const g = await COC.api.page('/api/dict/group', { size: 9999 });
-          COC.dictGroups = (g.records || []).map((x) => ({ label: x.groupName + '(' + x.groupCode + ')', value: x.groupCode }));
-          const r = await COC.api.page('/api/sys/role', { size: 9999 });
-          COC.roles = (r.records || []).map((x) => ({ label: x.roleName, value: x.id }));
-        } catch (e) { /* token 失效 */ }
+          const g = await COC.api.page("/api/dict/group", { size: 9999 });
+          COC.dictGroups = (g.records || []).map((x) => ({
+            label: x.groupName + "(" + x.groupCode + ")",
+            value: x.groupCode,
+          }));
+          const r = await COC.api.page("/api/sys/role", { size: 9999 });
+          COC.roles = (r.records || []).map((x) => ({
+            label: x.roleName,
+            value: x.id,
+          }));
+        } catch (e) {
+          /* token 失效 */
+        }
       }
-    }
+    },
   });
   app.use(router);
   app.use(ElementPlus, { locale: window.ElementPlusLocaleZhCn });
   // 将全局对象 COC 挂到组件实例上，使模板表达式（如 v-if="COC.store.hasPerm(...)"）
   // 能通过 _ctx.COC 解析到 window.COC，否则模板渲染时 COC 为 undefined 会抛错。
   app.config.globalProperties.COC = window.COC;
-  for (const [key, comp] of Object.entries(ElementPlusIconsVue)) app.component(key, comp);
-  app.mount('#app');
+  for (const [key, comp] of Object.entries(ElementPlusIconsVue))
+    app.component(key, comp);
+  app.mount("#app");
 })();

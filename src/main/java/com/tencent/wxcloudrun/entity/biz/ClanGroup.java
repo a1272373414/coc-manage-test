@@ -14,13 +14,18 @@ import lombok.Setter;
 @TableName("clan_group")
 public class ClanGroup extends BaseEntity {
 
-  private String groupNo;
-  private String groupName;
-  private Long ownerId;
-  private String intro;
-  private Integer status;
+	private String groupNo;
 
-  /** 群主用户名（非数据库字段，由 Controller 在分页/详情时关联 sys_user 填充） */
-  @TableField(exist = false)
-  private String ownerName;
+	private String groupName;
+
+	private Long ownerId;
+
+	private String intro;
+
+	private Integer status;
+
+	/** 群主用户名（非数据库字段，由 Controller 在分页/详情时关联 sys_user 填充） */
+	@TableField(exist = false)
+	private String ownerName;
+
 }

@@ -12,11 +12,12 @@ import javax.annotation.Resource;
 @RequestMapping("/api/war/record")
 public class ClanWarRecordController extends BaseCrudController<ClanWarRecord> {
 
-  @Resource
-  private ClanWarRecordMapper clanWarRecordMapper;
+	@Resource
+	private ClanWarRecordMapper clanWarRecordMapper;
 
-  @Override
-  protected BaseMapper<ClanWarRecord> mapper() {
-    return clanWarRecordMapper;
-  }
+	@Override
+	protected BaseMapper<ClanWarRecord> mapper() {
+		return clanWarRecordMapper;
+	}
+
 }
