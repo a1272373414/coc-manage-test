@@ -252,4 +252,25 @@ public class AuthService {
 		}
 	}
 
+	/**
+	 * 修改用户密码：校验原密码正确后，使用 BCrypt 加密新密码并更新。
+	 */
+	public void changePassword(Long userId, String oldPassword, String newPassword) {
+		SysUser user = userMapper.selectById(userId);
+		if (user == null) {
+			throw new RuntimeException("用户不存在");
+		}
+		if (oldPassword == null || oldPassword.isEmpty()) {
+			throw new RuntimeException("原密码不能为空");
+		}
+		if (newPassword == null || newPassword.isEmpty()) {
+			throw new RuntimeException("新密码不能为空");
+		}
+		if (!encoder.matches(oldPassword, user.getPassword())) {
+			throw new RuntimeException("原密码错误");
+		}
+		user.setPassword(encoder.encode(newPassword));
+		userMapper.updateById(user);
+	}
+
 }

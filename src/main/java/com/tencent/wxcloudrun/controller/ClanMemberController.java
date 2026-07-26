@@ -249,7 +249,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	/**
 	 * 获取战斗力计算默认配置（从系统配置表读取，用于弹窗预填）
 	 */
-	@GetMapping("/combat-power/config")
+	@GetMapping("/combatPower/config")
 	public ApiResponse combatPowerConfig() {
 		Map<String, Object> cfg = new HashMap<String, Object>(8);
 		cfg.put("attackScore", getIntConfig("attack_score", 2500));
@@ -266,7 +266,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	 * 三星概率=总星数/总应该进攻次数 防御概率=大本等级/配置最高大本等级*50% + 匹配值/配置最高匹配值*50%
 	 * 战斗力=进攻概率*进攻得分+参赛概率*参赛得分+三星概率*三星得分+防御概率*防御得分（取整）
 	 */
-	@PostMapping("/combat-power/calculate")
+	@PostMapping("/combatPower/calculate")
 	public ApiResponse calcCombatPower(@RequestBody CombatPowerCalcRequest req) {
 		if (req.getClanNo() == null || req.getClanNo().trim().isEmpty()) {
 			return ApiResponse.error("请选择部落");

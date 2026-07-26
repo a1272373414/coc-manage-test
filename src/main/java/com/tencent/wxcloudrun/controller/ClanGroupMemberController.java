@@ -118,7 +118,7 @@ public class ClanGroupMemberController {
 	/**
 	 * 设置成员为部落管理员（LEAGUE_ADMIN）。 仅群主/超管可操作，不能操作自己。
 	 */
-	@PutMapping("/{userId}/set-admin")
+	@PutMapping("/{userId}/setAdmin")
 	public ApiResponse setAdmin(@PathVariable Long userId) {
 		AuthUser user = UserContext.get();
 		if (user == null)
@@ -149,7 +149,7 @@ public class ClanGroupMemberController {
 	/**
 	 * 取消成员的部落管理员身份（移除 LEAGUE_ADMIN 绑定）。 仅群主/超管可操作，不能操作自己；取消后若无任何角色则恢复为普通成员。
 	 */
-	@PutMapping("/{userId}/cancel-admin")
+	@PutMapping("/{userId}/cancelAdmin")
 	public ApiResponse cancelAdmin(@PathVariable Long userId) {
 		AuthUser user = UserContext.get();
 		if (user == null)

@@ -78,7 +78,7 @@ public class AuthController {
 		return ApiResponse.ok();
 	}
 
-	@PostMapping("/assign-role")
+	@PostMapping("/assignRole")
 	@Transactional
 	public ApiResponse assignRole(@RequestBody Map<String, Object> body) {
 		Object userIdObj = body.get("userId");
@@ -106,6 +106,27 @@ public class AuthController {
 			}
 		}
 		return ApiResponse.ok(Collections.singletonMap("count", count));
+	}
+
+	/**
+	 * 修改当前登录用户密码。 请求体：{ oldPassword, newPassword }
+	 */
+	@PostMapping("/changePassword")
+	@Transactional
+	public ApiResponse changePassword(@RequestBody Map<String, Object> body) {
+		AuthUser current = UserContext.get();
+		if (current == null) {
+			return ApiResponse.error(401, "未登录");
+		}
+		Object oldObj = body.get("oldPassword");
+		Object newObj = body.get("newPassword");
+		String oldPassword = oldObj == null ? null : String.valueOf(oldObj);
+		String newPassword = newObj == null ? null : String.valueOf(newObj);
+		if (oldPassword == null || oldPassword.isEmpty() || newPassword == null || newPassword.isEmpty()) {
+			return ApiResponse.error("原密码和新密码均不能为空");
+		}
+		authService.changePassword(current.getUserId(), oldPassword, newPassword);
+		return ApiResponse.ok();
 	}
 
 }

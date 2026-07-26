@@ -31,18 +31,14 @@ public class JwtInterceptor implements HandlerInterceptor {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-	/** 需要特定权限的接口路径（ant 风格） -> 所需权限标识 */
+	/** 需要特定权限的接口路径（ant 风格） -> 所需权限标识。 系统管理（/api/sys/**）权限按读写区分，已在 matchRequired 中单独处理；此处保留作为未来其他接口按权限保护的扩展点。 */
 	private static final Map<String, String> GUARDED = new LinkedHashMap<>();
-
-	static {
-		GUARDED.put("/api/sys/**", RoleConstants.PERM_SYSTEM_MANAGE);
-	}
 
 	/**
 	 * 系统基本数据接口：仅这些路径允许超级管理员访问。 其余受保护接口（联赛 / 部落战 / 仪表盘等业务数据）即使超级管理员角色绑定了相应权限也一律拒绝。 部落群组（clan_group）为跨租户管理配置，需由超级管理员维护，故纳入此处。
 	 */
 	private static final List<String> SYSTEM_BASIC_DATA_PATTERNS = Arrays.asList("/api/sys/**", "/api/dict/**",
-			"/api/auth/**", "/api/clan/group/**");
+			"/api/auth/**", "/api/clan/group/**", "/api/common/**");
 
 	@Override
 	public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -112,6 +108,15 @@ public class JwtInterceptor implements HandlerInterceptor {
 			if ("DELETE".equalsIgnoreCase(method))
 				return "sys:dict:delete";
 			return null;
+		}
+		// 公共基础数据接口（/api/common/**）：角色下拉等只读数据，对所有已登录用户开放，不要求 system:manage。
+		if (pathMatcher.match("/api/common/**", path)) {
+			return null;
+		}
+		// 系统管理接口（/api/sys/**）：严格按权限拦截，所有操作（含 GET 查询）均需 system:manage，
+		// 避免把系统数据（用户/角色/菜单/配置）的查询也暴露给普通业务用户。需要放行的只读基础数据请走 /api/common。
+		if (pathMatcher.match("/api/sys/**", path)) {
+			return RoleConstants.PERM_SYSTEM_MANAGE;
 		}
 		for (Map.Entry<String, String> entry : GUARDED.entrySet()) {
 			if (pathMatcher.match(entry.getKey(), path)) {

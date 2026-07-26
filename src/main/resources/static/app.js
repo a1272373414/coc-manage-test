@@ -53,7 +53,7 @@
             // 来自公开页（如联赛快速报名）的登录回跳
             window.location.href = redirect;
           } else {
-            this.$router.replace("/dashboard");
+            this.$router.replace(firstMenuPath());
           }
         } catch (e) {
           /* 拦截器已提示 */
@@ -87,8 +87,8 @@
           }));
         } catch (e) {}
         try {
-          const r = await COC.api.page("/api/sys/role", { size: 9999 });
-          COC.roles = (r.records || []).map((x) => ({
+          const r = await COC.api.get("/api/common/roleOptions");
+          COC.roles = (r || []).map((x) => ({
             label: x.roleName,
             value: x.id,
           }));
@@ -150,6 +150,18 @@
     if (sb == null) return -1;
     if (sa !== sb) return sa - sb;
     return (a.id || 0) - (b.id || 0);
+  }
+
+  /**
+   * 取得第一个可见顶级菜单的 path，用于登录后默认展示。
+   * 逻辑与 Layout.visibleNav 一致：仅取 parentId 为 0/null 且有 path 的顶级菜单，按 sort 升序；无菜单时回退 /dashboard。
+   */
+  function firstMenuPath() {
+    const all = COC.store.menus || [];
+    const top = all
+      .filter((m) => (m.parentId == null || m.parentId === 0) && m.path)
+      .sort(menuSortCompare);
+    return top.length ? top[0].path : "/dashboard";
   }
 
   const Layout = {
@@ -1671,7 +1683,7 @@
       path: "/",
       component: Layout,
       children: [
-        { path: "", redirect: "/dashboard" },
+        { path: "", redirect: () => firstMenuPath() },
         {
           path: "dashboard",
           component: Dashboard,
@@ -1695,7 +1707,7 @@
   const router = createRouter({ history: createWebHashHistory(), routes });
   router.beforeEach(async (to) => {
     if (!to.meta.public && !COC.store.token) return "/login";
-    if (to.path === "/login" && COC.store.token) return "/dashboard";
+    if (to.path === "/login" && COC.store.token) return firstMenuPath();
     // 首次进入或刷新页面：info 接口可能还没完成，先等待加载用户信息/权限/菜单
     if (COC.store.token && !COC.store.user) {
       try {
@@ -1743,8 +1755,8 @@
             label: x.groupName + "(" + x.groupCode + ")",
             value: x.groupCode,
           }));
-          const r = await COC.api.page("/api/sys/role", { size: 9999 });
-          COC.roles = (r.records || []).map((x) => ({
+          const r = await COC.api.get("/api/common/roleOptions");
+          COC.roles = (r || []).map((x) => ({
             label: x.roleName,
             value: x.id,
           }));

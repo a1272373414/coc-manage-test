@@ -688,7 +688,7 @@
               return;
             }
             try {
-              clanScore.value = await http.get('/api/quick/clan-score', {
+              clanScore.value = await http.get('/api/quick/clanScore', {
                 params: { groupNo: groupNo, leagueNo: selectedLeagueNo.value, clanNo: activeClanNo.value }
               });
             } catch (e) {

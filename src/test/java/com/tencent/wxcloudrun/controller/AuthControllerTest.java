@@ -177,7 +177,7 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.errorMsg").value("未登录"));
 	}
 
-	// ==================== POST /api/auth/assign-role ====================
+	// ==================== POST /api/auth/assignRole ====================
 
 	@Test
 	@DisplayName("分配角色 - 成功")
@@ -187,7 +187,7 @@ class AuthControllerTest {
 		body.put("roleIds", java.util.Arrays.asList(10, 20));
 
 		mockMvc
-			.perform(post("/api/auth/assign-role").contentType(MediaType.APPLICATION_JSON)
+			.perform(post("/api/auth/assignRole").contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(body)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.code").value(0))
@@ -201,7 +201,7 @@ class AuthControllerTest {
 		body.put("roleIds", java.util.Arrays.asList(10));
 
 		mockMvc
-			.perform(post("/api/auth/assign-role").contentType(MediaType.APPLICATION_JSON)
+			.perform(post("/api/auth/assignRole").contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(body)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.code").value(400))

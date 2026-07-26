@@ -106,7 +106,7 @@ public class LeagueImportController {
 	 * 成员存在性批量查询（JSON 导入前端本地解析后调用，补 memberExists 标识）。 请求体：{ clanNo, groupNo, names:
 	 * ["名称1","名称2",...] } 返回：{ exists: ["存在的名称", ...] }
 	 */
-	@PostMapping("/check-members")
+	@PostMapping("/checkMembers")
 	public ApiResponse checkMembers(@RequestBody Map<String, Object> body) {
 		AuthUser user = UserContext.get();
 		if (user == null)

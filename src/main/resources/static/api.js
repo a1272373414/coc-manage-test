@@ -127,9 +127,9 @@
     info: () => http.get("/api/auth/info"),
     logout: () => http.post("/api/auth/logout"),
     changePassword: (oldPassword, newPassword) =>
-      http.post("/api/auth/change-password", { oldPassword, newPassword }),
+      http.post("/api/auth/changePassword", { oldPassword, newPassword }),
     assignRole: (userId, roleIds) =>
-      http.post("/api/auth/assign-role", { userId, roleIds }),
+      http.post("/api/auth/assignRole", { userId, roleIds }),
 
     // 角色-菜单绑定管理
     menuTree: () => http.get("/api/sys/menu/tree"),
@@ -151,18 +151,18 @@
 
     // 看板
     dashboardOverview: () => http.get("/api/dashboard/overview"),
-    dashboardWarStat: () => http.get("/api/dashboard/war-stat"),
-    dashboardLeagueRank: () => http.get("/api/dashboard/league-rank"),
+    dashboardWarStat: () => http.get("/api/dashboard/warStat"),
+    dashboardLeagueRank: () => http.get("/api/dashboard/leagueRank"),
 
     // 群组成员
     groupMemberPage: (params) =>
       http.get("/api/clan/group/user/page", { params }),
     groupMemberSetAdmin: (userId) =>
-      http.put("/api/clan/group/user/" + userId + "/set-admin"),
+      http.put("/api/clan/group/user/" + userId + "/setAdmin"),
     groupMemberKick: (userId) =>
       http.put("/api/clan/group/user/" + userId + "/kick"),
     groupMemberCancelAdmin: (userId) =>
-      http.put("/api/clan/group/user/" + userId + "/cancel-admin"),
+      http.put("/api/clan/group/user/" + userId + "/cancelAdmin"),
 
     // 联赛战绩导入
     leagueImportPreview: (formData) =>
@@ -177,7 +177,7 @@
         responseType: "blob",
       }),
     leagueCheckMembers: (body) =>
-      http.post("/api/league/record/import/check-members", body),
+      http.post("/api/league/record/import/checkMembers", body),
 
     // 部落成员 Excel 导入
     clanMemberImportPreview: (formData) =>
@@ -190,9 +190,9 @@
       http.get("/api/clan/member/import/template", { responseType: "blob" }),
 
     // 一键计算战斗力
-    combatPowerConfig: () => http.get("/api/clan/member/combat-power/config"),
+    combatPowerConfig: () => http.get("/api/clan/member/combatPower/config"),
     combatPowerCalculate: (body) =>
-      http.post("/api/clan/member/combat-power/calculate", body),
+      http.post("/api/clan/member/combatPower/calculate", body),
 
     // 入组申请
     applyCreate: (body) => http.post("/api/clan/group/apply", body),

@@ -617,4 +617,56 @@ class AuthServiceTest {
 		assertEquals("无排序", menus.get(1).getMenuName());
 	}
 
+	// ==================== changePassword() 测试 ====================
+
+	@Test
+	@DisplayName("修改密码成功 - 原密码正确时 BCrypt 加密新密码并调用更新")
+	void changePassword_success() {
+		SysUser user = new SysUser();
+		user.setId(1L);
+		user.setUsername("admin");
+		user.setPassword(encoder.encode("oldPass123"));
+
+		when(userMapper.selectById(1L)).thenReturn(user);
+
+		authService.changePassword(1L, "oldPass123", "newPass456");
+
+		verify(userMapper, times(1)).updateById(argThat(u -> {
+			assertNotNull(u.getPassword());
+			assertNotEquals("newPass456", u.getPassword());
+			assertTrue(encoder.matches("newPass456", u.getPassword()));
+			return true;
+		}));
+	}
+
+	@Test
+	@DisplayName("修改密码失败 - 原密码错误抛异常且不更新")
+	void changePassword_wrongOldPassword() {
+		SysUser user = new SysUser();
+		user.setId(1L);
+		user.setPassword(encoder.encode("oldPass123"));
+
+		when(userMapper.selectById(1L)).thenReturn(user);
+
+		RuntimeException ex = assertThrows(RuntimeException.class,
+				() -> authService.changePassword(1L, "wrong", "newPass456"));
+		assertEquals("原密码错误", ex.getMessage());
+		verify(userMapper, never()).updateById(any());
+	}
+
+	@Test
+	@DisplayName("修改密码失败 - 新密码为空抛异常且不更新")
+	void changePassword_emptyNewPassword() {
+		SysUser user = new SysUser();
+		user.setId(1L);
+		user.setPassword(encoder.encode("oldPass123"));
+
+		when(userMapper.selectById(1L)).thenReturn(user);
+
+		RuntimeException ex = assertThrows(RuntimeException.class,
+				() -> authService.changePassword(1L, "oldPass123", ""));
+		assertEquals("新密码不能为空", ex.getMessage());
+		verify(userMapper, never()).updateById(any());
+	}
+
 }

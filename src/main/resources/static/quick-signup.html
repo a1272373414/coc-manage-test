@@ -739,7 +739,7 @@
           function queryClanMembers(queryString, cb) {
             if (!activeClanNo.value) { cb([]); return; }
             const kw = queryString || '';
-            http.get('/api/quick/clan-members', {
+            http.get('/api/quick/clanMembers', {
               params: { groupNo: groupNo, clanNo: activeClanNo.value, kw: kw }
             }).then(function (list) {
               const arr = list || [];

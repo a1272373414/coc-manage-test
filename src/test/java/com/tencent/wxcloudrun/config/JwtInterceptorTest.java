@@ -175,10 +175,10 @@ class JwtInterceptorTest {
 	}
 
 	@Test
-	@DisplayName("超级管理员访问系统接口（/api/sys）但缺少 system:manage 被拒绝（超管不再硬编码放行）")
-	void superAdmin_sysWithoutPerm_blocked() throws Exception {
+	@DisplayName("超级管理员写系统接口（POST /api/sys/role）缺少 system:manage 被拒绝（超管不再硬编码放行）")
+	void superAdmin_sysWriteWithoutPerm_blocked() throws Exception {
 		StringWriter sw = new StringWriter();
-		boolean ok = interceptor.preHandle(request("GET", "/api/sys/user/list", user(true)), response(sw), handler());
+		boolean ok = interceptor.preHandle(request("POST", "/api/sys/role", user(true)), response(sw), handler());
 		assertFalse(ok);
 		assertTrue(sw.toString().contains("无访问权限"));
 	}
@@ -231,12 +231,48 @@ class JwtInterceptorTest {
 	}
 
 	@Test
-	@DisplayName("普通用户访问系统接口缺少 system:manage 被拒绝")
-	void normalUser_sysWithoutPerm_blocked() throws Exception {
+	@DisplayName("普通用户查询系统接口（/api/sys/role/page）缺少 system:manage 被拒绝（系统管理严格拦截）")
+	void normalUser_sysQueryWithoutPerm_blocked() throws Exception {
 		StringWriter sw = new StringWriter();
-		boolean ok = interceptor.preHandle(request("GET", "/api/sys/user/list", user(false)), response(sw), handler());
+		boolean ok = interceptor.preHandle(request("GET", "/api/sys/role/page", user(false)), response(sw), handler());
 		assertFalse(ok);
 		assertTrue(sw.toString().contains("无访问权限"));
+	}
+
+	@Test
+	@DisplayName("普通用户访问公共基础数据接口（/api/common/roleOptions）放行，无需 system:manage")
+	void normalUser_commonRoleOptions_allowed() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("GET", "/api/common/roleOptions", user(false)), response(sw),
+				handler());
+		assertTrue(ok);
+	}
+
+	@Test
+	@DisplayName("超级管理员访问公共基础数据接口（/api/common/roleOptions）放行")
+	void superAdmin_commonRoleOptions_allowed() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("GET", "/api/common/roleOptions", user(true)), response(sw),
+				handler());
+		assertTrue(ok);
+	}
+
+	@Test
+	@DisplayName("普通用户写系统接口（POST /api/sys/role）缺少 system:manage 被拒绝")
+	void normalUser_sysWriteWithoutPerm_blocked() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("POST", "/api/sys/role", user(false)), response(sw), handler());
+		assertFalse(ok);
+		assertTrue(sw.toString().contains("无访问权限"));
+	}
+
+	@Test
+	@DisplayName("普通用户写系统接口（POST /api/sys/role）拥有 system:manage 放行")
+	void normalUser_sysWriteWithPerm_allowed() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("POST", "/api/sys/role", user(false, "system:manage")), response(sw),
+				handler());
+		assertTrue(ok);
 	}
 
 	@Test

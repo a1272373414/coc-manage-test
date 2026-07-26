@@ -396,7 +396,21 @@ erDiagram
 - 使用 MyBatis-Plus `Page<T>` + 分页插件，自动 `count` 与 `limit`。
 - 列表查询支持按 `group_no` 自动隔离（插件完成），业务条件由 DTO 传入。
 
-### 4.4 RESTful 接口清单（按模块）
+### 4.4 接口与页面地址命名规范
+- 统一采用 **小驼峰（camelCase）** 命名。接口地址与前端页面/路由地址中，**禁止使用中划线（kebab-case，如 `role-options`）和下划线（snake_case，如 `role_options`）**。
+- 一个路径段内由多个单词组成时，从第二个单词起首字母大写，例如：
+  - `role-options` → `roleOptions`
+  - `war-stat` → `warStat`
+  - `combat-power/config` → `combatPower/config`
+  - `clan-members` → `clanMembers`
+  - `set-admin` → `setAdmin`
+  - `cancel-admin` → `cancelAdmin`
+  - `check-members` → `checkMembers`
+  - `assign-role` → `assignRole`
+- 路径段之间仍用 `/` 分隔（如 `/api/clan/group/user`）。`/` 是层级分隔符而非命名风格，保持不变。
+- 该规范同时约束后端 `@RequestMapping`/`@GetMapping` 等注解路径，以及前端 `api.js`、`api.js` 封装的方法、页面路由、菜单 `path` 等所有地址，前后端必须保持一致。
+
+### 4.5 RESTful 接口清单（按模块）
 
 **认证模块 /api/auth**
 | 方法 | 路径 | 说明 | 权限 |
@@ -443,8 +457,8 @@ erDiagram
 | 方法 | 路径 | 说明 | 权限 |
 |------|------|------|------|
 | GET | /api/dashboard/overview | 总数统计（群组/部落/成员/联赛） | 登录 |
-| GET | /api/dashboard/war-stat | 部落战胜负统计 | 登录 |
-| GET | /api/dashboard/league-rank | 联赛排名/段位分布 | 登录 |
+| GET | /api/dashboard/warStat | 部落战胜负统计 | 登录 |
+| GET | /api/dashboard/leagueRank | 联赛排名/段位分布 | 登录 |
 
 > 所有列表/统计接口在 SQL 层自动附带 `group_no` 隔离条件（超级管理员除外）。
 

@@ -20,12 +20,12 @@ public class DashboardController {
 		return ApiResponse.ok(dashboardService.overview());
 	}
 
-	@GetMapping("/war-stat")
+	@GetMapping("/warStat")
 	public ApiResponse warStat() {
 		return ApiResponse.ok(dashboardService.warStat());
 	}
 
-	@GetMapping("/league-rank")
+	@GetMapping("/leagueRank")
 	public ApiResponse leagueRank() {
 		return ApiResponse.ok(dashboardService.leagueRank());
 	}

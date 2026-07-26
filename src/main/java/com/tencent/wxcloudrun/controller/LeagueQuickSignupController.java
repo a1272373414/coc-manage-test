@@ -108,7 +108,7 @@ public class LeagueQuickSignupController {
 	 * 按部落搜索成员（公开接口，用于报名页“游戏名称”自动补全）。 入参：groupNo(必填)、clanNo(必填)、kw(可选模糊关键字)。
 	 * 仅返回该部落下“已加入(member_status=1)且未删除”的成员名称与编号，最多 50 条。
 	 */
-	@GetMapping("/clan-members")
+	@GetMapping("/clanMembers")
 	public ApiResponse clanMembers(@RequestParam String groupNo, @RequestParam String clanNo,
 			@RequestParam(required = false) String kw) {
 		if (groupNo == null || groupNo.trim().isEmpty()) {
@@ -300,7 +300,7 @@ public class LeagueQuickSignupController {
 	 * leagueNo 缺省时取群组最近一个联赛； 3) 按 (groupNo + leagueNo + clanNo) 查询 league_clan_score
 	 * 单条记录； 4) 回填部落名称后直接返回该记录（不存在时返回 null）。 用于结果页「部落战绩」模块展示段位、排名、晋级状态、联赛币等真实数据。
 	 */
-	@GetMapping("/clan-score")
+	@GetMapping("/clanScore")
 	public ApiResponse clanScore(@RequestParam String groupNo, @RequestParam String clanNo,
 			@RequestParam(required = false) String leagueNo) {
 		if (groupNo == null || groupNo.trim().isEmpty()) {
