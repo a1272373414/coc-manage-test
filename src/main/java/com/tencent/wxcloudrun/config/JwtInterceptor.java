@@ -34,7 +34,6 @@ public class JwtInterceptor implements HandlerInterceptor {
 
   static {
     GUARDED.put("/api/sys/**", RoleConstants.PERM_SYSTEM_MANAGE);
-    GUARDED.put("/api/dict/**", RoleConstants.PERM_SYSTEM_MANAGE);
   }
 
   @Override
@@ -57,7 +56,7 @@ public class JwtInterceptor implements HandlerInterceptor {
     }
     UserContext.set(user);
 
-    String required = matchRequired(request.getRequestURI());
+    String required = matchRequired(request.getRequestURI(), request.getMethod());
     // 超级管理员跳过所有权限校验
     if (required != null && !user.isSuperAdmin() && !user.getPermissions().contains(required)) {
       write(response, ApiResponse.error(403, "无访问权限"));
@@ -71,7 +70,19 @@ public class JwtInterceptor implements HandlerInterceptor {
     UserContext.clear();
   }
 
-  private String matchRequired(String path) {
+  private String matchRequired(String path, String method) {
+    // 字典读接口（下拉选项 /api/dict/item/page、/api/dict/group 等）对登录用户开放，
+    // 业务页面（如联赛段位 league_tier）需要用到这些下拉，不应要求 system:manage。
+    if (pathMatcher.match("/api/dict/**", path)) {
+      if ("GET".equalsIgnoreCase(method)) {
+        return null;
+      }
+      // 字典写接口按 HTTP 方法要求对应的菜单按钮权限（与前端按钮权限一致）
+      if ("POST".equalsIgnoreCase(method)) return "sys:dict:add";
+      if ("PUT".equalsIgnoreCase(method)) return "sys:dict:edit";
+      if ("DELETE".equalsIgnoreCase(method)) return "sys:dict:delete";
+      return null;
+    }
     for (Map.Entry<String, String> entry : GUARDED.entrySet()) {
       if (pathMatcher.match(entry.getKey(), path)) {
         return entry.getValue();

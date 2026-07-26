@@ -1,115 +1,302 @@
--- ============================================================
--- 初始化数据脚本
--- 包含：角色、菜单、角色-菜单关联、默认管理员账号、字典数据
--- 使用 INSERT IGNORE 确保重复执行不会报错
--- 
--- 默认管理员密码：admin123 (BCrypt加密)
--- 如数据库中已有数据运行此脚本无副作用（IGNORE）
--- ============================================================
+-- 基础/配置类种子数据（由实时数据库导出，使用 INSERT IGNORE 幂等导入）
+-- 注意：业务流水数据（部落/成员/战绩/报名等）不在本文件内，仅做结构初始化。
 
--- 1. 角色数据
-INSERT IGNORE INTO sys_role (id, role_code, role_name, status) VALUES
-(1, 'SUPER_ADMIN', '超级管理员', 1),
-(2, 'GROUP_ADMIN', '部落组管理员', 1),
-(3, 'LEAGUE_ADMIN', '赛事管理员', 1),
-(4, 'MEMBER', '普通成员', 1),
-(5, 'VISITOR', '游客', 1);
+-- 角色
+INSERT INTO `sys_role` (`id`, `role_code`, `role_name`, `status`, `remark`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted`) VALUES
+(1, 'SUPER_ADMIN', '超级管理员', 1, NULL, '2026-07-18 22:50:08', '2026-07-18 22:50:08', NULL, NULL, 0),
+(2, 'GROUP_ADMIN', '群主', 1, NULL, '2026-07-18 22:50:08', '2026-07-18 22:50:08', NULL, 'admin', 0),
+(3, 'LEAGUE_ADMIN', '部落管理员', 1, NULL, '2026-07-18 22:50:08', '2026-07-18 22:50:08', NULL, 'admin', 0),
+(4, 'MEMBER', '普通成员', 1, NULL, '2026-07-18 22:50:08', '2026-07-18 22:50:08', NULL, NULL, 0),
+(5, 'GROUP_OWNER', '群主', 1, NULL, '2026-07-23 19:45:42', '2026-07-24 17:54:18', NULL, NULL, 1),
+(6, 'VISITOR', '游客', 1, '新注册的为游客', '2026-07-24 09:23:34', '2026-07-24 09:23:34', 'admin', 'admin', 0);
 
--- 2. 菜单数据（顶级菜单 menuType=0，子菜单 menuType=1）
-INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permission, sort, icon) VALUES
-( 1, '数据看板',   0, 0, '/dashboard',     'dashboard:view',        10, 'Odometer'),
-( 2, '部落管理',   0, 0, '/clan',          'clan:view',             20, 'OfficeBuilding'),
-( 3, '部落战管理', 0, 0, '/war',           'war:view',              30, 'DataAnalysis'),
-( 4, '联赛管理',   0, 0, '/league',        'league:view',           40, 'Trophy'),
-( 5, '系统管理',   0, 0, '/system',        'system:manage',         50, 'Setting'),
-( 6, '部落',       1, 2, '/clan/crud',     'clan:list',              1, NULL),
-( 7, '部落成员',   1, 2, '/clan/member',   'clan:member:list',       2, NULL),
-( 8, '部落战',     1, 3, '/war/crud',      'war:list',               1, NULL),
-( 9, '部落战战绩', 1, 3, '/war/record',    'war:record:list',        2, NULL),
-(10, '联赛',       1, 4, '/league/crud',   'league:list',            1, NULL),
-(11, '部落成绩',   1, 4, '/league/score',  'league:score:list',      2, NULL),
-(12, '联赛战绩',   1, 4, '/league/record', 'league:record:list',     3, NULL),
-(13, '联赛报名',   1, 4, '/league/signup', 'league:signup:list',     4, NULL),
-(14, '部落群组',   1, 5, '/clan/group',    'group:list',             1, NULL),
-(15, '用户管理',   1, 5, '/sys/user',      'sys:user:list',          2, NULL),
-(16, '角色管理',   1, 5, '/sys/role',      'sys:role:list',          3, NULL),
-(17, '菜单管理',   1, 5, '/sys/menu',      'sys:menu:list',          4, NULL),
-(18, '字典管理',   1, 5, '/dict',          'sys:dict:list',          5, NULL),
-(19, '入组申请',   1, 5, '/clan/group/apply', 'group:apply:list',    6, NULL);
 
--- 3. 角色-菜单关联
-INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
--- 超级管理员：全部菜单
-(1, 1),(1, 2),(1, 3),(1, 4),(1, 5),(1, 6),(1, 7),(1, 8),(1, 9),(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18),(1,19),
--- 部落组管理员：看不到角色管理和菜单管理，但可处理入组申请
-(2, 5),(2,14),(2,15),(2,18),(2,19),
-(2, 2),(2, 6),(2, 7),
-(2, 3),(2, 8),(2, 9),
-(2, 4),(2,10),(2,12),(2,13),
--- 系统管理对部落组管理员可见
-(2, 1),
--- 游客：仅能看到入组申请菜单
-(5, 19);
+-- 菜单（含按钮 menu_type=2）
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `permission`, `path`, `component`, `icon`, `sort`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted`) VALUES
+(1, 0, '系统管理', 1, 'system:manage', '/system', NULL, 'Setting', 1, '2026-07-18 22:50:08', '2026-07-23 10:48:59', NULL, 'admin', 0),
+(3, 0, '联赛管理', 1, 'league:view', '/league', NULL, 'Trophy', 3, '2026-07-18 22:50:09', '2026-07-23 10:49:07', NULL, 'admin', 0),
+(4, 0, '部落战管理', 1, 'war:view', '/war', NULL, 'DataAnalysis', 5, '2026-07-18 22:50:09', '2026-07-23 10:48:32', NULL, 'admin', 0),
+(5, 0, '数据看板', 1, 'dashboard:view', '/dashboard', NULL, 'Odometer', 10, '2026-07-18 22:50:09', '2026-07-23 18:59:22', NULL, 'admin', 0),
+(6, 0, '部落管理', 1, 'clan:view', '/clan', NULL, 'OfficeBuilding', 2, '2026-07-20 18:42:50', '2026-07-23 10:48:49', NULL, 'admin', 0),
+(7, 1, '部落群组', 1, 'group:list', '/clan/group', NULL, NULL, 1, '2026-07-20 19:31:06', '2026-07-20 19:31:06', NULL, NULL, 0),
+(8, 1, '用户管理', 1, 'sys:user:list', '/sys/user', '', '', 12, '2026-07-20 19:31:06', '2026-07-24 09:32:40', NULL, 'admin', 0),
+(9, 1, '角色管理', 1, 'sys:role:list', '/sys/role', '', '', 13, '2026-07-20 19:31:06', '2026-07-24 09:32:46', NULL, 'admin', 0),
+(10, 1, '菜单管理', 1, 'sys:menu:list', '/sys/menu', '', '', 14, '2026-07-20 19:31:06', '2026-07-24 09:32:52', NULL, 'admin', 0),
+(11, 1, '字典管理', 1, 'sys:dict:list', '/dict', '', '', 15, '2026-07-20 19:31:06', '2026-07-24 09:32:58', NULL, 'admin', 0),
+(12, 6, '部落', 1, 'clan:list', '/clan/crud', NULL, NULL, 1, '2026-07-20 19:48:06', '2026-07-20 19:48:06', NULL, NULL, 0),
+(13, 6, '部落成员', 1, 'clan:member:list', '/clan/member', NULL, NULL, 2, '2026-07-20 19:48:06', '2026-07-20 19:48:06', NULL, NULL, 0),
+(14, 4, '部落战', 1, 'war:list', '/war/crud', NULL, NULL, 1, '2026-07-20 19:48:06', '2026-07-20 19:48:06', NULL, NULL, 0),
+(15, 4, '部落战战绩', 1, 'war:record:list', '/war/record', NULL, NULL, 2, '2026-07-20 19:48:06', '2026-07-20 19:48:06', NULL, NULL, 0),
+(16, 3, '联赛', 1, 'league:list', '/league/crud', NULL, NULL, 1, '2026-07-20 19:48:07', '2026-07-20 19:48:07', NULL, NULL, 0),
+(17, 3, '成员战绩', 1, 'league:record:list', '/league/record', '', '', 3, '2026-07-20 19:48:07', '2026-07-24 16:26:27', NULL, '唐家堡', 0),
+(18, 3, '联赛报名', 1, 'league:signup:list', '/league/signup', '', '', 4, '2026-07-20 19:48:07', '2026-07-24 16:26:18', NULL, '唐家堡', 0),
+(26, 3, '部落成绩', 1, 'league:score:list', '/league/score', NULL, NULL, 2, '2026-07-24 00:43:02', '2026-07-24 00:43:02', NULL, NULL, 0),
+(28, 1, '群组成员', 1, 'group:user:list', '/clan/group/user', '', '', 2, '2026-07-24 09:30:26', '2026-07-24 09:37:33', 'admin', 'admin', 0),
+(29, 1, '入组申请', 1, 'group:apply:list', '/clan/group/apply', '', '', 3, '2026-07-24 09:33:56', '2026-07-24 09:37:53', 'admin', 'admin', 0),
+(33, 1, '系统配置', 1, 'sys:config:list', '/sys/config', '', '', 20, '2026-07-26 17:06:02', '2026-07-26 09:07:11', NULL, 'admin', 0),
+(35, 12, '部落-新增', 2, 'clan:add', '', '', '', 0, '2026-07-26 19:17:45', '2026-07-26 19:17:45', NULL, NULL, 0),
+(36, 12, '部落-编辑', 2, 'clan:edit', '', '', '', 0, '2026-07-26 19:17:45', '2026-07-26 19:17:45', NULL, NULL, 0),
+(37, 12, '部落-删除', 2, 'clan:delete', '', '', '', 0, '2026-07-26 19:17:45', '2026-07-26 19:17:45', NULL, NULL, 0),
+(38, 13, '部落成员-新增', 2, 'clan:member:add', '', '', '', 0, '2026-07-26 19:17:45', '2026-07-26 19:17:45', NULL, NULL, 0),
+(39, 13, '部落成员-编辑', 2, 'clan:member:edit', '', '', '', 0, '2026-07-26 19:17:45', '2026-07-26 19:17:45', NULL, NULL, 0),
+(40, 13, '部落成员-删除', 2, 'clan:member:delete', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(41, 13, '部落成员-导入', 2, 'clan:member:import', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(42, 13, '部落成员-计算战斗力', 2, 'clan:member:calc', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(43, 14, '部落战-新增', 2, 'war:add', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(44, 14, '部落战-编辑', 2, 'war:edit', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(45, 14, '部落战-删除', 2, 'war:delete', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(46, 15, '部落战战绩-新增', 2, 'war:record:add', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(47, 15, '部落战战绩-编辑', 2, 'war:record:edit', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(48, 15, '部落战战绩-删除', 2, 'war:record:delete', '', '', '', 0, '2026-07-26 19:17:46', '2026-07-26 19:17:46', NULL, NULL, 0),
+(49, 16, '联赛-新增', 2, 'league:add', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(50, 16, '联赛-编辑', 2, 'league:edit', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(51, 16, '联赛-删除', 2, 'league:delete', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(52, 17, '成员战绩-新增', 2, 'league:record:add', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(53, 17, '成员战绩-编辑', 2, 'league:record:edit', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(54, 17, '成员战绩-删除', 2, 'league:record:delete', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(55, 17, '成员战绩-导入', 2, 'league:record:import', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(56, 18, '联赛报名-新增', 2, 'league:signup:add', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(57, 18, '联赛报名-编辑', 2, 'league:signup:edit', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(58, 18, '联赛报名-删除', 2, 'league:signup:delete', '', '', '', 0, '2026-07-26 19:17:47', '2026-07-26 19:17:47', NULL, NULL, 0),
+(59, 18, '联赛报名-初始化', 2, 'league:signup:init', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(60, 26, '部落成绩-新增', 2, 'league:score:add', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(61, 26, '部落成绩-编辑', 2, 'league:score:edit', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(62, 26, '部落成绩-删除', 2, 'league:score:delete', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(63, 7, '群组-新增', 2, 'group:add', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(64, 7, '群组-编辑', 2, 'group:edit', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(65, 7, '群组-删除', 2, 'group:delete', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(66, 28, '群组成员-设为管理员', 2, 'group:user:setAdmin', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(67, 28, '群组成员-取消管理员', 2, 'group:user:cancelAdmin', '', '', '', 0, '2026-07-26 19:17:48', '2026-07-26 19:17:48', NULL, NULL, 0),
+(68, 28, '群组成员-踢出', 2, 'group:user:kick', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(69, 29, '入组申请-通过', 2, 'group:apply:approve', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(70, 29, '入组申请-拒绝', 2, 'group:apply:reject', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(71, 29, '入组申请-撤销', 2, 'group:apply:cancel', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(72, 8, '用户-新增', 2, 'sys:user:add', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(73, 8, '用户-编辑', 2, 'sys:user:edit', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(74, 8, '用户-删除', 2, 'sys:user:delete', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(75, 9, '角色-新增', 2, 'sys:role:add', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(76, 9, '角色-编辑', 2, 'sys:role:edit', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(77, 9, '角色-删除', 2, 'sys:role:delete', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(78, 9, '角色-分配菜单', 2, 'sys:role:assign', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(79, 10, '菜单-新增', 2, 'sys:menu:add', '', '', '', 0, '2026-07-26 19:17:49', '2026-07-26 19:17:49', NULL, NULL, 0),
+(80, 10, '菜单-编辑', 2, 'sys:menu:edit', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(81, 10, '菜单-删除', 2, 'sys:menu:delete', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(82, 11, '字典-新增', 2, 'sys:dict:add', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(83, 11, '字典-编辑', 2, 'sys:dict:edit', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(84, 11, '字典-删除', 2, 'sys:dict:delete', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(85, 33, '系统配置-新增', 2, 'sys:config:add', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(86, 33, '系统配置-编辑', 2, 'sys:config:edit', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0),
+(87, 33, '系统配置-删除', 2, 'sys:config:delete', '', '', '', 0, '2026-07-26 19:17:50', '2026-07-26 19:17:50', NULL, NULL, 0);
 
--- 4. 默认管理员账号（密码为 admin123 的 BCrypt 哈希，首次登录后建议修改）
-INSERT IGNORE INTO sys_user (id, username, password, nickname, group_no, status) VALUES
-(1, 'admin', '$2a$10$ZR0/nhgoX72xMj3dQRFDmujQAPHbjUVGVjCruxf1GRQH0xHGI0tcS', '超级管理员', NULL, 1);
 
--- 5. 用户-角色关联
-INSERT IGNORE INTO sys_user_role (user_id, role_id) VALUES (1, 1);
+-- 角色-菜单关联
+INSERT INTO `sys_role_menu` (`id`, `created_by`, `updated_by`, `role_id`, `menu_id`) VALUES
+(36, NULL, NULL, 5, 19),
+(61, NULL, NULL, 3, 28),
+(62, NULL, NULL, 3, 29),
+(63, NULL, NULL, 3, 6),
+(64, NULL, NULL, 3, 12),
+(65, NULL, NULL, 3, 13),
+(66, NULL, NULL, 3, 3),
+(67, NULL, NULL, 3, 16),
+(68, NULL, NULL, 3, 26),
+(69, NULL, NULL, 3, 17),
+(71, NULL, NULL, 3, 18),
+(72, NULL, NULL, 3, 1),
+(79, NULL, NULL, 6, 29),
+(80, NULL, NULL, 6, 1),
+(81, NULL, NULL, 4, 26),
+(82, NULL, NULL, 4, 17),
+(84, NULL, NULL, 4, 18),
+(85, NULL, NULL, 4, 3),
+(108, NULL, NULL, 2, 28),
+(109, NULL, NULL, 2, 29),
+(110, NULL, NULL, 2, 6),
+(111, NULL, NULL, 2, 12),
+(112, NULL, NULL, 2, 13),
+(113, NULL, NULL, 2, 3),
+(114, NULL, NULL, 2, 16),
+(115, NULL, NULL, 2, 26),
+(116, NULL, NULL, 2, 17),
+(118, NULL, NULL, 2, 18),
+(119, NULL, NULL, 2, 1),
+(129, NULL, NULL, 1, 7),
+(130, NULL, NULL, 1, 8),
+(131, NULL, NULL, 1, 9),
+(132, NULL, NULL, 1, 10),
+(133, NULL, NULL, 1, 11),
+(134, NULL, NULL, 1, 33),
+(135, NULL, NULL, 1, 5),
+(136, NULL, NULL, 1, 1),
+(137, NULL, NULL, 2, 35),
+(138, NULL, NULL, 3, 35),
+(139, NULL, NULL, 2, 36),
+(140, NULL, NULL, 3, 36),
+(141, NULL, NULL, 2, 37),
+(142, NULL, NULL, 3, 37),
+(143, NULL, NULL, 2, 38),
+(144, NULL, NULL, 3, 38),
+(145, NULL, NULL, 2, 39),
+(146, NULL, NULL, 3, 39),
+(147, NULL, NULL, 2, 40),
+(148, NULL, NULL, 3, 40),
+(149, NULL, NULL, 2, 41),
+(150, NULL, NULL, 3, 41),
+(151, NULL, NULL, 2, 42),
+(152, NULL, NULL, 3, 42),
+(153, NULL, NULL, 2, 43),
+(154, NULL, NULL, 3, 43),
+(155, NULL, NULL, 2, 44),
+(156, NULL, NULL, 3, 44),
+(157, NULL, NULL, 2, 45),
+(158, NULL, NULL, 3, 45),
+(159, NULL, NULL, 2, 46),
+(160, NULL, NULL, 3, 46),
+(161, NULL, NULL, 2, 47),
+(162, NULL, NULL, 3, 47),
+(163, NULL, NULL, 2, 48),
+(164, NULL, NULL, 3, 48),
+(165, NULL, NULL, 2, 49),
+(166, NULL, NULL, 3, 49),
+(167, NULL, NULL, 2, 50),
+(168, NULL, NULL, 3, 50),
+(169, NULL, NULL, 2, 51),
+(170, NULL, NULL, 3, 51),
+(171, NULL, NULL, 2, 52),
+(172, NULL, NULL, 3, 52),
+(173, NULL, NULL, 2, 53),
+(174, NULL, NULL, 3, 53),
+(175, NULL, NULL, 2, 54),
+(176, NULL, NULL, 3, 54),
+(177, NULL, NULL, 2, 55),
+(178, NULL, NULL, 3, 55),
+(179, NULL, NULL, 2, 56),
+(180, NULL, NULL, 3, 56),
+(181, NULL, NULL, 2, 57),
+(182, NULL, NULL, 3, 57),
+(183, NULL, NULL, 2, 58),
+(184, NULL, NULL, 3, 58),
+(185, NULL, NULL, 2, 59),
+(186, NULL, NULL, 3, 59),
+(187, NULL, NULL, 2, 60),
+(188, NULL, NULL, 3, 60),
+(189, NULL, NULL, 2, 61),
+(190, NULL, NULL, 3, 61),
+(191, NULL, NULL, 2, 62),
+(192, NULL, NULL, 3, 62),
+(193, NULL, NULL, 2, 63),
+(194, NULL, NULL, 3, 63),
+(195, NULL, NULL, 2, 64),
+(196, NULL, NULL, 3, 64),
+(197, NULL, NULL, 2, 65),
+(198, NULL, NULL, 3, 65),
+(199, NULL, NULL, 2, 66),
+(200, NULL, NULL, 3, 66),
+(201, NULL, NULL, 2, 67),
+(202, NULL, NULL, 3, 67),
+(203, NULL, NULL, 2, 68),
+(204, NULL, NULL, 3, 68),
+(205, NULL, NULL, 2, 69),
+(206, NULL, NULL, 3, 69),
+(207, NULL, NULL, 2, 70),
+(208, NULL, NULL, 3, 70),
+(209, NULL, NULL, 2, 71),
+(210, NULL, NULL, 3, 71),
+(211, NULL, NULL, 1, 72),
+(212, NULL, NULL, 1, 73),
+(213, NULL, NULL, 1, 74),
+(214, NULL, NULL, 1, 75),
+(215, NULL, NULL, 1, 76),
+(216, NULL, NULL, 1, 77),
+(217, NULL, NULL, 1, 78),
+(218, NULL, NULL, 1, 79),
+(219, NULL, NULL, 1, 80),
+(220, NULL, NULL, 1, 81),
+(221, NULL, NULL, 1, 82),
+(222, NULL, NULL, 1, 83),
+(223, NULL, NULL, 1, 84),
+(224, NULL, NULL, 1, 85),
+(225, NULL, NULL, 1, 86),
+(226, NULL, NULL, 1, 87);
 
--- 6. 数据字典分组
-INSERT IGNORE INTO dict_group (id, group_code, group_name, status) VALUES
-(1, 'war_type',      '部落战类型', 1),
-(2, 'league_type',   '联赛类型',   1),
-(3, 'member_role',   '成员职位',   1),
-(4, 'war_result',    '对战结果',   1),
-(5, 'signup_status', '报名状态',   1),
-(6, 'league_tier',   '联赛段位',   1);
 
--- 7. 数据字典条目
-INSERT IGNORE INTO dict_item (id, group_code, item_value, item_name, sort, status) VALUES
--- 部落战类型
-(1,  'war_type',     'normal',   '普通战',   1, 1),
-(2,  'war_type',     'league',   '联赛',     2, 1),
--- 联赛类型
-(3,  'league_type',  'clan_war', '部落战联赛', 1, 1),
-(4,  'league_type',  'friendly', '友谊赛',   2, 1),
--- 成员职位
-(5,  'member_role',  'leader',    '首领',    1, 1),
-(6,  'member_role',  'co_leader', '副首领',  2, 1),
-(7,  'member_role',  'elder',     '长老',    3, 1),
-(8,  'member_role',  'member',    '成员',    4, 1),
--- 对战结果
-(9,  'war_result',  'win',  '胜利', 1, 1),
-(10, 'war_result',  'lose', '失败', 2, 1),
-(11, 'war_result',  'draw', '平局', 3, 1),
--- 报名状态
-(12, 'signup_status', '1', '未报名',   1, 1),
-(13, 'signup_status', '2', '备选报名', 2, 1),
-(14, 'signup_status', '3', '主动报名', 3, 1),
--- 联赛段位（value 1~18）
-(15, 'league_tier', '1',  '铜杯III',    1,  1),
-(16, 'league_tier', '2',  '铜杯II',     2,  1),
-(17, 'league_tier', '3',  '铜杯I',      3,  1),
-(18, 'league_tier', '4',  '银杯III',    4,  1),
-(19, 'league_tier', '5',  '银杯II',     5,  1),
-(20, 'league_tier', '6',  '银杯I',      6,  1),
-(21, 'league_tier', '7',  '金杯III',    7,  1),
-(22, 'league_tier', '8',  '金杯II',     8,  1),
-(23, 'league_tier', '9',  '金杯I',      9,  1),
-(24, 'league_tier', '10', '水晶杯III',  10, 1),
-(25, 'league_tier', '11', '水晶杯II',   11, 1),
-(26, 'league_tier', '12', '水晶杯I',    12, 1),
-(27, 'league_tier', '13', '大师杯III',  13, 1),
-(28, 'league_tier', '14', '大师杯II',   14, 1),
-(29, 'league_tier', '15', '大师杯I',    15, 1),
-(30, 'league_tier', '16', '冠军杯III',  16, 1),
-(31, 'league_tier', '17', '冠军杯II',   17, 1),
-(32, 'league_tier', '18', '冠军杯I',    18, 1);
+-- 用户
+INSERT INTO `sys_user` (`id`, `username`, `password`, `nickname`, `phone`, `email`, `group_no`, `status`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted`) VALUES
+(1, 'admin', '$2a$10$fZ/nRXz6Vm8lxZeGTkBDEuRTiqiupoeT2p.b/.dYnfitRoVcMV9uy', '超级管理员', NULL, NULL, NULL, 1, '2026-07-18 22:50:09', '2026-07-18 22:50:09', NULL, NULL, 0),
+(2, 'test01', '$2a$10$vh3J5OgncASh2NLsXbcBVuWxXJFMRqES.TbYllAYUc/ap7wt9UEbO', 'test01', '', '', '6666', 1, '2026-07-20 18:54:15', '2026-07-20 18:54:15', 'admin', 'admin', 0),
+(3, 'test02', '$2a$10$6SL/SOrBSZhMqUkZydkKGOt/AtxVN5K5V781t3D/YIz9UAzdAj0lG', 'test02', '', '', '', 1, '2026-07-20 18:54:29', '2026-07-20 18:54:29', 'admin', 'admin', 0),
+(4, '唐家堡', '$2a$10$lXMUmS1jbNeqK5EF.VPWt.Lm.n2X6vYhH1VFD1eZW7hRYMiAbETTq', '唐家堡', '', '', '888888', 1, '2026-07-20 21:50:51', '2026-07-20 21:50:51', 'admin', 'admin', 0),
+(7, '张三', '$2a$10$1147bED7CqtXY6uRctBLdee.1M9.qbhP7/6OwULwOlO97LvjQxv36', '张三', NULL, NULL, 'G850E343D', 1, '2026-07-24 17:18:03', '2026-07-24 17:18:03', NULL, NULL, 0),
+(8, '李四', '$2a$10$KyDrXkOni/s6aaacrIqQXuMpoUToyKtpD9NmlykqyDL5EGufv7vyu', '李四', NULL, NULL, '888888', 1, '2026-07-24 18:24:38', '2026-07-24 18:24:38', NULL, '唐家堡', 0);
 
--- 8. 群组成员管理菜单（群主/超管可管理本群组成员：设为部落管理员、踢出）
-INSERT IGNORE INTO sys_menu (id, menu_name, menu_type, parent_id, path, permission, sort, icon) VALUES
-(20, '群组成员', 1, 5, '/clan/group/user', 'group:user:list', 7, NULL);
-INSERT IGNORE INTO sys_role_menu (role_id, menu_id) VALUES
-(1, 20), (2, 20);
+
+-- 用户-角色关联
+INSERT INTO `sys_user_role` (`id`, `created_by`, `updated_by`, `user_id`, `role_id`) VALUES
+(1, NULL, NULL, 1, 1),
+(7, NULL, NULL, 2, 2),
+(11, NULL, NULL, 7, 2),
+(13, NULL, NULL, 4, 2),
+(14, NULL, NULL, 8, 4),
+(16, NULL, NULL, 8, 3);
+
+
+-- 系统配置
+INSERT INTO `sys_config` (`id`, `config_name`, `config_value`, `description`, `created_at`, `updated_at`, `created_by`, `updated_by`) VALUES
+(1, 'attack_score', '8000', '进攻概率得分，总得分10000，和其他几个得分分', NULL, '2026-07-26 17:44:21', NULL, 'admin'),
+(2, 'participate_score', '1000', '参赛概率得分，总得分10000，和其他几个得分分', NULL, '2026-07-26 17:43:17', NULL, 'admin'),
+(3, 'three_star_score', '900', '三星概率得分，总得分10000，和其他几个得分分', NULL, '2026-07-26 17:44:30', NULL, 'admin'),
+(4, 'defense_score', '100', '防御概率得分，总得分10000，和其他几个得分分', NULL, '2026-07-26 17:43:51', NULL, 'admin'),
+(5, 'max_th_level', '18', '最高大本等级', NULL, '2026-07-26 17:16:51', NULL, 'admin'),
+(6, 'max_match_value', '900', '最高匹配值', NULL, '2026-07-26 17:16:43', NULL, 'admin');
+
+
+-- 计数器
+INSERT INTO `Counters` (`id`, `count`, `createdAt`, `updatedAt`) VALUES
+(1, 6, '2026-06-30 23:47:47', '2026-06-30 23:47:47');
+
+
+-- 字典分组
+INSERT INTO `dict_group` (`id`, `group_name`, `group_code`, `status`, `remark`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted`) VALUES
+(1, '部落战类型', 'war_type', 1, NULL, '2026-07-18 22:50:09', '2026-07-18 22:50:09', NULL, NULL, 0),
+(2, '联赛类型', 'league_type', 1, NULL, '2026-07-18 22:50:09', '2026-07-18 22:50:09', NULL, NULL, 0),
+(3, '成员职位', 'member_role', 1, NULL, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(4, '对战结果', 'war_result', 1, NULL, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(5, '联赛段位', 'league_tier', 1, NULL, '2026-07-23 21:00:42', '2026-07-23 21:00:42', NULL, NULL, 0),
+(6, '报名状态', 'signup_status', 1, NULL, '2026-07-23 22:51:00', '2026-07-23 22:51:00', NULL, NULL, 0);
+
+
+-- 字典条目
+INSERT INTO `dict_item` (`id`, `item_name`, `item_value`, `group_code`, `status`, `sort`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted`) VALUES
+(1, '普通战', 'normal', 'war_type', 1, 0, '2026-07-18 22:50:09', '2026-07-18 22:50:09', NULL, NULL, 0),
+(2, '联赛', 'league', 'war_type', 1, 0, '2026-07-18 22:50:09', '2026-07-18 22:50:09', NULL, NULL, 0),
+(3, '部落战联赛', 'clan_war', 'league_type', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(4, '友谊赛', 'friendly', 'league_type', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(5, '首领', 'leader', 'member_role', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(6, '副首领', 'co_leader', 'member_role', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(7, '长老', 'elder', 'member_role', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(8, '成员', 'member', 'member_role', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(9, '胜利', 'win', 'war_result', 1, 0, '2026-07-18 22:50:10', '2026-07-18 22:50:10', NULL, NULL, 0),
+(10, '失败', 'lose', 'war_result', 1, 0, '2026-07-18 22:50:11', '2026-07-18 22:50:11', NULL, NULL, 0),
+(11, '平局', 'draw', 'war_result', 1, 0, '2026-07-18 22:50:11', '2026-07-18 22:50:11', NULL, NULL, 0),
+(30, '铜杯III', '1', 'league_tier', 1, 1, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(31, '铜杯II', '2', 'league_tier', 1, 2, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(32, '铜杯I', '3', 'league_tier', 1, 3, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(33, '银杯III', '4', 'league_tier', 1, 4, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(34, '银杯II', '5', 'league_tier', 1, 5, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(35, '银杯I', '6', 'league_tier', 1, 6, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(36, '金杯III', '7', 'league_tier', 1, 7, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(37, '金杯II', '8', 'league_tier', 1, 8, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(38, '金杯I', '9', 'league_tier', 1, 9, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(39, '水晶杯III', '10', 'league_tier', 1, 10, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(40, '水晶杯II', '11', 'league_tier', 1, 11, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(41, '水晶杯I', '12', 'league_tier', 1, 12, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(42, '大师杯III', '13', 'league_tier', 1, 13, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(43, '大师杯II', '14', 'league_tier', 1, 14, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(44, '大师杯I', '15', 'league_tier', 1, 15, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(45, '冠军杯III', '16', 'league_tier', 1, 16, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(46, '冠军杯II', '17', 'league_tier', 1, 17, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(47, '冠军杯I', '18', 'league_tier', 1, 18, '2026-07-23 21:22:47', '2026-07-23 21:22:47', NULL, NULL, 0),
+(48, '未报名', '1', 'signup_status', 1, 1, '2026-07-23 22:51:00', '2026-07-23 22:51:00', NULL, NULL, 0),
+(49, '备选报名', '2', 'signup_status', 1, 2, '2026-07-23 22:51:01', '2026-07-23 22:51:01', NULL, NULL, 0),
+(50, '主动报名', '3', 'signup_status', 1, 3, '2026-07-23 22:51:01', '2026-07-23 22:51:01', NULL, NULL, 0);
+

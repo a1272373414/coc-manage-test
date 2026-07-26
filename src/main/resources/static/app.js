@@ -9,7 +9,8 @@
     warCrud, warRecordCrud,
     leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud,
     groupCrud, menuTree,
-    dictGroupCrud, dictItemCrud
+    dictGroupCrud, dictItemCrud,
+    configCrud
   } = window.COC_CRUD;
 
   /* ============ 登录页 ============ */
@@ -511,7 +512,7 @@
         <el-form-item>
           <el-button type="primary" @click="load">查询</el-button>
           <el-button @click="resetSearch">重置</el-button>
-          <el-button type="success" @click="openCreate">新增</el-button>
+          <el-button v-if="COC.store.hasPerm('sys:user:add')" type="success" @click="openCreate">新增</el-button>
         </el-form-item>
       </el-form>
       <el-table :data="list" v-loading="loading" border stripe>
@@ -526,9 +527,9 @@
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" @click="openRole(row)">分配角色</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:user:edit')" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:user:edit')" link type="warning" @click="openRole(row)">分配角色</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:user:delete')" link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -621,30 +622,49 @@
           const tree = await COC.api.menuTree();
           this.menuTreeData = Array.isArray(tree) ? tree : [];
           const ids = await COC.api.roleMenus(row.id);
-          // 收集树中所有叶子节点 id（无 children），用于过滤回显时的父目录 id。
-          // 若把父目录 id 放进 default-checked-keys，el-tree 会级联勾选其下所有子节点。
-          var leafIdSet = {};
-          (function walk(nodes) {
-            for (var i = 0; i < nodes.length; i++) {
-              var n = nodes[i];
-              if (!Array.isArray(n.children) || n.children.length === 0) {
-                if (n.id != null) leafIdSet[Number(n.id)] = true;
-              }
-              if (Array.isArray(n.children)) walk(n.children);
-            }
-          })(Array.isArray(tree) ? tree : []);
-          // 等待 tree 渲染完成再回显勾选（只勾选叶子节点）
+          // 严格勾选模式下父子互不影响，直接回显所有已绑定节点（含菜单与按钮），
+          // 父菜单不会被自动级联取消，确保“取消某菜单下全部按钮仍保留该菜单权限”。
           this.$nextTick(() => {
-            var raw = Array.isArray(ids) ? ids.map(Number) : [];
-            this.menuCheckedIds = raw.filter(function(id) { return leafIdSet[id] === true; });
+            this.menuCheckedIds = Array.isArray(ids) ? ids.map(Number) : [];
           });
         } catch (e) {
           this.menuDialog = false;
         }
       },
-      /** 树节点勾选变化（保留响应式，但保存时不再依赖此值） */
-      handleMenuCheck() {
-        // el-tree 内部状态已更新，保存时通过 getCheckedNodes / getHalfCheckedNodes 读取
+      /** 树节点勾选变化：自定义级联规则（配合 check-strictly）
+       *  - 勾选：向下级联所有子孙 + 向上级联所有祖先（保证菜单页与其按钮同步勾选、菜单在导航可见）
+       *  - 取消：仅向下级联子孙，不影响祖先（即取消一个菜单下的全部按钮，仍保留该菜单页权限）
+       */
+      handleMenuCheck(data, info) {
+        if (this._menuCascading) return;
+        const treeRef = this.$refs.menuTreeRef;
+        if (!treeRef) return;
+        const node = treeRef.getNode(data);
+        if (!node) return;
+        const val = info.checked;
+        this._menuCascading = true;
+        try {
+          // 向下级联：设置当前节点下所有子孙（菜单/按钮）
+          const walkDown = (n, v) => {
+            if (n.childNodes && n.childNodes.length) {
+              n.childNodes.forEach((c) => {
+                treeRef.setChecked(c.data.id, v);
+                walkDown(c, v);
+              });
+            }
+          };
+          walkDown(node, val);
+          // 向上级联：仅“勾选”时同步勾选所有祖先，保证菜单页可见
+          if (val) {
+            let p = node.parent;
+            while (p && p.data && p.data.id != null) {
+              treeRef.setChecked(p.data.id, true);
+              p = p.parent;
+            }
+          }
+        } finally {
+          this.$nextTick(() => { this._menuCascading = false; });
+        }
       },
       async saveAssignMenu() {
         if (!this.menuRoleId) return;
@@ -679,7 +699,7 @@
         <el-form-item>
           <el-button type="primary" @click="load">查询</el-button>
           <el-button @click="resetSearch">重置</el-button>
-          <el-button type="success" @click="openCreate">新增</el-button>
+          <el-button v-if="COC.store.hasPerm('sys:role:add')" type="success" @click="openCreate">新增</el-button>
         </el-form-item>
       </el-form>
       <el-table :data="list" v-loading="loading" border stripe>
@@ -692,9 +712,9 @@
         <el-table-column prop="remark" label="备注" show-overflow-tooltip />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" @click="openAssignMenu(row)">分配菜单</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:role:edit')" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:role:assign')" link type="warning" @click="openAssignMenu(row)">分配菜单</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:role:delete')" link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -716,11 +736,12 @@
       </el-dialog>
       <el-dialog v-model="menuDialog" :title="'分配菜单 - ' + menuRoleName" width="560px" destroy-on-close>
         <el-alert type="info" :closable="false" show-icon style="margin-bottom:8px"
-          title="父节点勾选时会自动展开为该节点下全部叶子；取消父节点勾选不影响其下已勾选的叶子。" />
+          title="勾选父节点会同时选中其下全部子项（含按钮）；取消某个按钮不会取消其父菜单（菜单页权限仍保留），仅取消父节点才会移除整组。" />
         <el-tree ref="menuTreeRef"
           :data="menuTreeData"
           :props="menuTreeProps"
           show-checkbox
+          check-strictly
           node-key="id"
           :default-checked-keys="menuCheckedIds"
           :default-expand-all="true"
@@ -1006,8 +1027,9 @@
     computed: {
       user() { return COC.store.user || {}; },
       roleCodes() { return this.user.roleCodes || []; },
-    isAdmin() {
-      return this.roleCodes.includes('GROUP_ADMIN');
+      isSuperAdmin() { return !!this.user.superAdmin; },
+    canApprove() {
+      return COC.store.hasPerm('group:apply:approve');
     },
       statusOptions() {
         return [{ label: '申请中', value: 1 }, { label: '同意', value: 2 }, { label: '拒绝', value: 3 }];
@@ -1081,7 +1103,7 @@
     },
     template: `
     <div class="page-apply" style="padding:16px">
-      <el-card v-if="!isAdmin" style="margin-bottom:16px">
+      <el-card v-if="!canApprove && !isSuperAdmin" style="margin-bottom:16px">
         <template #header><b>提交入组申请</b></template>
         <el-form :model="form" label-width="100px" inline>
           <el-form-item label="目标群组" required>
@@ -1096,7 +1118,7 @@
         </el-form>
       </el-card>
 
-      <el-form v-if="isAdmin" inline @submit.prevent class="coc-toolbar">
+      <el-form v-if="canApprove" inline @submit.prevent class="coc-toolbar">
         <el-form-item label="申请状态">
           <el-select v-model="query.applyStatus" clearable placeholder="全部" style="width:140px" @change="page=1;load()">
             <el-option label="申请中" :value="1" />
@@ -1126,11 +1148,11 @@
         <el-table-column prop="createdAt" label="申请时间" width="160" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{row}">
-            <template v-if="isAdmin && row.applyStatus === 1">
+            <template v-if="canApprove && row.applyStatus === 1">
               <el-button size="small" type="success" @click="approve(row)">同意</el-button>
               <el-button size="small" type="danger" @click="reject(row)">拒绝</el-button>
             </template>
-            <el-button v-if="!isAdmin && row.applyStatus === 1" size="small" type="danger" @click="cancel(row)">撤销</el-button>
+            <el-button v-if="!canApprove && !isSuperAdmin && row.applyStatus === 1" size="small" type="danger" @click="cancel(row)">撤销</el-button>
             <span v-if="row.applyStatus !== 1">-</span>
           </template>
         </el-table-column>
@@ -1170,7 +1192,7 @@
           </el-table-column>
           <el-table-column label="操作" width="280" fixed="right">
             <template v-slot="{row}">
-              <template v-if="isGroupAdmin">
+              <template v-if="canSetOrCancelAdmin">
                 <el-popconfirm v-if="hasRole(row, 'LEAGUE_ADMIN')" title="确认取消该成员的部落管理员身份？" @confirm="doCancelAdmin(row)">
                   <template #reference>
                     <el-button type="warning" size="small" plain>取消部落管理员</el-button>
@@ -1208,9 +1230,9 @@
       me() { return COC.store.user || {}; },
       myRoleCodes() { return this.me.roleCodes || []; },
       isGroupAdmin() { return this.myRoleCodes.indexOf('GROUP_ADMIN') !== -1; },
-      isManagerOrLeague() {
-        return this.myRoleCodes.indexOf('GROUP_ADMIN') !== -1
-          || this.myRoleCodes.indexOf('LEAGUE_ADMIN') !== -1;
+      // 是否可设置/取消部落管理员（由菜单按钮权限 group:user:setAdmin / cancelAdmin 控制）
+      canSetOrCancelAdmin() {
+        return COC.store.hasPerm('group:user:setAdmin') || COC.store.hasPerm('group:user:cancelAdmin');
       }
     },
     mounted() { this.load(); },
@@ -1241,7 +1263,7 @@
           && !this.hasRole(row, 'VISITOR');
       },
       canKick(row) {
-        return this.isManagerOrLeague && this.onlyMember(row);
+        return COC.store.hasPerm('group:user:kick') && this.onlyMember(row);
       },
       roleLabel(code) {
         var m = {SUPER_ADMIN:'超级管理员',GROUP_ADMIN:'群主',LEAGUE_ADMIN:'部落管理员',MEMBER:'成员',VISITOR:'游客'};
@@ -1277,10 +1299,30 @@
     '/sys/user':   { name: 'u', label: '用户管理', component: 'UserManage' },
     '/sys/role':   { name: 'r', label: '角色管理', component: 'RoleManage' },
     '/sys/menu':   { name: 'm', label: '菜单管理', component: 'menuTree' },
+    '/sys/config': { name: 'c', label: '系统配置', component: 'configCrud' },
     '/dict':       { name: 'd', label: '字典管理', component: 'DictManage' }
   }, {
-    components: { groupCrud, GroupMemberPage, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage }
+    components: { groupCrud, GroupMemberPage, ClanGroupApplyPage, UserManage, RoleManage, menuTree, DictManage, configCrud }
   });
+
+  /* ============ 404 页面 ============ */
+  const NotFound = {
+    template: `
+    <div class="not-found">
+      <el-result icon="warning" title="404" sub-title="页面不存在或无访问权限">
+        <template #extra>
+          <el-button type="primary" @click="$router.replace('/dashboard')">返回首页</el-button>
+        </template>
+      </el-result>
+    </div>`
+  };
+
+  /** 将后端返回的扁平菜单数组展开为 path 集合（用于菜单地址拦截判断） */
+  function flattenMenuPaths(menus) {
+    const set = new Set();
+    (Array.isArray(menus) ? menus : []).forEach((m) => { if (m && m.path) set.add(m.path); });
+    return set;
+  }
 
   /* ============ 路由 ============ */
   const routes = [
@@ -1296,7 +1338,8 @@
         { path: 'system', component: SystemPage }
       ]
     },
-    { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
+    { path: '/404', component: NotFound },
+    { path: '/:pathMatch(.*)*', redirect: '/404' }
   ];
 
   const router = createRouter({ history: createWebHashHistory(), routes });
@@ -1317,6 +1360,18 @@
     if (to.meta.perm && !COC.store.hasPerm(to.meta.perm)) {
       ElementPlus.ElMessage.error('无访问权限');
       return '/dashboard';
+    }
+    // 菜单地址拦截：导航到后台菜单页面但当前用户无对应菜单数据时，跳转到 404 页面。
+    // （/dashboard 为所有登录用户首页，不在此拦截，避免无菜单数据时锁死首页）
+    var MENU_ROUTE_MAP = {
+      '/clan': '/clan',
+      '/clan/group/apply': '/clan/group/apply',
+      '/war': '/war',
+      '/league': '/league',
+      '/system': '/system'
+    };
+    if (MENU_ROUTE_MAP[to.path] && !flattenMenuPaths(COC.store.menus).has(MENU_ROUTE_MAP[to.path])) {
+      return '/404';
     }
   });
 
@@ -1340,6 +1395,9 @@
   });
   app.use(router);
   app.use(ElementPlus, { locale: window.ElementPlusLocaleZhCn });
+  // 将全局对象 COC 挂到组件实例上，使模板表达式（如 v-if="COC.store.hasPerm(...)"）
+  // 能通过 _ctx.COC 解析到 window.COC，否则模板渲染时 COC 为 undefined 会抛错。
+  app.config.globalProperties.COC = window.COC;
   for (const [key, comp] of Object.entries(ElementPlusIconsVue)) app.component(key, comp);
   app.mount('#app');
 })();

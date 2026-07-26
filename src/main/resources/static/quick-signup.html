@@ -194,11 +194,11 @@
       overflow: hidden;
     }
     .qs-table-head, .qs-row {
-      display: grid; grid-template-columns: 1.4fr 1fr 1.2fr;
+      display: grid; grid-template-columns: 1.4fr 0.9fr 0.9fr 0.9fr 1fr 1.2fr;
     }
     .qs-table.qs-table-owner .qs-table-head,
     .qs-table.qs-table-owner .qs-row {
-      grid-template-columns: 1.4fr 1fr 1.2fr 0.9fr;
+      grid-template-columns: 1.4fr 0.9fr 0.9fr 0.9fr 1fr 1.2fr 0.9fr;
     }
     .qs-table-head {
       background: #fbf6f2;
@@ -376,6 +376,9 @@
           <div class="qs-table-head">
             <div>游戏名称</div>
             <div>报名状态</div>
+            <div>战斗力</div>
+            <div>大本等级</div>
+            <div>匹配值</div>
             <div>报名时间</div>
             <div v-if="isOwner && inSignupWindow">操作</div>
           </div>
@@ -383,6 +386,9 @@
             <div class="qs-row" v-for="r in signups" :key="r.id">
               <div class="qs-name"><span class="qs-avatar">{{ avatarText(r.memberName) }}</span>{{ r.memberName }}</div>
               <div><span class="qs-status-tag" :class="'qs-status-' + (r.signupStatus || 1)">{{ statusLabel(r.signupStatus) }}</span></div>
+              <div>{{ r.combatPower != null ? r.combatPower : '-' }}</div>
+              <div>{{ r.thLevel != null ? r.thLevel : '-' }}</div>
+              <div>{{ r.matchValue != null ? r.matchValue : '-' }}</div>
               <div class="qs-time">{{ formatTime(r.signupTime) }}</div>
               <div v-if="isOwner && inSignupWindow" class="qs-actions">
                 <button v-if="(r.signupStatus || 1) !== 3" class="qs-act-btn qs-act-set" @click="openSetStatus(r)">参赛</button>
@@ -620,10 +626,14 @@
             });
           }
 
-          // 报名列表排序：已报名(3) > 备选(2) > 未报名(1)，即 status 越大越靠前
+          // 报名列表排序：先按报名状态（已报名3 > 备选2 > 未报名1），再按战斗力倒序
           function sortSignups(list) {
             return (list || []).slice().sort(function (a, b) {
-              return (b.signupStatus || 1) - (a.signupStatus || 1);
+              const s = (b.signupStatus || 1) - (a.signupStatus || 1);
+              if (s !== 0) return s;
+              const ca = a.combatPower == null ? -1 : a.combatPower;
+              const cb = b.combatPower == null ? -1 : b.combatPower;
+              return cb - ca;
             });
           }
 

@@ -23,4 +23,10 @@ public class ClanMember extends BaseEntity {
   private Integer warStatus;
   private String intro;
   private Long userId;
+  /** 大本等级 */
+  private Integer thLevel;
+  /** 匹配值 */
+  private Integer matchValue;
+  /** 战斗力 */
+  private Integer combatPower;
 }

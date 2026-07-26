@@ -88,7 +88,10 @@
     get isLogin() { return !!this.token; },
     get isSuperAdmin() { return !!this.user && !!this.user.superAdmin; },
     get permissions() { return (this.user && this.user.permissions) || []; },
-    hasPerm(p) { return this.isSuperAdmin || this.permissions.includes(p); }
+    // 按钮/接口权限完全由菜单里配置的权限标识驱动（user.permissions 来自角色-菜单绑定）。
+    // 不再硬编码超级管理员放行：超级管理员的权限同样来自其角色所绑定的菜单，
+    // 因此其未绑定的业务按钮自然不可见（即“超级管理员不参与业务”）。
+    hasPerm(p) { return this.permissions.includes(p); }
   });
 
   const api = {
@@ -141,6 +144,10 @@
     clanMemberImportPreview: (formData) => http.post('/api/clan/member/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     clanMemberImportConfirm: (body) => http.post('/api/clan/member/import/confirm', body),
     clanMemberImportTemplate: () => http.get('/api/clan/member/import/template', { responseType: 'blob' }),
+
+    // 一键计算战斗力
+    combatPowerConfig: () => http.get('/api/clan/member/combat-power/config'),
+    combatPowerCalculate: (body) => http.post('/api/clan/member/combat-power/calculate', body),
 
     // 入组申请
     applyCreate: (body) => http.post('/api/clan/group/apply', body),

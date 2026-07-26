@@ -31,4 +31,13 @@ public class LeagueSignup extends BaseEntity {
   /** 部落名称（由 LeagueSignupController 在列表查询时回填） */
   @com.baomidou.mybatisplus.annotation.TableField(exist = false)
   private String clanName;
+  /** 大本等级（由 LeagueSignupController 在列表查询时回填，取自 clan_member） */
+  @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+  private Integer thLevel;
+  /** 匹配值（由 LeagueSignupController 在列表查询时回填，取自 clan_member） */
+  @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+  private Integer matchValue;
+  /** 战斗力（由 LeagueSignupController 在列表查询时回填，取自 clan_member） */
+  @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+  private Integer combatPower;
 }

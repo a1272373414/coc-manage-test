@@ -38,4 +38,8 @@ public class LeagueClanScore extends BaseEntity {
   /** 部落名称（非数据库字段） */
   @TableField(exist = false)
   private String clanName;
+
+  /** 联赛段位名称（league_tier 字典翻译，非数据库字段） */
+  @TableField(exist = false)
+  private String tierName;
 }

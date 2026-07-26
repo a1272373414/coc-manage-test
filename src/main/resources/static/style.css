@@ -153,3 +153,26 @@ a { color:inherit; text-decoration:none; }
 .dict-tree-label .dict-sort { color:#909399; font-size:12px; }
 .dict-tree-actions { display:flex; gap:0; flex-shrink:0; opacity:0.85; }
 .dict-tree-actions .el-button { padding:0 6px; }
+
+/* ============ 一键计算战斗力 - 公式展示 ============ */
+.calc-formula-box {
+  background:#f7f8fa; border:1px solid #ebeef5; border-radius:8px;
+  padding:14px 16px; font-size:13px; color:#303133;
+}
+.calc-formula-title {
+  font-weight:600; color:#303133; margin-bottom:10px; font-size:13px;
+  padding-left:8px; border-left:3px solid var(--primary);
+}
+.calc-formula-row {
+  display:flex; align-items:baseline; flex-wrap:wrap; gap:2px;
+  padding:5px 0; line-height:1.7;
+}
+.calc-formula-k {
+  display:inline-block; min-width:64px; margin-right:8px;
+  color:var(--primary); font-weight:600;
+}
+.calc-formula-row.calc-formula-result {
+  margin-top:8px; padding-top:10px; border-top:1px dashed #dcdfe6; font-weight:600;
+}
+.calc-formula-note { color:var(--info); font-size:12px; margin-left:4px; }
+.calc-formula-ref { margin-top:10px; color:var(--info); font-size:12px; }

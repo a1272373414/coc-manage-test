@@ -6,14 +6,18 @@ import com.tencent.wxcloudrun.entity.biz.Clan;
 import com.tencent.wxcloudrun.entity.biz.ClanGroup;
 import com.tencent.wxcloudrun.entity.biz.ClanMember;
 import com.tencent.wxcloudrun.entity.biz.League;
+import com.tencent.wxcloudrun.entity.biz.LeagueClanScore;
 import com.tencent.wxcloudrun.entity.biz.LeagueRecord;
 import com.tencent.wxcloudrun.entity.biz.LeagueSignup;
+import com.tencent.wxcloudrun.entity.dict.DictItem;
 import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
 import com.tencent.wxcloudrun.mapper.ClanMapper;
 import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
+import com.tencent.wxcloudrun.mapper.LeagueClanScoreMapper;
 import com.tencent.wxcloudrun.mapper.LeagueMapper;
 import com.tencent.wxcloudrun.mapper.LeagueRecordMapper;
 import com.tencent.wxcloudrun.mapper.LeagueSignupMapper;
+import com.tencent.wxcloudrun.mapper.DictItemMapper;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +62,10 @@ public class LeagueQuickSignupController {
   private ClanMemberMapper clanMemberMapper;
   @Resource
   private LeagueRecordMapper leagueRecordMapper;
+  @Resource
+  private LeagueClanScoreMapper leagueClanScoreMapper;
+  @Resource
+  private DictItemMapper dictItemMapper;
 
   /**
    * 群组基本信息：用于访问页面前校验 groupNo 是否合法并展示。
@@ -171,6 +179,32 @@ public class LeagueQuickSignupController {
     qw.orderByAsc("clan_no").orderByAsc("id");
     List<LeagueSignup> records = leagueSignupMapper.selectList(qw);
 
+    // 回填成员的大本等级/匹配值/战斗力（按 groupNo + memberNo 匹配 clan_member）
+    if (!records.isEmpty()) {
+      Map<String, ClanMember> memberMap = new HashMap<>();
+      List<ClanMember> members = clanMemberMapper.selectList(
+          new QueryWrapper<ClanMember>().eq("group_no", g));
+      for (ClanMember m : members) {
+        if (m.getMemberNo() != null && !m.getMemberNo().trim().isEmpty()) {
+          memberMap.put(m.getMemberNo().trim(), m);
+        }
+      }
+      for (LeagueSignup r : records) {
+        ClanMember m = r.getMemberNo() != null ? memberMap.get(r.getMemberNo().trim()) : null;
+        if (m == null && r.getMemberName() != null) {
+          // 回落：按 memberName 匹配（memberNo 缺失时）
+          for (ClanMember cm : members) {
+            if (r.getMemberName().equals(cm.getMemberName())) { m = cm; break; }
+          }
+        }
+        if (m != null) {
+          r.setThLevel(m.getThLevel());
+          r.setMatchValue(m.getMatchValue());
+          r.setCombatPower(m.getCombatPower());
+        }
+      }
+    }
+
     LeagueSignupListPayload payload = new LeagueSignupListPayload();
     payload.setLeagueNo(lg);
     payload.setRecords(records);
@@ -214,7 +248,27 @@ public class LeagueQuickSignupController {
     qw.orderByAsc("clan_no").orderByAsc("member_rank").orderByDesc("id");
     List<LeagueRecord> records = leagueRecordMapper.selectList(qw);
 
+    // 查询本联赛报名记录，用于回填战绩的报名状态（战绩导入时 signup_status 通常为空）
+    QueryWrapper<LeagueSignup> sw = new QueryWrapper<>();
+    sw.eq("group_no", g).eq("league_no", lg);
+    if (clanNo != null && !clanNo.trim().isEmpty()) {
+      sw.eq("clan_no", clanNo.trim());
+    }
+    List<LeagueSignup> signups = leagueSignupMapper.selectList(sw);
+    // key = clanNo + '|' + (n:memberNo 或 m:memberName)
+    Map<String, Integer> signupStatusMap = new HashMap<>();
+    for (LeagueSignup s : signups) {
+      String base = (s.getClanNo() == null ? "" : s.getClanNo()) + "|";
+      if (s.getMemberNo() != null && !s.getMemberNo().trim().isEmpty()) {
+        signupStatusMap.put(base + "n:" + s.getMemberNo().trim(), s.getSignupStatus());
+      }
+      if (s.getMemberName() != null && !s.getMemberName().trim().isEmpty()) {
+        signupStatusMap.put(base + "m:" + s.getMemberName().trim(), s.getSignupStatus());
+      }
+    }
+
     // 回填部落名称
+    Map<String, String> clanNameMap = new HashMap<>();
     if (!records.isEmpty()) {
       Set<String> clanNos = new HashSet<>();
       for (LeagueRecord r : records) {
@@ -222,18 +276,77 @@ public class LeagueQuickSignupController {
       }
       if (!clanNos.isEmpty()) {
         List<Clan> clans = clanMapper.selectList(new QueryWrapper<Clan>().in("clan_no", clanNos));
-        Map<String, String> clanNameMap = new HashMap<>();
         for (Clan c : clans) clanNameMap.put(c.getClanNo(), c.getClanName());
-        for (LeagueRecord r : records) {
-          if (r.getClanNo() != null) r.setClanName(clanNameMap.get(r.getClanNo()));
-        }
       }
+    }
+
+    // 回填部落名称 + 报名状态（优先按 memberNo 匹配，回落到 memberName）
+    for (LeagueRecord r : records) {
+      if (r.getClanNo() != null) r.setClanName(clanNameMap.get(r.getClanNo()));
+      String base = (r.getClanNo() == null ? "" : r.getClanNo()) + "|";
+      Integer st = null;
+      if (r.getMemberNo() != null && !r.getMemberNo().trim().isEmpty()) {
+        st = signupStatusMap.get(base + "n:" + r.getMemberNo().trim());
+      }
+      if (st == null && r.getMemberName() != null && !r.getMemberName().trim().isEmpty()) {
+        st = signupStatusMap.get(base + "m:" + r.getMemberName().trim());
+      }
+      r.setSignupStatus(st);
     }
 
     LeagueRecordListPayload payload = new LeagueRecordListPayload();
     payload.setLeagueNo(lg);
     payload.setRecords(records);
     return ApiResponse.ok(payload);
+  }
+
+  /**
+   * 联赛部落成绩查询（公开）。
+   * 入参：{ groupNo, clanNo, leagueNo? }。
+   * 行为：
+   *   1) groupNo 必传且群组必须存在；
+   *   2) leagueNo 缺省时取群组最近一个联赛；
+   *   3) 按 (groupNo + leagueNo + clanNo) 查询 league_clan_score 单条记录；
+   *   4) 回填部落名称后直接返回该记录（不存在时返回 null）。
+   * 用于结果页「部落战绩」模块展示段位、排名、晋级状态、联赛币等真实数据。
+   */
+  @GetMapping("/clan-score")
+  public ApiResponse clanScore(
+      @RequestParam String groupNo,
+      @RequestParam String clanNo,
+      @RequestParam(required = false) String leagueNo) {
+    if (groupNo == null || groupNo.trim().isEmpty()) {
+      return ApiResponse.error(400, "群组编号不能为空");
+    }
+    String g = groupNo.trim();
+    if (clanGroupMapper.selectCount(new QueryWrapper<ClanGroup>().eq("group_no", g)) == 0) {
+      return ApiResponse.error(400, "群组不存在");
+    }
+
+    String lg = (leagueNo == null || leagueNo.trim().isEmpty()) ? resolveLatestLeagueNo(g) : leagueNo.trim();
+    if (lg == null) {
+      // 群组下尚无联赛，返回 null
+      return ApiResponse.ok((LeagueClanScore) null);
+    }
+
+    // 预加载 league_tier 字典，将段位值翻译为名称
+    List<DictItem> tierItems = dictItemMapper.selectList(
+        new QueryWrapper<DictItem>().eq("group_code", "league_tier").orderByAsc("sort"));
+    Map<String, String> tierMap = new HashMap<>();
+    for (DictItem it : tierItems) {
+      tierMap.put(it.getItemValue(), it.getItemName());
+    }
+
+    LeagueClanScore score = leagueClanScoreMapper.selectOne(
+        new QueryWrapper<LeagueClanScore>()
+            .eq("group_no", g).eq("league_no", lg).eq("clan_no", clanNo.trim()));
+
+    if (score != null) {
+      Clan clan = clanMapper.selectOne(new QueryWrapper<Clan>().eq("clan_no", clanNo.trim()));
+      if (clan != null) score.setClanName(clan.getClanName());
+      if (score.getTier() != null) score.setTierName(tierMap.get(score.getTier()));
+    }
+    return ApiResponse.ok(score);
   }
 
   /**

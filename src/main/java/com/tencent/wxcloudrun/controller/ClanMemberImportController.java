@@ -89,7 +89,7 @@ public class ClanMemberImportController {
     return ApiResponse.ok(data);
   }
 
-  /** 确认导入：跳过已存在的成员（按成员名称查重），其余插入。 */
+  /** 确认导入：跳过已存在的成员（按成员名称查重），其余插入；已存在成员的导入字段（大本等级/匹配值/战斗力）非空时更新到数据库。 */
   @PostMapping("/confirm")
   public ApiResponse confirm(@RequestBody Map<String, Object> payload) {
     String clanNo = (String) payload.get("clanNo");
@@ -112,6 +112,7 @@ public class ClanMemberImportController {
     ExistSets exist = loadExist(g, clanNo);
     int inserted = 0;
     int skipped = 0;
+    int updated = 0;
 
     for (Map<String, Object> rec : records) {
       String name = rec.get("memberName") == null ? null : String.valueOf(rec.get("memberName")).trim();
@@ -127,7 +128,22 @@ public class ClanMemberImportController {
       // 条件唯一：填了编号 → 校验编号唯一；没填编号 → 校验名称唯一
       boolean dup = hasNo ? exist.nos.contains(no) : exist.names.contains(name);
       if (dup) {
-        skipped++;
+        // 已存在成员：若导入的大本等级/匹配值/战斗力非空，则更新这些字段
+        ClanMember existMember = hasNo ? exist.byNo.get(no) : exist.byName.get(name);
+        Integer thLevel = toInteger(rec.get("thLevel"));
+        Integer matchValue = toInteger(rec.get("matchValue"));
+        Integer combatPower = toInteger(rec.get("combatPower"));
+        if (existMember != null && (thLevel != null || matchValue != null || combatPower != null)) {
+          ClanMember toUpdate = new ClanMember();
+          toUpdate.setId(existMember.getId());
+          if (thLevel != null) toUpdate.setThLevel(thLevel);
+          if (matchValue != null) toUpdate.setMatchValue(matchValue);
+          if (combatPower != null) toUpdate.setCombatPower(combatPower);
+          clanMemberMapper.updateById(toUpdate);
+          updated++;
+        } else {
+          skipped++;
+        }
         continue;
       }
       ClanMember member = new ClanMember();
@@ -136,6 +152,13 @@ public class ClanMemberImportController {
       member.setMemberName(name);
       member.setMemberNo(no);
       member.setWarStatus(0);
+      // 大本等级 / 匹配值 / 战斗力：允许为空（空则使用 DB 默认 0）
+      Integer thLevel = toInteger(rec.get("thLevel"));
+      Integer matchValue = toInteger(rec.get("matchValue"));
+      Integer combatPower = toInteger(rec.get("combatPower"));
+      if (thLevel != null) member.setThLevel(thLevel);
+      if (matchValue != null) member.setMatchValue(matchValue);
+      if (combatPower != null) member.setCombatPower(combatPower);
       clanMemberMapper.insert(member);
       // 把新插入的名称/编号加入已存在集合，避免同一批次内重复插入
       if (hasNo) {
@@ -148,6 +171,7 @@ public class ClanMemberImportController {
 
     Map<String, Object> data = new HashMap<>(4);
     data.put("inserted", inserted);
+    data.put("updated", updated);
     data.put("skipped", skipped);
     data.put("total", records.size());
     return ApiResponse.ok(data);
@@ -162,12 +186,21 @@ public class ClanMemberImportController {
       Row header = sheet.createRow(0);
       header.createCell(0).setCellValue("名称");
       header.createCell(1).setCellValue("编号");
-      // 示例行（编号可选）
+      header.createCell(2).setCellValue("大本等级");
+      header.createCell(3).setCellValue("匹配值");
+      header.createCell(4).setCellValue("战斗力");
+      // 示例行（编号、大本等级、匹配值、战斗力均可选填空）
       Row sample = sheet.createRow(1);
       sample.createCell(0).setCellValue("张三");
       sample.createCell(1).setCellValue("");
+      sample.createCell(2).setCellValue("");
+      sample.createCell(3).setCellValue("");
+      sample.createCell(4).setCellValue("");
       sheet.autoSizeColumn(0);
       sheet.autoSizeColumn(1);
+      sheet.autoSizeColumn(2);
+      sheet.autoSizeColumn(3);
+      sheet.autoSizeColumn(4);
       wb.write(out);
     }
 
@@ -208,11 +241,42 @@ public class ClanMemberImportController {
         r.memberName = name.trim();
         String no = cellString(row, 1);
         r.memberNo = (no == null || no.trim().isEmpty()) ? "" : no.trim();
+        // 第 3/4/5 列：大本等级 / 匹配值 / 战斗力，允许为空（解析为 null）
+        r.thLevel = cellInteger(row, 2);
+        r.matchValue = cellInteger(row, 3);
+        r.combatPower = cellInteger(row, 4);
         r.exists = false;
         rows.add(r);
       }
     }
     return rows;
+  }
+
+  /** 读取单元格整数值；空值/非数字返回 null。 */
+  private Integer cellInteger(Row row, int idx) {
+    if (row == null) {
+      return null;
+    }
+    org.apache.poi.ss.usermodel.Cell cell = row.getCell(idx);
+    if (cell == null) {
+      return null;
+    }
+    switch (cell.getCellType()) {
+      case STRING:
+        String s = cell.getStringCellValue();
+        if (s == null || s.trim().isEmpty()) {
+          return null;
+        }
+        try {
+          return Integer.valueOf(s.trim());
+        } catch (NumberFormatException e) {
+          return null;
+        }
+      case NUMERIC:
+        return (int) cell.getNumericCellValue();
+      default:
+        return null;
+    }
   }
 
   private String cellString(Row row, int idx) {
@@ -240,6 +304,25 @@ public class ClanMemberImportController {
     }
   }
 
+  /** 将对象转为 Integer；null / 空字符串 / 非数字返回 null。 */
+  private Integer toInteger(Object v) {
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Number) {
+      return ((Number) v).intValue();
+    }
+    String s = String.valueOf(v).trim();
+    if (s.isEmpty()) {
+      return null;
+    }
+    try {
+      return Integer.valueOf(s);
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
   private String resolveGroupNo(String groupNo) {
     String g = (groupNo == null || groupNo.trim().isEmpty()) ? UserContext.getGroupNo() : groupNo;
     if (g == null || g.trim().isEmpty()) {
@@ -254,16 +337,20 @@ public class ClanMemberImportController {
     if (clanNo != null && !clanNo.trim().isEmpty()) {
       qw.eq("clan_no", clanNo);
     }
-    qw.select("member_name", "member_no");
+    qw.select("id", "member_name", "member_no", "th_level", "match_value", "combat_power");
     List<ClanMember> list = clanMemberMapper.selectList(qw);
     ExistSets s = new ExistSets();
     if (list != null) {
       for (ClanMember m : list) {
         if (m.getMemberName() != null) {
-          s.names.add(m.getMemberName().trim());
+          String nm = m.getMemberName().trim();
+          s.names.add(nm);
+          s.byName.put(nm, m);
         }
         if (m.getMemberNo() != null && !m.getMemberNo().trim().isEmpty()) {
-          s.nos.add(m.getMemberNo().trim());
+          String no = m.getMemberNo().trim();
+          s.nos.add(no);
+          s.byNo.put(no, m);
         }
       }
     }
@@ -274,12 +361,17 @@ public class ClanMemberImportController {
   private static class ExistSets {
     Set<String> names = new LinkedHashSet<>();
     Set<String> nos = new LinkedHashSet<>();
+    Map<String, ClanMember> byName = new HashMap<>();
+    Map<String, ClanMember> byNo = new HashMap<>();
   }
 
   /** 解析后的成员行（excel 预览用）。 */
   public static class ClanMemberRow {
     public String memberName;
     public String memberNo;
+    public Integer thLevel;
+    public Integer matchValue;
+    public Integer combatPower;
     public boolean exists;
   }
 }

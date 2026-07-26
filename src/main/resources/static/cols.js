@@ -24,6 +24,9 @@
     { prop: 'memberStatus', label: '在组状态', type: 'select', search: true, rule: req('请选择在组状态'),
       options: [{ label: '已加入', value: 1 }, { label: '已退出', value: 0 }], default: 1 },
     { prop: 'warStatus', label: '默认参战状态', type: 'switch', search: true, default: 1 },
+    { prop: 'thLevel', label: '大本等级', type: 'number', search: true, sortable: true },
+    { prop: 'matchValue', label: '匹配值', type: 'number', sortable: true },
+    { prop: 'combatPower', label: '战斗力', type: 'number', sortable: true },
     { prop: 'intro', label: '简介', type: 'textarea' }
   ];
   const warCols = [
@@ -145,6 +148,12 @@
     { prop: 'sort', label: '排序', type: 'number' },
     { prop: 'status', label: '状态', type: 'switch', activeText: '启用', inactiveText: '禁用' }
   ];
+  const configCols = [
+    { prop: 'id', label: 'ID', hideInForm: true, hideInTable: true },
+    { prop: 'configName', label: '配置名', search: true, rule: req('请输入配置名'), placeholder: '如 attack_score' },
+    { prop: 'configValue', label: '配置值', search: true, rule: req('请输入配置值'), placeholder: '数值或文本' },
+    { prop: 'description', label: '描述', type: 'textarea', search: true }
+  ];
 
   // 暴露到全局，供 crud-instances.js 使用
   window.COC_COLS = {
@@ -153,6 +162,7 @@
     warCols, warRecordCols,
     leagueCols, leagueClanScoreCols, leagueRecordCols, leagueSignupCols,
     groupCols, menuCols,
-    dictGroupCols, dictItemCols
+    dictGroupCols, dictItemCols,
+    configCols
   };
 })();

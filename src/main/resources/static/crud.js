@@ -20,6 +20,8 @@
           cols: opts.cols,
           keyword: '',
           filters: {},
+          sortField: '', // 当前排序列（prop 名）
+          sortOrder: '', // 'asc' | 'desc' | ''
           list: [],
           total: 0,
           page: 1,
@@ -43,7 +45,20 @@
         searchCols() { return this.cols.filter((c) => c.search); },
         tableCols() { return this.cols.filter((c) => !c.hideInTable); },
         formCols() { return this.cols.filter((c) => !c.hideInForm); },
-        isListView() { return !!opts.listMode; }
+        isListView() { return !!opts.listMode; },
+        // 各写操作对应的菜单权限标识（在 crud-instances.js 的 opts.perms 中配置）。
+        // 未配置时（perm 为空）该按钮不做权限拦截，默认可见。
+        createPerm() { return opts.perms && opts.perms.create; },
+        editPerm() { return opts.perms && opts.perms.edit; },
+        deletePerm() { return opts.perms && opts.perms.delete; },
+        // 查询/重置按钮不做控制；其它按钮按菜单里配置的权限标识控制。
+        canCreate() { return !this.createPerm || COC.store.hasPerm(this.createPerm); },
+        canEdit() { return !this.editPerm || COC.store.hasPerm(this.editPerm); },
+        canDelete() { return !this.deletePerm || COC.store.hasPerm(this.deletePerm); },
+        // 经过权限过滤后可见的额外按钮（每个 extraButton 可带 perm 字段）
+        visibleExtraButtons() {
+          return (opts.extraButtons || []).filter((b) => !b.perm || COC.store.hasPerm(b.perm));
+        }
       },
       async mounted() {
         await this.loadDicts();
@@ -121,6 +136,10 @@
                 this.filters,
                 this.preset
               );
+              if (this.sortField) {
+                params2.sortField = this.sortField;
+                params2.sortOrder = this.sortOrder || 'asc';
+              }
               var r2 = await COC.api.page(this.baseUrl, clean(params2));
               this.list = r2.records || [];
               this.total = r2.total || 0;
@@ -130,7 +149,14 @@
           }
         },
         onSearch() { this.page = 1; this.load(); },
-        onReset() { this.keyword = ''; this.filters = {}; this.page = 1; this.load(); },
+        onReset() { this.keyword = ''; this.filters = {}; this.sortField = ''; this.sortOrder = ''; this.page = 1; this.load(); },
+        /** 表头排序变化（仅 sortable:'custom' 列触发）：向分页接口传递排序参数 */
+        onSortChange({ prop, order }) {
+          this.sortField = order ? prop : '';
+          this.sortOrder = order === 'descending' ? 'desc' : 'asc';
+          this.page = 1;
+          this.load();
+        },
         optionsFor(c) {
           if (typeof c.options === 'function') return c.options() || [];
           if (c.options) return c.options;
@@ -259,15 +285,15 @@
           <el-form-item>
             <el-button type="primary" @click="onSearch">查询</el-button>
             <el-button @click="onReset">重置</el-button>
-            <el-button type="success" @click="openCreate">新增</el-button>
-            <el-button v-for="b in extraButtons" :key="b.click" :type="b.type||'default'" @click="this[b.click]()">{{ b.text }}</el-button>
+            <el-button v-if="canCreate" type="success" @click="openCreate">新增</el-button>
+            <el-button v-for="b in visibleExtraButtons" :key="b.click" :type="b.type||'default'" @click="this[b.click]()">{{ b.text }}</el-button>
           </el-form-item>
         </el-form>
 
-        <el-table :data="list" v-loading="loading" border stripe style="width:100%">
+        <el-table :data="list" v-loading="loading" border stripe style="width:100%" @sort-change="onSortChange">
           <el-table-column type="index" label="#" width="50" />
           <template v-for="c in tableCols" :key="c.prop">
-            <el-table-column :prop="c.prop" :label="c.label" :width="c.width" :min-width="c.minWidth">
+            <el-table-column :prop="c.prop" :label="c.label" :width="c.width" :min-width="c.minWidth" :sortable="c.sortable ? 'custom' : undefined">
               <template #default="{ row }" v-if="c.type==='switch'">
                 <el-tag :type="row[c.prop]==1 ? 'success' : 'info'">
                   {{ row[c.prop]==1 ? (c.activeText||'是') : (c.inactiveText||'否') }}
@@ -287,8 +313,11 @@
           </template>
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="remove(row)">删除</el-button>
+              <template v-if="canEdit || canDelete">
+                <el-button v-if="canEdit" link type="primary" @click="openEdit(row)">编辑</el-button>
+                <el-button v-if="canDelete" link type="danger" @click="remove(row)">删除</el-button>
+              </template>
+              <span v-else>-</span>
             </template>
           </el-table-column>
         </el-table>
@@ -546,7 +575,7 @@
           <div class="coc-mt-toolbar">
             <el-input v-model="keyword" placeholder="按名称 / 路径 / 权限搜索" clearable
               style="width:280px;" />
-            <el-button type="primary" @click="openCreate(null)" style="margin-left:12px;">新增顶级菜单</el-button>
+            <el-button v-if="COC.store.hasPerm('sys:menu:add')" type="primary" @click="openCreate(null)" style="margin-left:12px;">新增顶级菜单</el-button>
             <el-button @click="loadTree" style="margin-left:8px;">刷新</el-button>
             <span class="coc-mt-tip">共 {{ treeData.length }} 个根菜单，关键字过滤时父链自动保留</span>
           </div>
@@ -567,9 +596,9 @@
                     <span v-if="data.permission" class="coc-mt-perm">@{{ data.permission }}</span>
                   </span>
                   <span class="coc-mt-actions">
-                    <el-button link size="small" type="primary" @click.stop="openCreate(data.id)">新增子菜单</el-button>
-                    <el-button link size="small" type="primary" @click.stop="openEdit(data)">编辑</el-button>
-                    <el-button link size="small" type="danger" @click.stop="onDelete(data)">删除</el-button>
+                    <el-button v-if="COC.store.hasPerm('sys:menu:add')" link size="small" type="primary" @click.stop="openCreate(data.id)">新增子菜单</el-button>
+                    <el-button v-if="COC.store.hasPerm('sys:menu:edit')" link size="small" type="primary" @click.stop="openEdit(data)">编辑</el-button>
+                    <el-button v-if="COC.store.hasPerm('sys:menu:delete')" link size="small" type="danger" @click.stop="onDelete(data)">删除</el-button>
                   </span>
                 </span>
               </template>

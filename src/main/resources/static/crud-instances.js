@@ -5,9 +5,10 @@
 (function () {
   const { clanCols, memberCols, warCols, warRecordCols,
     leagueCols, leagueClanScoreCols, leagueRecordCols, leagueSignupCols,
-    groupCols, menuCols, dictGroupCols, dictItemCols } = window.COC_COLS;
+    groupCols, menuCols, dictGroupCols, dictItemCols, configCols } = window.COC_COLS;
 
-  const clanCrud = createCrud({ name: 'ClanCrud', baseUrl: '/api/clan', cols: clanCols });
+  const clanCrud = createCrud({ name: 'ClanCrud', baseUrl: '/api/clan', cols: clanCols,
+    perms: { create: 'clan:add', edit: 'clan:edit', delete: 'clan:delete' } });
   // 部落新增：groupNo 自动从当前登录用户取（群主/部落管理员有 groupNo）；
   // 若为空（如超级管理员直接新增），提示需成为群主或部落管理员。
   const _clanOpenCreate = clanCrud.methods.openCreate;
@@ -28,7 +29,7 @@
   <el-dialog v-model="importDialogVisible" title="导入部落成员" width="720px" @closed="onImportClosed">
     <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px"
       title="导入说明"
-      description="选择部落并上传 Excel（含“名称”“编号”两列），按成员名称查重，已存在的成员自动跳过。" />
+      description="选择部落并上传 Excel（含“名称”“编号”“大本等级”“匹配值”“战斗力”五列，后四列均可留空），按成员名称查重，已存在的成员自动跳过。" />
 
     <el-form label-width="72px" style="margin-bottom:12px">
       <el-form-item label="部落" required>
@@ -62,6 +63,21 @@
           </template>
         </el-table-column>
         <el-table-column prop="memberNo" label="编号" min-width="120" />
+        <el-table-column label="大本等级" min-width="110">
+          <template #default="scope">
+            <el-input v-model.number="scope.row.thLevel" type="number" size="small" placeholder="可空" />
+          </template>
+        </el-table-column>
+        <el-table-column label="匹配值" min-width="110">
+          <template #default="scope">
+            <el-input v-model.number="scope.row.matchValue" type="number" size="small" placeholder="可空" />
+          </template>
+        </el-table-column>
+        <el-table-column label="战斗力" min-width="110">
+          <template #default="scope">
+            <el-input v-model.number="scope.row.combatPower" type="number" size="small" placeholder="可空" />
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="104">
           <template #default="scope">
             <el-tag v-if="scope.row.exists" type="info" size="small">已存在·跳过</el-tag>
@@ -85,14 +101,58 @@
   </el-dialog>
 </div>`;
 
+  // 一键计算战斗力弹窗模板：选择部落 → 配置公式 → 计算并保存
+  const CLAN_MEMBER_CALC_DIALOG_TEMPLATE = `
+<el-dialog v-model="calcDialogVisible" title="一键计算战斗力" width="620px" :close-on-click-modal="false">
+  <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px"
+    title="说明"
+    description="总分数为 10000，请配置各项得分分配（四项之和建议为 10000）。点击计算后，将按下方公式算出所选部落每个成员的战斗力并保存到数据库。" />
+
+  <div class="calc-formula-box">
+    <div class="calc-formula-title">计算逻辑（按成员分别统计）</div>
+    <div class="calc-formula-row"><span class="calc-formula-k">进攻概率</span> = 实际进攻总次数 ÷ 应进攻总次数<span class="calc-formula-note">（查联赛成员战绩表）</span></div>
+    <div class="calc-formula-row"><span class="calc-formula-k">参赛概率</span> = 应进攻次数&gt;0 的战绩条数 ÷ 战绩总条数（参赛次数）</div>
+    <div class="calc-formula-row"><span class="calc-formula-k">三星概率</span> = 总星数 ÷（总应进攻次数 × 3）<span class="calc-formula-note">（每次进攻最多 3 星，归一到 0~1）</span></div>
+    <div class="calc-formula-row"><span class="calc-formula-k">防御概率</span> = 大本等级 ÷ 最高大本等级 × 50% + 匹配值 ÷ 最高匹配值 × 50%</div>
+    <div class="calc-formula-row calc-formula-result"><span class="calc-formula-k">战斗力</span> = 进攻概率 × 进攻得分 + 参赛概率 × 参赛得分 + 三星概率 × 三星得分 + 防御概率 × 防御得分<span class="calc-formula-note">（结果取整）</span></div>
+    <div class="calc-formula-ref">参考配置：最高大本等级 = {{ calcInfo.maxThLevel }}，最高匹配值 = {{ calcInfo.maxMatchValue }}</div>
+  </div>
+
+  <el-form label-width="120px" style="margin-top:12px">
+    <el-form-item label="部落" required>
+      <el-select v-model="calcClanNo" filterable clearable placeholder="请选择部落" style="width:100%">
+        <el-option v-for="o in (remoteOptions.clanNo||[])" :key="o.value" :label="o.label" :value="o.value" />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="进攻概率得分">
+      <el-input-number v-model="calcScores.attackScore" :min="0" :step="100" style="width:100%" />
+    </el-form-item>
+    <el-form-item label="参赛概率得分">
+      <el-input-number v-model="calcScores.participateScore" :min="0" :step="100" style="width:100%" />
+    </el-form-item>
+    <el-form-item label="三星概率得分">
+      <el-input-number v-model="calcScores.threeStarScore" :min="0" :step="100" style="width:100%" />
+    </el-form-item>
+    <el-form-item label="防御概率得分">
+      <el-input-number v-model="calcScores.defenseScore" :min="0" :step="100" style="width:100%" />
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="calcDialogVisible=false">取消</el-button>
+    <el-button type="primary" :loading="calcLoading" @click="doCalcCombat">计算</el-button>
+  </template>
+</el-dialog>`;
+
   const memberCrud = createCrud({
     name: 'MemberCrud',
     baseUrl: '/api/clan/member',
     cols: memberCols,
+    perms: { create: 'clan:member:add', edit: 'clan:member:edit', delete: 'clan:member:delete' },
     extraButtons: [
-      { text: '导入成员', type: 'primary', click: 'openImport' }
+      { text: '导入成员', type: 'primary', click: 'openImport', perm: 'clan:member:import' },
+      { text: '一键计算战斗力', type: 'warning', click: 'openCalcCombat', perm: 'clan:member:calc' }
     ],
-    extraTemplate: CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE
+    extraTemplate: CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE + CLAN_MEMBER_CALC_DIALOG_TEMPLATE
   });
   // 部落成员导入弹窗所需的 data 字段（保留基类默认 data）
   var _memberOrigData = memberCrud.data;
@@ -104,6 +164,12 @@
     d.previewList = [];
     d.previewLoading = false;
     d.confirmLoading = false;
+    // 一键计算战斗力弹窗字段
+    d.calcDialogVisible = false;
+    d.calcClanNo = '';
+    d.calcScores = { attackScore: 2500, participateScore: 2500, threeStarScore: 2500, defenseScore: 2500 };
+    d.calcInfo = { maxThLevel: 17, maxMatchValue: 0 };
+    d.calcLoading = false;
     return d;
   };
 
@@ -203,12 +269,17 @@
       var res = await COC.api.clanMemberImportConfirm({
         clanNo: this.importClanNo,
         records: this.previewList.map(function (r) {
-          return { memberName: r.memberName, memberNo: r.memberNo };
+          var rec = { memberName: r.memberName, memberNo: r.memberNo };
+          if (r.thLevel !== '' && r.thLevel !== null && r.thLevel !== undefined) rec.thLevel = r.thLevel;
+          if (r.matchValue !== '' && r.matchValue !== null && r.matchValue !== undefined) rec.matchValue = r.matchValue;
+          if (r.combatPower !== '' && r.combatPower !== null && r.combatPower !== undefined) rec.combatPower = r.combatPower;
+          return rec;
         })
       });
       var inserted = (res && res.inserted) || 0;
       var skipped = (res && res.skipped) || 0;
-      ElementPlus.ElMessage.success('导入完成：新增 ' + inserted + ' 条' + (skipped ? '，跳过 ' + skipped + ' 条' : ''));
+      var updated = (res && res.updated) || 0;
+      ElementPlus.ElMessage.success('导入完成：新增 ' + inserted + ' 条' + (updated ? '，更新 ' + updated + ' 条' : '') + (skipped ? '，跳过 ' + skipped + ' 条' : ''));
       this.importDialogVisible = false;
       this.load();
     } catch (e) {
@@ -218,10 +289,63 @@
     }
   };
 
-  const warCrud = createCrud({ name: 'WarCrud', baseUrl: '/api/war', cols: warCols });
-  const warRecordCrud = createCrud({ name: 'WarRecordCrud', baseUrl: '/api/war/record', cols: warRecordCols });
-  const leagueCrud = createCrud({ name: 'LeagueCrud', baseUrl: '/api/league', cols: leagueCols });
-  const leagueClanScoreCrud = createCrud({ name: 'LeagueClanScoreCrud', baseUrl: '/api/league/score', cols: leagueClanScoreCols });
+  // 一键计算战斗力：弹窗选部落 + 配置公式（得分分配从系统配置表读取默认值）
+  memberCrud.methods.openCalcCombat = async function () {
+    this.calcClanNo = (this.filters && this.filters.clanNo) || '';
+    this.calcScores = { attackScore: 2500, participateScore: 2500, threeStarScore: 2500, defenseScore: 2500 };
+    this.calcInfo = { maxThLevel: 17, maxMatchValue: 0 };
+    this.calcDialogVisible = true;
+    try {
+      var c = await COC.api.combatPowerConfig();
+      if (c) {
+        this.calcScores = {
+          attackScore: c.attackScore != null ? c.attackScore : 2500,
+          participateScore: c.participateScore != null ? c.participateScore : 2500,
+          threeStarScore: c.threeStarScore != null ? c.threeStarScore : 2500,
+          defenseScore: c.defenseScore != null ? c.defenseScore : 2500
+        };
+        this.calcInfo = {
+          maxThLevel: c.maxThLevel != null ? c.maxThLevel : 17,
+          maxMatchValue: c.maxMatchValue != null ? c.maxMatchValue : 0
+        };
+      }
+    } catch (e) { /* 使用默认值即可 */ }
+  };
+
+  // 计算并保存到数据库，关闭弹窗后刷新列表
+  memberCrud.methods.doCalcCombat = async function () {
+    if (!this.calcClanNo) {
+      ElementPlus.ElMessage.warning('请选择部落');
+      return;
+    }
+    this.calcLoading = true;
+    try {
+      var res = await COC.api.combatPowerCalculate({
+        clanNo: this.calcClanNo,
+        attackScore: Number(this.calcScores.attackScore),
+        participateScore: Number(this.calcScores.participateScore),
+        threeStarScore: Number(this.calcScores.threeStarScore),
+        defenseScore: Number(this.calcScores.defenseScore)
+      });
+      var updated = (res && res.updated) || 0;
+      ElementPlus.ElMessage.success('计算完成，已更新 ' + updated + ' 名成员');
+      this.calcDialogVisible = false;
+      await this.load();
+    } catch (e) {
+      ElementPlus.ElMessage.error('计算失败：' + ((e && e.response && e.response.data && e.response.data.message) || (e && e.message) || ''));
+    } finally {
+      this.calcLoading = false;
+    }
+  };
+
+  const warCrud = createCrud({ name: 'WarCrud', baseUrl: '/api/war', cols: warCols,
+    perms: { create: 'war:add', edit: 'war:edit', delete: 'war:delete' } });
+  const warRecordCrud = createCrud({ name: 'WarRecordCrud', baseUrl: '/api/war/record', cols: warRecordCols,
+    perms: { create: 'war:record:add', edit: 'war:record:edit', delete: 'war:record:delete' } });
+  const leagueCrud = createCrud({ name: 'LeagueCrud', baseUrl: '/api/league', cols: leagueCols,
+    perms: { create: 'league:add', edit: 'league:edit', delete: 'league:delete' } });
+  const leagueClanScoreCrud = createCrud({ name: 'LeagueClanScoreCrud', baseUrl: '/api/league/score', cols: leagueClanScoreCols,
+    perms: { create: 'league:score:add', edit: 'league:score:edit', delete: 'league:score:delete' } });
   // 联赛新增：自动填入联赛名称和编号
   // leagueName 格式 "yyyy年M月联赛"，leagueNo 格式 "yyyyMMdd"
   // 日期规则：
@@ -390,8 +514,9 @@
     name: 'LeagueRecordCrud',
     baseUrl: '/api/league/record',
     cols: leagueRecordCols,
+    perms: { create: 'league:record:add', edit: 'league:record:edit', delete: 'league:record:delete' },
     extraButtons: [
-      { text: '导入', type: 'primary', click: 'openImport' }
+      { text: '导入', type: 'primary', click: 'openImport', perm: 'league:record:import' }
     ],
     extraTemplate: IMPORT_DIALOG_TEMPLATE
   });
@@ -650,8 +775,9 @@
     name: 'LeagueSignupCrud',
     baseUrl: '/api/league/signup',
     cols: leagueSignupCols,
+    perms: { create: 'league:signup:add', edit: 'league:signup:edit', delete: 'league:signup:delete' },
     extraButtons: [
-      { text: '一键初始化报名', type: 'warning', click: 'initSignup' }
+      { text: '一键初始化报名', type: 'warning', click: 'initSignup', perm: 'league:signup:init' }
     ]
   });
   // 首次加载时自动选最新联赛（id 最大 = 最新），设入搜索栏后查询该联赛报名数据
@@ -711,11 +837,16 @@
       this.initLoading = false;
     }
   };
-  const groupCrud = createCrud({ name: 'GroupCrud', baseUrl: '/api/clan/group', cols: groupCols });
+  const groupCrud = createCrud({ name: 'GroupCrud', baseUrl: '/api/clan/group', cols: groupCols,
+    perms: { create: 'group:add', edit: 'group:edit', delete: 'group:delete' } });
   // 菜单管理：使用专用树视图组件（替代通用 CRUD 列表），更适合层级数据维护。
   const menuTree = window.createMenuTree();
-  const dictGroupCrud = createCrud({ name: 'DictGroupCrud', baseUrl: '/api/dict/group', cols: dictGroupCols });
-  const dictItemCrud = createCrud({ name: 'DictItemCrud', baseUrl: '/api/dict/item', cols: dictItemCols });
+  const dictGroupCrud = createCrud({ name: 'DictGroupCrud', baseUrl: '/api/dict/group', cols: dictGroupCols,
+    perms: { create: 'sys:dict:add', edit: 'sys:dict:edit', delete: 'sys:dict:delete' } });
+  const dictItemCrud = createCrud({ name: 'DictItemCrud', baseUrl: '/api/dict/item', cols: dictItemCols,
+    perms: { create: 'sys:dict:add', edit: 'sys:dict:edit', delete: 'sys:dict:delete' } });
+  const configCrud = createCrud({ name: 'ConfigCrud', baseUrl: '/api/sys/config', cols: configCols,
+    perms: { create: 'sys:config:add', edit: 'sys:config:edit', delete: 'sys:config:delete' } });
 
   // 暴露到全局，供 app.js 使用
   window.COC_CRUD = {
@@ -723,6 +854,7 @@
     warCrud, warRecordCrud,
     leagueCrud, leagueClanScoreCrud, leagueRecordCrud, leagueSignupCrud,
     groupCrud, menuTree,
-    dictGroupCrud, dictItemCrud
+    dictGroupCrud, dictItemCrud,
+    configCrud
   };
 })();
