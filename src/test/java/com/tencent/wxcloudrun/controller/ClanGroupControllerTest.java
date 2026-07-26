@@ -27,6 +27,7 @@ import static org.mockito.Mockito.*;
  * ClanGroupController 单元测试：
  * 聚焦群主绑定/解绑逻辑（create/update 中同步更新 sys_user + sys_user_role）。
  */
+@SuppressWarnings("unchecked")
 @DisplayName("群组控制器测试 - 群主绑定/解绑")
 @ExtendWith(MockitoExtension.class)
 class ClanGroupControllerTest {

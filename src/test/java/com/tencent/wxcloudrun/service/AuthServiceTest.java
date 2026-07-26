@@ -37,6 +37,7 @@ import static org.mockito.Mockito.*;
  * AuthService 单元测试：使用 Mockito Mock 所有 Mapper 依赖，
  * 不启动 Spring 上下文，不依赖数据库。
  */
+@SuppressWarnings("unchecked")
 @DisplayName("认证服务测试")
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -430,7 +431,6 @@ class AuthServiceTest {
         .thenReturn(Arrays.asList(mLeague, mSystem, mDashboard)); // 故意反序返回
 
     Map<String, Object> result = authService.info(current);
-    @SuppressWarnings("unchecked")
     List<MenuNode> menus = (List<MenuNode>) result.get("menus");
 
     assertNotNull(menus);
@@ -510,7 +510,6 @@ class AuthServiceTest {
         .thenReturn(Arrays.asList(pSystem, cUser, cClanGroup)); // 故意反序
 
     Map<String, Object> result = authService.info(current);
-    @SuppressWarnings("unchecked")
     List<MenuNode> menus = (List<MenuNode>) result.get("menus");
 
     assertEquals(1, menus.size());
@@ -568,7 +567,6 @@ class AuthServiceTest {
         .thenReturn(Collections.singletonList(m));
 
     Map<String, Object> result = authService.info(current);
-    @SuppressWarnings("unchecked")
     List<MenuNode> menus = (List<MenuNode>) result.get("menus");
 
     assertEquals(1, menus.size());
@@ -632,7 +630,6 @@ class AuthServiceTest {
         .thenReturn(Arrays.asList(mNoSort, mWithSort)); // 乱序返回
 
     Map<String, Object> result = authService.info(current);
-    @SuppressWarnings("unchecked")
     List<MenuNode> menus = (List<MenuNode>) result.get("menus");
 
     assertEquals(2, menus.size());

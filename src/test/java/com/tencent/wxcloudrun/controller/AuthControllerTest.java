@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - 使用 MockMvcBuilders.standaloneSetup() 直接挂载 Controller + Mock 依赖
  * - 聚焦 Controller 层的请求参数解析与响应封装逻辑
  */
+@SuppressWarnings("null")
 @DisplayName("认证接口测试")
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -105,6 +106,7 @@ class AuthControllerTest {
     verify(authService, never()).login(any(), any());
   }
 
+
   @Test
   @DisplayName("登录失败 - 服务层抛异常（用户不存在）")
   void login_serviceThrows() throws Exception {
@@ -125,6 +127,7 @@ class AuthControllerTest {
   }
 
   // ==================== POST /api/auth/register ====================
+
 
   @Test
   @DisplayName("注册成功 - 返回 code=0")
@@ -178,6 +181,7 @@ class AuthControllerTest {
   }
 
   // ==================== POST /api/auth/assign-role ====================
+
 
   @Test
   @DisplayName("分配角色 - 成功")

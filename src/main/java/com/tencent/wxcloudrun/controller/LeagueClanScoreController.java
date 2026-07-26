@@ -56,6 +56,7 @@ public class LeagueClanScoreController extends BaseCrudController<LeagueClanScor
    * 重写分页：支持按 leagueNo、clanNo、promoteStatus 字段精确筛选。
    * 前端 createCrud 的搜索栏会传 filters.leagueNo / filters.clanNo / filters.promoteStatus。
    */
+  @SuppressWarnings("null")
   @Override
   @GetMapping("/page")
   public ApiResponse page(

@@ -13,8 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * StreamUtils 单元测试：验证 null-safe 集合映射工具。
  */
+@SuppressWarnings("null")
 @DisplayName("Stream 工具类测试")
 class StreamUtilsTest {
+
 
   @Test
   @DisplayName("mapNonNull - 正常映射")

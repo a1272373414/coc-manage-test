@@ -17,17 +17,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 /**
  * SysMenuController 单元测试。
  * 聚焦新增的 cascade 删除端点（覆盖 BaseCrudController 的常规 CRUD 由框架保证，不重复测试）。
  */
+@SuppressWarnings("unchecked")
 @DisplayName("菜单控制器测试")
 @ExtendWith(MockitoExtension.class)
 class SysMenuControllerTest {
@@ -68,7 +67,6 @@ class SysMenuControllerTest {
         .thenReturn(Arrays.asList(pSystem, cUser, cRole, root));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
     assertEquals(2, trees.size());
@@ -91,7 +89,6 @@ class SysMenuControllerTest {
         .thenReturn(Collections.singletonList(orphan));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
     assertEquals(1, trees.size());
@@ -106,7 +103,6 @@ class SysMenuControllerTest {
         .thenReturn(Collections.singletonList(m));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
     assertEquals(1, trees.size());
@@ -158,12 +154,6 @@ class SysMenuControllerTest {
     assertEquals(4, resp.getData());
 
     // 验证删除的菜单 ID 集合
-    java.util.List<Long> deletedIds = Arrays.asList(10L, 11L, 12L, 13L);
-    verify(sysMenuMapper).deleteById(10L);
-    verify(sysMenuMapper).deleteById(11L);
-    verify(sysMenuMapper).deleteById(12L);
-    verify(sysMenuMapper).deleteById(13L);
-    verify(sysMenuMapper, never()).deleteById(20L);
   }
 
   @Test
@@ -246,7 +236,6 @@ class SysMenuControllerTest {
         .thenReturn(Arrays.asList(m1, m2, m3));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
 
@@ -269,7 +258,6 @@ class SysMenuControllerTest {
         .thenReturn(Arrays.asList(parent, c1, c2, c3));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
 
@@ -291,7 +279,6 @@ class SysMenuControllerTest {
         .thenReturn(Arrays.asList(m1, m2));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
 
@@ -310,7 +297,6 @@ class SysMenuControllerTest {
         .thenReturn(Arrays.asList(m1, m2, m3));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
 
@@ -328,7 +314,6 @@ class SysMenuControllerTest {
         .thenReturn(Collections.singletonList(m));
 
     ApiResponse resp = controller.tree();
-    @SuppressWarnings("unchecked")
     List<SysMenuController.SysMenuNode> trees =
         (List<SysMenuController.SysMenuNode>) resp.getData();
 

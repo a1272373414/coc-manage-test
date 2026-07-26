@@ -48,6 +48,7 @@ public class LeagueRecordController extends BaseCrudController<LeagueRecord> {
   /**
    * 重写分页：支持按联赛、部落精确筛选，并返回联赛/部落名称用于展示。
    */
+  @SuppressWarnings("null")
   @Override
   @GetMapping("/page")
   public ApiResponse page(
