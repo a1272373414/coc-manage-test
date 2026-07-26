@@ -107,6 +107,7 @@ describe("UserManage - 用户管理组件", function () {
       path.resolve(
         __dirname,
         "..",
+        "..",
         "src",
         "main",
         "resources",
@@ -117,13 +118,13 @@ describe("UserManage - 用户管理组件", function () {
     );
 
     test("openCreate 中 password 默认为 123456", function () {
-      expect(appSrc).toContain("password: '123456'");
+      expect(appSrc).toMatch(/password:\s*["']123456["']/);
     });
 
     test("openEdit 中 password 默认为空字符串", function () {
       // openEdit 用 Object.assign({}, row, { password: '' })
       expect(appSrc).toMatch(
-        /Object\.assign\(\{\},\s*row,\s*\{\s*password:\s*''\s*\}\)/,
+        /Object\.assign\(\{\},\s*row,\s*\{\s*password:\s*["']{2}\s*\}\)/,
       );
     });
 
@@ -158,6 +159,7 @@ describe("UserManage - 用户管理组件", function () {
     var appSrc = fs.readFileSync(
       path.resolve(
         __dirname,
+        "..",
         "..",
         "src",
         "main",

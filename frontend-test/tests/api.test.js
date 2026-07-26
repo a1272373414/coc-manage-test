@@ -40,10 +40,14 @@ describe("api.js - 前端接口层", function () {
       expect(COC.store.permissions).toContain("clan:edit");
     });
 
-    test("hasPerm - 超级管理员拥有所有权限", function () {
+    test("hasPerm - 超级管理员同样按角色绑定权限判断（未绑定则返回 false）", function () {
+      // 设计说明：超级管理员的权限来自其角色所绑定的菜单，未绑定时同样不可见对应业务按钮
       COC.store.user = { superAdmin: true, permissions: [] };
+      expect(COC.store.hasPerm("system:manage")).toBe(false);
+      expect(COC.store.hasPerm("anything")).toBe(false);
+      // 角色绑定了对应权限后，超级管理员同样拥有该权限
+      COC.store.user = { superAdmin: true, permissions: ["system:manage"] };
       expect(COC.store.hasPerm("system:manage")).toBe(true);
-      expect(COC.store.hasPerm("anything")).toBe(true);
     });
 
     test("hasPerm - 普通用户仅拥有已授权的权限", function () {

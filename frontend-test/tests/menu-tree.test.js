@@ -300,7 +300,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result).toBe(ctx.treeData); // O(1) 引用保持一致
       expect(result.length).toBe(3);
     });
@@ -310,7 +310,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "用户";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       // 应该只保留顶级"系统管理"和它的子"用户管理"（角色被过滤掉）
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(10); // 系统管理（被保留）
@@ -323,7 +323,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "signup"; // 匹配 /league/signup
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(20); // 联赛管理（父链）
       expect(result[0].children[0].id).toBe(21); // 报名管理
@@ -334,7 +334,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "role:list"; // 权限标识匹配
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(10);
       expect(result[0].children[0].id).toBe(12); // 角色管理
@@ -345,7 +345,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "不存在的关键字";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result.length).toBe(0);
     });
 
@@ -354,7 +354,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "DASHBOARD";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(30);
     });
@@ -364,7 +364,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = buildTree();
       ctx.keyword = "   ";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result).toBe(ctx.treeData);
       expect(result.length).toBe(3);
     });
@@ -375,7 +375,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ctx.treeData = original;
       ctx.keyword = "用户";
 
-      ctx.filteredData;
+      comp.computed.filteredData.call(ctx);
 
       // 原数组未变
       expect(original[0].children.length).toBe(2);
@@ -415,7 +415,7 @@ describe("MenuTree - 菜单树视图工厂", function () {
       ];
       ctx.keyword = "用户列表";
 
-      var result = ctx.filteredData;
+      var result = comp.computed.filteredData.call(ctx);
       expect(result.length).toBe(1);
       expect(result[0].id).toBe(1); // 系统管理
       expect(result[0].children[0].id).toBe(2); // 权限管理

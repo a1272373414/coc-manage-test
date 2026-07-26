@@ -207,20 +207,20 @@ describe("cols.js - 列配置", function () {
 
   describe("leagueCols - 联赛列", function () {
     test("升降级为 select 类型并有选项", function () {
-      var col = COC_COLS.leagueCols.find(function (c) {
+      var col = COC_COLS.leagueClanScoreCols.find(function (c) {
         return c.prop === "promoteStatus";
       });
       expect(col.type).toBe("select");
       expect(col.options).toEqual([
         { label: "无", value: 0 },
-        { label: "晋升", value: 1 },
+        { label: "晋级", value: 1 },
         { label: "降级", value: 2 },
       ]);
       expect(col.default).toBe(0);
     });
 
     test("联赛段位为字典下拉（dictCode=league_tier）", function () {
-      var col = COC_COLS.leagueCols.find(function (c) {
+      var col = COC_COLS.leagueClanScoreCols.find(function (c) {
         return c.prop === "tier";
       });
       expect(col.label).toBe("联赛段位");
@@ -229,7 +229,7 @@ describe("cols.js - 列配置", function () {
     });
 
     test("联赛段位为搜索筛选字段", function () {
-      var col = COC_COLS.leagueCols.find(function (c) {
+      var col = COC_COLS.leagueClanScoreCols.find(function (c) {
         return c.prop === "tier";
       });
       expect(col.search).toBe(true);

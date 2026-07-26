@@ -155,6 +155,7 @@ describe("ClanCrud - 部落群组编号自动填充", function () {
         path.resolve(
           __dirname,
           "..",
+          "..",
           "src",
           "main",
           "resources",
@@ -167,14 +168,14 @@ describe("ClanCrud - 部落群组编号自动填充", function () {
 
     test("cols.js 中 clanCols 包含 groupNo 列", function () {
       var src = readSrc("cols.js");
-      expect(src).toContain("prop: 'groupNo'");
-      expect(src).toContain("label: '群组编号'");
+      expect(src).toMatch(/prop:\s*["']groupNo["']/);
+      expect(src).toMatch(/label:\s*["']群组编号["']/);
     });
 
     test("cols.js 中 groupNo 设置了 disabled: true", function () {
       var src = readSrc("cols.js");
       // 验证 groupNo 行包含 disabled: true
-      expect(src).toMatch(/prop:\s*'groupNo'[^}]*disabled:\s*true/);
+      expect(src).toMatch(/prop:\s*["']groupNo["'][^}]*disabled:\s*true/);
     });
 
     test("crud-instances.js 覆盖了 clanCrud 的 openCreate", function () {

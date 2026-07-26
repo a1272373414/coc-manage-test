@@ -488,6 +488,18 @@
    *   - 类型标签：目录=success, 菜单=primary, 按钮=info
    */
   window.createMenuTree = function () {
+    /** 创建空的菜单表单对象：parentId=null 表示顶级菜单 */
+    const makeEmptyForm = (parentId) => ({
+      id: null,
+      parentId: parentId == null ? 0 : parentId,
+      menuName: "",
+      menuType: parentId == null ? 0 : 1,
+      path: "",
+      component: "",
+      icon: "",
+      permission: "",
+      sort: 0,
+    });
     return {
       name: "MenuTree",
       data() {
@@ -498,7 +510,7 @@
           dialogVisible: false,
           dialogTitle: "新增菜单",
           saving: false,
-          form: this.makeEmptyForm(null),
+          form: makeEmptyForm(null),
           treeProps: {
             children: "children",
             label: (data, node) => data.menuName || "（未命名）",
@@ -535,20 +547,7 @@
         },
       },
       methods: {
-        /** 创建空的菜单表单对象：parentId=null 表示顶级菜单 */
-        makeEmptyForm(parentId) {
-          return {
-            id: null,
-            parentId: parentId == null ? 0 : parentId,
-            menuName: "",
-            menuType: parentId == null ? 0 : 1,
-            path: "",
-            component: "",
-            icon: "",
-            permission: "",
-            sort: 0,
-          };
-        },
+        makeEmptyForm,
         /** 加载菜单树：调用 /api/sys/menu/tree */
         async loadTree() {
           this.loading = true;
@@ -577,7 +576,7 @@
         /** 新增：parentId 为 null/falsy 表示顶级菜单 */
         openCreate(parentId) {
           this.dialogTitle = parentId ? "新增子菜单" : "新增顶级菜单";
-          this.form = this.makeEmptyForm(parentId || null);
+          this.form = makeEmptyForm(parentId || null);
           this.dialogVisible = true;
         },
         /** 编辑：把后端节点映射为表单字段（缺失字段兜底默认） */

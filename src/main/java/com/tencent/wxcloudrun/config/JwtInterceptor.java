@@ -10,11 +10,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 鉴权拦截器： 1. 校验 JWT 令牌，解析出 AuthUser 存入 UserContext； 2. 对受保护资源（系统/字典管理）校验权限标识。 白名单由
+ * 鉴权拦截器： 1. 校验 JWT 令牌，解析出 AuthUser 存入 UserContext； 2. 规则：超级管理员仅可访问系统基本数据（用户/角色/菜单/配置/字典/认证），
+ * 业务数据接口（部落/联赛/部落战/仪表盘等）一律拒绝，即使其角色绑定了相应业务权限； 3. 对所有已登录用户（含超级管理员）按角色绑定权限校验受保护资源。 白名单由
  * WebConfig 控制，未登录访问受保护接口一律拦截。
  */
 @Component
@@ -34,6 +37,12 @@ public class JwtInterceptor implements HandlerInterceptor {
 	static {
 		GUARDED.put("/api/sys/**", RoleConstants.PERM_SYSTEM_MANAGE);
 	}
+
+	/**
+	 * 系统基本数据接口：仅这些路径允许超级管理员访问。 其余受保护接口（部落 / 联赛 / 部落战 / 仪表盘等业务数据）即使超级管理员角色绑定了相应权限也一律拒绝。
+	 */
+	private static final List<String> SYSTEM_BASIC_DATA_PATTERNS = Arrays.asList("/api/sys/**", "/api/dict/**",
+			"/api/auth/**");
 
 	@Override
 	public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -57,9 +66,15 @@ public class JwtInterceptor implements HandlerInterceptor {
 		}
 		UserContext.set(user);
 
+		// 规则：超级管理员仅可访问系统基本数据，业务数据接口一律拒绝（哪怕其角色绑定了业务权限）
+		if (user.isSuperAdmin() && !isSystemBasicData(request.getRequestURI())) {
+			write(response, ApiResponse.error(403, "超级管理员仅可访问系统基本数据，无业务数据操作权限"));
+			return false;
+		}
+
 		String required = matchRequired(request.getRequestURI(), request.getMethod());
-		// 超级管理员跳过所有权限校验
-		if (required != null && !user.isSuperAdmin() && !user.getPermissions().contains(required)) {
+		// 所有已登录用户（含超级管理员）均按角色绑定权限校验，不再对超级管理员硬编码放行
+		if (required != null && !user.getPermissions().contains(required)) {
 			write(response, ApiResponse.error(403, "无访问权限"));
 			return false;
 		}
@@ -70,6 +85,16 @@ public class JwtInterceptor implements HandlerInterceptor {
 	public void afterCompletion(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
 			@NonNull Object handler, Exception ex) {
 		UserContext.clear();
+	}
+
+	/** 是否为系统基本数据接口（超级管理员可访问）：用户/角色/菜单/配置/字典/认证 */
+	private boolean isSystemBasicData(String path) {
+		for (String pattern : SYSTEM_BASIC_DATA_PATTERNS) {
+			if (pathMatcher.match(pattern, path)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private String matchRequired(String path, String method) {
