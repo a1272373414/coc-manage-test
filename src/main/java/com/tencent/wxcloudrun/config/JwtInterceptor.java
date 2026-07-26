@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 鉴权拦截器： 1. 校验 JWT 令牌，解析出 AuthUser 存入 UserContext； 2. 规则：超级管理员仅可访问系统基本数据（用户/角色/菜单/配置/字典/认证），
- * 业务数据接口（部落/联赛/部落战/仪表盘等）一律拒绝，即使其角色绑定了相应业务权限； 3. 对所有已登录用户（含超级管理员）按角色绑定权限校验受保护资源。 白名单由
+ * 鉴权拦截器： 1. 校验 JWT 令牌，解析出 AuthUser 存入 UserContext； 2. 规则：超级管理员仅可访问系统基本数据（用户/角色/菜单/配置/字典/认证/部落群组），
+ * 业务数据接口（联赛/部落战/仪表盘等）一律拒绝，即使其角色绑定了相应业务权限； 3. 对所有已登录用户（含超级管理员）按角色绑定权限校验受保护资源。 白名单由
  * WebConfig 控制，未登录访问受保护接口一律拦截。
  */
 @Component
@@ -39,10 +39,10 @@ public class JwtInterceptor implements HandlerInterceptor {
 	}
 
 	/**
-	 * 系统基本数据接口：仅这些路径允许超级管理员访问。 其余受保护接口（部落 / 联赛 / 部落战 / 仪表盘等业务数据）即使超级管理员角色绑定了相应权限也一律拒绝。
+	 * 系统基本数据接口：仅这些路径允许超级管理员访问。 其余受保护接口（联赛 / 部落战 / 仪表盘等业务数据）即使超级管理员角色绑定了相应权限也一律拒绝。 部落群组（clan_group）为跨租户管理配置，需由超级管理员维护，故纳入此处。
 	 */
 	private static final List<String> SYSTEM_BASIC_DATA_PATTERNS = Arrays.asList("/api/sys/**", "/api/dict/**",
-			"/api/auth/**");
+			"/api/auth/**", "/api/clan/group/**");
 
 	@Override
 	public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,

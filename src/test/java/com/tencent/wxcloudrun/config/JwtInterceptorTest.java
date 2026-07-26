@@ -201,6 +201,24 @@ class JwtInterceptorTest {
 		assertNotNull(UserContext.get());
 	}
 
+	@Test
+	@DisplayName("超级管理员可维护部落群组（/api/clan/group/page 属系统基本数据）放行")
+	void superAdmin_clanGroup_allowed() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("GET", "/api/clan/group/page", user(true)), response(sw), handler());
+		assertTrue(ok);
+		assertNotNull(UserContext.get());
+	}
+
+	@Test
+	@DisplayName("超级管理员创建部落群组（/api/clan/group POST）放行")
+	void superAdmin_clanGroup_create_allowed() throws Exception {
+		StringWriter sw = new StringWriter();
+		boolean ok = interceptor.preHandle(request("POST", "/api/clan/group", user(true)), response(sw), handler());
+		assertTrue(ok);
+		assertNotNull(UserContext.get());
+	}
+
 	// ==================== 普通用户基线 ====================
 
 	@Test
