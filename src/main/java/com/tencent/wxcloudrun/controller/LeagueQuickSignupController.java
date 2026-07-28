@@ -451,8 +451,14 @@ public class LeagueQuickSignupController {
 			return ApiResponse.error("不在报名时间内");
 		}
 
-		LeagueSignup existing = leagueSignupMapper
-			.selectOne(new QueryWrapper<LeagueSignup>().eq("league_no", lg).eq("member_name", memberName));
+		// 按 (联赛 + 成员名称) 查找已存在的报名；若提供了成员编号，则进一步按编号区分同名的成员
+		QueryWrapper<LeagueSignup> qw = new QueryWrapper<LeagueSignup>()
+			.eq("league_no", lg).eq("member_name", memberName);
+		if (memberNo != null && !memberNo.isEmpty()) {
+			qw.eq("member_no", memberNo);
+		}
+		List<LeagueSignup> existingList = leagueSignupMapper.selectList(qw);
+		LeagueSignup existing = existingList.isEmpty() ? null : existingList.get(0);
 		if (existing != null) {
 			existing.setSignupStatus(signupStatus);
 			existing.setSignupTime(LocalDateTime.now());
