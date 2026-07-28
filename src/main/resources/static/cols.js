@@ -301,12 +301,13 @@
   ];
   const leagueSignupCols = [
     { prop: "id", label: "ID", hideInForm: true, hideInTable: true },
-    // 联赛：显示主值 leagueNo + 副值 leagueName（两行）
+    // 联赛：名称为主 + 编号为辅（两行）
     {
       prop: "leagueNo",
       label: "联赛",
       search: true,
       extraProp: "leagueName",
+      extraPropFirst: true,
       type: "remote-select",
       rule: req("请选择联赛编号"),
       url: "/api/league",
@@ -314,12 +315,13 @@
       valueKey: "leagueNo",
       placeholder: "请输入关键字筛选联赛",
     },
-    // 部落：显示主值 clanNo + 副值 clanName
+    // 部落：名称为主 + 编号为辅（两行）
     {
       prop: "clanNo",
       label: "部落",
       search: true,
       extraProp: "clanName",
+      extraPropFirst: true,
       type: "remote-select",
       rule: req("请选择部落编号"),
       url: "/api/clan",
@@ -339,7 +341,17 @@
       url: "/api/clan/member",
       labelKey: "memberName",
       valueKey: "memberName",
-      placeholder: "请输入关键字筛选成员",
+      placeholder: "请输入关键字筛选成员，查不到可直接手填",
+      // 下拉查不到成员时允许手填成员名
+      allowCreate: true,
+      // 选中成员时把成员编号带出到 memberNo 字段
+      extraFields: ["memberNo"],
+      fillProps: { memberNo: "memberNo" },
+    },
+    {
+      prop: "memberNo",
+      label: "成员编号",
+      hideInTable: true,
     },
     {
       prop: "signupStatus",

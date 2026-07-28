@@ -222,6 +222,14 @@
       font-weight: 600; color: var(--ink);
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
+    /* 游戏名称列：成员编号显示在名称下方，字体小一号 */
+    .qs-row .qs-name-col {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .qs-row .qs-name-no {
+      font-size: 12px; color: var(--ink-3); font-weight: 400;
+      line-height: 1.2;
+    }
     .qs-row .qs-name .qs-avatar {
       width: 26px; height: 26px; border-radius: 50%; flex: none;
       background: linear-gradient(135deg, var(--brand-2), var(--brand-deep));
@@ -468,7 +476,10 @@
           </div>
           <div class="qs-table-body">
             <div class="qs-row" v-for="r in signups" :key="r.id">
-              <div class="qs-name"><span class="qs-avatar" @click="openMemberRecords(r)">{{ avatarText(r.memberName) }}</span>{{ r.memberName }}</div>
+              <div class="qs-name-col">
+                <div class="qs-name"><span class="qs-avatar" @click="openMemberRecords(r)">{{ avatarText(r.memberName) }}</span>{{ r.memberName }}</div>
+                <div v-if="r.memberNo" class="qs-name-no">{{ memberNoView(r.memberNo) }}</div>
+              </div>
               <div><span class="qs-status-tag" :class="'qs-status-' + (r.signupStatus || 1)">{{ statusLabel(r.signupStatus) }}</span></div>
               <div>{{ r.combatPower != null ? r.combatPower : '-' }}</div>
               <div>{{ r.thLevel != null ? r.thLevel : '-' }}</div>
@@ -508,7 +519,7 @@
             <template #default="{ item }">
               <div class="qs-member-opt">
                 <span class="qs-member-name">{{ item.memberName }}</span>
-                <span v-if="item.memberNo" class="qs-member-no">#{{ item.memberNo }}</span>
+                <span v-if="item.memberNo" class="qs-member-no">{{ memberNoView(item.memberNo) }}</span>
               </div>
             </template>
           </el-autocomplete>
@@ -548,7 +559,7 @@
               <span class="mr-header-sub">最近 5 场联赛战绩</span>
             </div>
             <div class="mr-header-meta">
-              <span v-if="histForm.memberNo" class="mr-header-no">#{{ histForm.memberNo }}</span>
+              <span v-if="histForm.memberNo" class="mr-header-no">{{ memberNoView(histForm.memberNo) }}</span>
             </div>
           </div>
         </div>
@@ -665,6 +676,11 @@
           function avatarText(name) {
             if (!name) return '?';
             return String(name).trim().charAt(0).toUpperCase();
+          }
+          // 游戏编号规范化：COC 编号形如 #ABC123，存储时可能已带或漏带前导 #，统一去掉已有 # 再补一个，避免出现 ##
+          function memberNoView(no) {
+            if (!no) return '';
+            return '#' + String(no).replace(/^#+/, '');
           }
           function leagueLabel(l) {
             if (!l) return '';
@@ -970,7 +986,7 @@
             groupNo, clans, activeClanNo, signups, leagues, selectedLeagueNo,
             loadingClans, loadingLeagues, loadingSignups, loadError,
             dialogVisible, submitting, form, loginUser, accessDenied, inSignupWindow, selectedLeague, fmtTime, isOwner,
-            statusStats, statusLabel, avatarText, leagueLabel, formatTime,
+            statusStats, statusLabel, avatarText, leagueLabel, formatTime, memberNoView,
             memberRecordsVisible, memberRecordsLoading, memberRecords, histForm, openMemberRecords, loadMemberRecords,
             selectClan, onLeagueChange, openSignupDialog, submitSignup,
             setSignupStatus,

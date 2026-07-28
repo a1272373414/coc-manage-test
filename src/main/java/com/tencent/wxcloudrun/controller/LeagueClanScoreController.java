@@ -53,8 +53,8 @@ public class LeagueClanScoreController extends BaseCrudController<LeagueClanScor
 	}
 
 	/**
-	 * 重写分页：支持按 leagueNo、clanNo、promoteStatus 字段精确筛选。 前端 createCrud 的搜索栏会传
-	 * filters.leagueNo / filters.clanNo / filters.promoteStatus。
+	 * 重写分页：支持按 leagueNo、clanNo、promoteStatus、tier 字段精确筛选。 前端 createCrud 的搜索栏会传
+	 * filters.leagueNo / filters.clanNo / filters.promoteStatus / filters.tier。
 	 */
 	@SuppressWarnings("null")
 	@Override
@@ -69,12 +69,15 @@ public class LeagueClanScoreController extends BaseCrudController<LeagueClanScor
 		String leagueNo = req.getParameter("leagueNo");
 		String clanNo = req.getParameter("clanNo");
 		String promoteStatus = req.getParameter("promoteStatus");
+		String tier = req.getParameter("tier");
 		if (leagueNo != null && !leagueNo.trim().isEmpty())
 			qw.eq("league_no", leagueNo.trim());
 		if (clanNo != null && !clanNo.trim().isEmpty())
 			qw.eq("clan_no", clanNo.trim());
 		if (promoteStatus != null && !promoteStatus.trim().isEmpty())
 			qw.eq("promote_status", promoteStatus.trim());
+		if (tier != null && !tier.trim().isEmpty())
+			qw.eq("tier", tier.trim());
 		// keyword 模糊搜索
 		List<String> fields = keywordFields();
 		if (keyword != null && !keyword.trim().isEmpty() && !fields.isEmpty()) {

@@ -52,8 +52,8 @@ public class LeagueSignupController {
 	@GetMapping("/page")
 	public ApiResponse page(@RequestParam(required = false) String leagueNo,
 			@RequestParam(required = false) String clanNo, @RequestParam(required = false) String memberName,
-			@RequestParam(required = false) String memberNo, @RequestParam(defaultValue = "1") long current,
-			@RequestParam(defaultValue = "10") long size) {
+			@RequestParam(required = false) String memberNo, @RequestParam(required = false) String signupStatus,
+			@RequestParam(defaultValue = "1") long current, @RequestParam(defaultValue = "10") long size) {
 		Page<LeagueSignup> page = PageResult.page(current, size);
 		QueryWrapper<LeagueSignup> qw = new QueryWrapper<>();
 		if (leagueNo != null && !leagueNo.trim().isEmpty())
@@ -64,6 +64,8 @@ public class LeagueSignupController {
 			qw.like("member_name", "%" + memberName.trim() + "%");
 		if (memberNo != null && !memberNo.trim().isEmpty())
 			qw.like("member_no", "%" + memberNo.trim() + "%");
+		if (signupStatus != null && !signupStatus.trim().isEmpty())
+			qw.eq("signup_status", signupStatus.trim());
 		qw.orderByDesc("id");
 		signupMapper.selectPage(page, qw);
 		fillNames(page.getRecords());
@@ -120,7 +122,7 @@ public class LeagueSignupController {
 	}
 
 	/**
-	 * 报名 / 退赛（按 league_no + member_no 幂等更新）。 signupTime 由后端自动写入当前时间，前端无需/不许传。
+	 * 报名 / 退赛（按 league_no + member_name 幂等更新，member_no 非必填，填写时用于区分同名成员）。 signupTime 由后端自动写入当前时间，前端无需/不许传。
 	 */
 	@PostMapping
 	public ApiResponse signup(@RequestBody LeagueSignup body) {
@@ -174,23 +176,45 @@ public class LeagueSignupController {
 	}
 
 	private ApiResponse doSignup(LeagueSignup body) {
-		if (body.getLeagueNo() == null || body.getMemberNo() == null) {
-			return ApiResponse.error("leagueNo 与 memberNo 不能为空");
+		if (body.getLeagueNo() == null || body.getLeagueNo().trim().isEmpty()) {
+			return ApiResponse.error("leagueNo 不能为空");
+		}
+		if (body.getMemberName() == null || body.getMemberName().trim().isEmpty()) {
+			return ApiResponse.error("memberName 不能为空");
+		}
+		String leagueNo = body.getLeagueNo().trim();
+		String memberName = body.getMemberName().trim();
+		// 成员编号非必填：为空时按 联赛编号 + 成员名称 定位；填写时进一步区分同名成员
+		String memberNo = body.getMemberNo() == null ? null : body.getMemberNo().trim();
+		if (memberNo != null && memberNo.isEmpty()) {
+			memberNo = null;
 		}
 		body.setSignupTime(LocalDateTime.now());
-		LeagueSignup existing = signupMapper
-			.selectOne(new QueryWrapper<LeagueSignup>().eq("league_no", body.getLeagueNo())
-				.eq("member_no", body.getMemberNo()));
+		QueryWrapper<LeagueSignup> qw = new QueryWrapper<LeagueSignup>().eq("league_no", leagueNo)
+			.eq("member_name", memberName);
+		if (memberNo != null) {
+			qw.eq("member_no", memberNo);
+		}
+		LeagueSignup existing = signupMapper.selectOne(qw);
 		if (existing != null) {
-			existing.setSignupStatus(body.getSignupStatus());
+			if (body.getSignupStatus() != null) {
+				existing.setSignupStatus(body.getSignupStatus());
+			}
+			if (memberNo != null) {
+				existing.setMemberNo(memberNo);
+			}
 			existing.setSignupTime(body.getSignupTime());
 			signupMapper.updateById(existing);
+			return ApiResponse.ok(existing);
 		}
 		else {
 			body.setId(null);
+			body.setLeagueNo(leagueNo);
+			body.setMemberName(memberName);
+			body.setMemberNo(memberNo);
 			signupMapper.insert(body);
+			return ApiResponse.ok(body);
 		}
-		return ApiResponse.ok();
 	}
 
 	/**

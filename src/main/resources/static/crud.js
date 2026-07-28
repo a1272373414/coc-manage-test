@@ -239,7 +239,19 @@
               f[c.prop] = c.default !== undefined ? c.default : 1;
             else if (c.type === "number")
               f[c.prop] = c.default !== undefined ? c.default : 0;
-            else f[c.prop] = c.default !== undefined ? c.default : "";
+            else {
+              // 字典类下拉的选项 value 在 loadDicts 中已被规范为 Number，
+              // 若默认值仍是纯数字串（如 "1"），需同步转成 Number 才能匹配选项回显中文
+              let val = c.default !== undefined ? c.default : "";
+              if (
+                c.dictCode &&
+                typeof val === "string" &&
+                /^-?\d+(\.\d+)?$/.test(val.trim())
+              ) {
+                val = Number(val.trim());
+              }
+              f[c.prop] = val;
+            }
           });
           return f;
         },
@@ -291,15 +303,32 @@
             if (c.searchKey) params[c.searchKey] = kw;
             else params.keyword = kw;
             const r = await COC.api.page(c.url, params);
-            this.remoteOptions[c.prop] = (r.records || []).map((x) => ({
-              label: c.labelKey ? x[c.labelKey] : x.label,
-              value: c.valueKey ? x[c.valueKey] : x.id,
-            }));
+            this.remoteOptions[c.prop] = (r.records || []).map((x) => {
+              const opt = {
+                label: c.labelKey ? x[c.labelKey] : x.label,
+                value: c.valueKey ? x[c.valueKey] : x.id,
+              };
+              if (c.extraFields) {
+                c.extraFields.forEach((f) => { opt[f] = x[f]; });
+              }
+              return opt;
+            });
           } catch (e) {
             /* 已在拦截器提示 */
           } finally {
             this.remoteLoading[c.prop] = false;
           }
+        },
+        // 下拉选择联动：选中后把关联字段（如 memberNo）带出到表单
+        onRemoteSelectChange(c, val) {
+          if (!c.fillProps) return;
+          const opt = (this.remoteOptions[c.prop] || []).find((o) => o.value === val);
+          Object.keys(c.fillProps).forEach((target) => {
+            const source = c.fillProps[target];
+            if (opt && opt[source] != null) {
+              this.form[target] = opt[source];
+            }
+          });
         },
         submit() {
           this.$refs.formRef.validate(async (valid) => {
@@ -381,15 +410,19 @@
                   {{ row[c.prop]==1 ? (c.activeText||'是') : (c.inactiveText||'否') }}
                 </el-tag>
               </template>
+              <template #default="{ row }" v-else-if="c.extraProp && c.extraPropFirst">
+                <div>{{ row[c.extraProp] || '-' }}</div>
+                <div style="color:#909399; font-size:12px; margin-top:2px;">{{ row[c.prop] || '-' }}</div>
+              </template>
+              <template #default="{ row }" v-else-if="c.extraProp">
+                <div>{{ row[c.prop] || '-' }}</div>
+                <div style="color:#909399; font-size:12px; margin-top:2px;">{{ row[c.extraProp] || '-' }}</div>
+              </template>
               <template #default="{ row }" v-else-if="c.formatter">
                 {{ c.formatter(row) }}
               </template>
               <template #default="{ row }" v-else-if="(c.dictCode || c.options || c.type==='remote-select')">
                 {{ labelOf(c, row[c.prop]) }}
-              </template>
-              <template #default="{ row }" v-else-if="c.extraProp">
-                <div>{{ row[c.prop] || '-' }}</div>
-                <div style="color:#909399; font-size:12px; margin-top:2px;">{{ row[c.extraProp] || '-' }}</div>
               </template>
             </el-table-column>
           </template>
@@ -422,7 +455,9 @@
                 filterable remote clearable
                 :remote-method="(q) => remoteSearch(c, q)"
                 :loading="!!remoteLoading[c.prop]"
+                :allow-create="!!c.allowCreate"
                 :placeholder="c.placeholder || ('请输入关键词搜索'+c.label)"
+                @change="(v) => onRemoteSelectChange(c, v)"
                 style="width:100%">
                 <el-option v-for="o in (remoteOptions[c.prop] || [])" :key="o.value" :label="o.label" :value="o.value" />
               </el-select>
