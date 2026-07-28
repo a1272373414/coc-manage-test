@@ -12,6 +12,13 @@
     const urlParam = params.get("api");
     if (urlParam) return urlParam;
 
+    // 1.1 兼容 SPA 哈希路由中携带的 ?api=（由公开页登录回跳带入），确保登录与回跳页打到同一后端
+    if (location.hash && location.hash.indexOf("?") > -1) {
+      const hp = new URLSearchParams(location.hash.slice(location.hash.indexOf("?") + 1));
+      const hApi = hp.get("api");
+      if (hApi) return hApi;
+    }
+
     // 2. 从环境配置读取
     if (
       window.APP_CONFIG &&
@@ -21,16 +28,17 @@
       return window.APP_CONFIG.apiUrl;
     }
 
-    // 3. 生产环境：如果未配置具体URL，则使用当前页面所在域名（适用于同域部署）
-    if (window.APP_CONFIG && window.APP_CONFIG.env === "production") {
-      return location.origin;
+    // 3. 本地开发默认指向 localhost:8080；其余情况（含云部署）使用当前页面域名，保证前端与后端同源
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      return "http://localhost:8080";
     }
-
-    // 4. 默认值：本地开发环境
-    return "http://localhost:8080";
+    return location.origin;
   }
 
   const API_BASE = getApiBase();
+  // 记住本次实际使用的 API 源，供公开页（联赛快速报名 / 联赛战绩）登录回跳后复用同一后端，
+  // 避免“登录在主 SPA 后端签发令牌、回跳页却打到另一后端”导致的跨源令牌校验失败（401 令牌无效或已过期）
+  try { localStorage.setItem("coc_api_base", API_BASE); } catch (e) {}
   const CONFIG = window.APP_CONFIG || {
     debug: false,
     enableRequestLog: false,

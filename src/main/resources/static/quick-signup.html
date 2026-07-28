@@ -595,8 +595,13 @@
         const fromQuery = params.get('api');
         if (fromQuery) return fromQuery;
         if (window.APP_CONFIG && window.APP_CONFIG.apiUrl) return window.APP_CONFIG.apiUrl;
-        if (window.APP_CONFIG && window.APP_CONFIG.env === 'production') return location.origin;
-        return 'http://localhost:8080';
+        // 复用主项目登录时实际使用的 API 源（同源 localStorage 共享），避免与主 SPA 后端不一致导致令牌校验失败
+        try {
+          const saved = localStorage.getItem('coc_api_base');
+          if (saved) return saved;
+        } catch (e) {}
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return 'http://localhost:8080';
+        return location.origin;
       }
       const API_BASE = resolveApiBase();
 
@@ -752,11 +757,13 @@
             }
           }
 
-          function goLogin() {
-            // 回跳到当前报名页（含 groupNo）
-            const back = location.pathname + location.search;
-            location.href = '/index.html#/login?redirect=' + encodeURIComponent(back);
-          }
+      function goLogin() {
+        // 回跳到当前报名页（含 groupNo）；同时把当前 API 源带入登录回跳，确保 SPA 登录与回跳页打到同一后端
+        const back = location.pathname + location.search;
+        const apiBase = resolveApiBase();
+        const redirect = encodeURIComponent(back) + (apiBase ? '&api=' + encodeURIComponent(apiBase) : '');
+        location.href = '/index.html#/login?redirect=' + redirect;
+      }
 
           async function logout() {
             try { await authPost('/api/auth/logout'); } catch (e) { /* 忽略 */ }
