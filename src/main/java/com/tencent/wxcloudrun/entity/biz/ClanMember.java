@@ -40,4 +40,15 @@ public class ClanMember extends BaseEntity {
 	/** 战斗力 */
 	private Integer combatPower;
 
+	/** 备用名称1~5（成员别名，用于导入时按别名匹配同一成员） */
+	private String backupName1;
+
+	private String backupName2;
+
+	private String backupName3;
+
+	private String backupName4;
+
+	private String backupName5;
+
 }

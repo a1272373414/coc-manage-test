@@ -15,6 +15,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,6 +37,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -120,42 +123,69 @@ public class LeagueImportController {
 		List<Object> names = (List<Object>) namesObj;
 
 		Set<String> exists = new HashSet<>();
+		Map<String, String> nameMap = new HashMap<>();
 		if (clanNo != null && !clanNo.isEmpty() && groupNo != null && !groupNo.isEmpty() && !names.isEmpty()) {
-			Set<String> all = loadClanMemberNames(clanNo, groupNo);
+			Map<String, String> all = loadClanMemberNameMap(clanNo, groupNo);
 			for (Object o : names) {
 				String n = asString(o);
-				if (n != null && !n.isEmpty() && all.contains(n))
-					exists.add(n);
+				if (n != null && !n.isEmpty() && all.containsKey(n.trim()))
+					exists.add(n.trim());
 			}
+			nameMap = all;
 		}
 		Map<String, Object> result = new HashMap<>();
 		result.put("exists", exists);
+		// 返回名称映射（别名 → 数据库真实名称），供前端修正预览界面成员名称
+		result.put("nameMap", nameMap);
 		return ApiResponse.ok(result);
 	}
 
-	/** 为解析结果中的每条记录标记 memberExists：该成员是否存在于所选部落+群组的成员表中 */
+	/** 为解析结果中的每条记录标记 memberExists：该成员是否存在于所选部落+群组的成员表中（含备用名称匹配） */
 	private void markMemberExists(List<Map<String, Object>> list, String clanNo, String groupNo) {
-		Set<String> names = new HashSet<>();
+		Map<String, String> nameMap = new HashMap<>();
 		if (clanNo != null && !clanNo.isEmpty() && groupNo != null && !groupNo.isEmpty()) {
-			names = loadClanMemberNames(clanNo, groupNo);
+			nameMap = loadClanMemberNameMap(clanNo, groupNo);
 		}
 		for (Map<String, Object> m : list) {
 			String nm = asString(m.get("memberName"));
-			m.put("memberExists", nm != null && names.contains(nm.trim()));
+			if (nm != null && !nm.trim().isEmpty() && nameMap.containsKey(nm.trim())) {
+				m.put("memberExists", true);
+				// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
+				m.put("memberName", nameMap.get(nm.trim()));
+			} else {
+				m.put("memberExists", false);
+			}
 		}
 	}
 
-	/** 一次性查出该部落+群组下的成员名称集合（trim 后），用于匹配 */
-	private Set<String> loadClanMemberNames(String clanNo, String groupNo) {
+	/**
+	 * 一次性查出该部落+群组下的成员名称映射（任意名称 trim → 数据库真实 member_name），用于按别名匹配同一成员。 映射键包含：主名称 + 全部备用名称。
+	 */
+	private Map<String, String> loadClanMemberNameMap(String clanNo, String groupNo) {
 		QueryWrapper<ClanMember> qw = new QueryWrapper<>();
-		qw.select("member_name").eq("clan_no", clanNo).eq("group_no", groupNo);
+		qw.select("member_name", "backup_name1", "backup_name2", "backup_name3", "backup_name4", "backup_name5")
+				.eq("clan_no", clanNo).eq("group_no", groupNo);
 		List<ClanMember> rows = clanMemberMapper.selectList(qw);
-		Set<String> names = new HashSet<>();
+		Map<String, String> map = new HashMap<>();
 		for (ClanMember r : rows) {
-			if (r.getMemberName() != null)
-				names.add(r.getMemberName().trim());
+			if (r.getMemberName() == null)
+				continue;
+			String real = r.getMemberName().trim();
+			map.put(real, real);
+			putAlias(map, r.getBackupName1(), real);
+			putAlias(map, r.getBackupName2(), real);
+			putAlias(map, r.getBackupName3(), real);
+			putAlias(map, r.getBackupName4(), real);
+			putAlias(map, r.getBackupName5(), real);
 		}
-		return names;
+		return map;
+	}
+
+	/** 把某个备用名称(别名)加入映射；空值或空串忽略 */
+	private static void putAlias(Map<String, String> map, String alias, String real) {
+		if (alias != null && !alias.trim().isEmpty()) {
+			map.put(alias.trim(), real);
+		}
 	}
 
 	/** 一次性查出该联赛+部落下的报名状态映射（成员名称 -> 报名状态），用于导入时同步 */
@@ -200,11 +230,17 @@ public class LeagueImportController {
 
 		// 一次性查出该联赛+部落下的报名状态映射（成员名称 -> 报名状态）
 		Map<String, Integer> signupMap = loadSignupStatus(leagueNo, clanNo);
+		// 成员名称映射（主名称 + 全部备用名称 -> 真实主名称），用于按别名匹配同一成员
+		Map<String, String> nameMap = loadClanMemberNameMap(clanNo, groupNo);
 
 		int count = 0;
 		for (Map<String, Object> r : records) {
+			String rawName = asString(r.get("memberName"));
+			String realName = (rawName != null && nameMap.containsKey(rawName.trim()))
+					? nameMap.get(rawName.trim())
+					: rawName;
 			LeagueRecord rec = new LeagueRecord();
-			rec.setMemberName(asString(r.get("memberName")));
+			rec.setMemberName(realName);
 			rec.setMemberNo(asString(r.get("memberNo")));
 			rec.setMemberRank(toInt(r.get("rank"), 0));
 			rec.setLeagueNo(orDefault(asString(r.get("leagueNo")), leagueNo));
@@ -216,7 +252,7 @@ public class LeagueImportController {
 			rec.setRequiredAttacks(toInt(r.get("requiredAttacks"), 0));
 			rec.setHasExtra(toInt(r.get("hasExtra"), 0));
 			// 报名状态：按 成员名称+联赛编号+部落编号 查报名表，命中则同步，否则默认未报名(1)
-			String mName = asString(r.get("memberName"));
+			String mName = realName;
 			Integer signupStatus = (mName != null) ? signupMap.get(mName.trim()) : null;
 			rec.setSignupStatus(signupStatus != null ? signupStatus : 1);
 			leagueRecordMapper.insert(rec);
@@ -349,8 +385,15 @@ public class LeagueImportController {
 			switch (cell.getCellType()) {
 				case STRING:
 					return cell.getStringCellValue().trim();
-				case NUMERIC:
-					double d = cell.getNumericCellValue();
+			case NUMERIC:
+				if (DateUtil.isCellDateFormatted(cell)) {
+					// 进攻次数形如 "7/7" 被 Excel 自动识别为日期（如 2026/7/7），还原为 "月/日"
+					Date dt = cell.getDateCellValue();
+					Calendar cal = Calendar.getInstance();
+					cal.setTime(dt);
+					return (cal.get(Calendar.MONTH) + 1) + "/" + cal.get(Calendar.DAY_OF_MONTH);
+				}
+				double d = cell.getNumericCellValue();
 					if (d == Math.floor(d))
 						return String.valueOf((long) d);
 					return String.valueOf(d);
@@ -476,6 +519,7 @@ public class LeagueImportController {
 			m.put("memberName", name == null ? "" : name);
 			m.put("winStars", toInt(stars, 0));
 			m.put("destroyRate", (int) Math.round(toDouble(dest)));
+			m.put("attacks", atk == null ? "" : atk);
 			m.put("actualAttacks", actual);
 			m.put("requiredAttacks", required);
 			m.put("hasExtra", 0);
@@ -713,7 +757,11 @@ public class LeagueImportController {
 			Map<String, Object> row = data.get(i);
 			int actual = toInt(row.get("actualAttacks"), 0);
 			int required = toInt(row.get("requiredAttacks"), 0);
-			if ((actual == 0 && required == 0) || (actual == 0 && required == 1)) {
+			// 仅当进攻次数明确为 0/0 或 0/1 时才视为未参战，避免把进攻次数字段解析失败的行误判为 0 分
+			String atkStr = asString(row.get("attacks"));
+			boolean notParticipated = "0/0".equals(atkStr) || "0/1".equals(atkStr)
+					|| (actual == 0 && required == 0) || (actual == 0 && required == 1);
+			if (notParticipated) {
 				row.put("winStars", 0);
 				row.put("destroyRate", 0);
 			}

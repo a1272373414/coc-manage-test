@@ -296,6 +296,72 @@ public class LeagueQuickSignupController {
 	}
 
 	/**
+	 * 成员联赛战绩查询（公开）。 入参：{ groupNo(必填), memberName(必填), leagueNo?(可选) }。 行为： 1) groupNo
+	 * 必传且群组必须存在； 2) 按 (groupNo + memberName[模糊]) 查询战绩，leagueNo 可选过滤，不限制部落； 3) 按 league_no 倒序，最多返回最近 5 场； 4)
+	 * 回填联赛名称与部落名称。
+	 */
+	@GetMapping("/memberRecords")
+	public ApiResponse memberRecords(@RequestParam String groupNo, @RequestParam String memberName,
+			@RequestParam(required = false) String leagueNo,
+			@RequestParam(required = false) String memberNo) {
+		if (groupNo == null || groupNo.trim().isEmpty()) {
+			return ApiResponse.error(400, "群组编号不能为空");
+		}
+		String g = groupNo.trim();
+		if (clanGroupMapper.selectCount(new QueryWrapper<ClanGroup>().eq("group_no", g)) == 0) {
+			return ApiResponse.error(400, "群组不存在");
+		}
+		if (memberName == null || memberName.trim().isEmpty()) {
+			return ApiResponse.error(400, "游戏名称不能为空");
+		}
+		String name = memberName.trim();
+
+		QueryWrapper<LeagueRecord> qw = new QueryWrapper<>();
+		qw.eq("group_no", g).like("member_name", name);
+		// 若同时提供了成员编号，则按编号精确过滤（报名数据已填编号时更精准）
+		if (memberNo != null && !memberNo.trim().isEmpty()) {
+			qw.eq("member_no", memberNo.trim());
+		}
+		if (leagueNo != null && !leagueNo.trim().isEmpty()) {
+			qw.eq("league_no", leagueNo.trim());
+		}
+		// 按联赛编号倒序，仅取最近参与的 5 场
+		qw.orderByDesc("league_no").last("LIMIT 5");
+		List<LeagueRecord> records = leagueRecordMapper.selectList(qw);
+
+		// 回填联赛名称、部落名称
+		if (!records.isEmpty()) {
+			Set<String> leagueNos = new HashSet<>();
+			Set<String> clanNos = new HashSet<>();
+			for (LeagueRecord r : records) {
+				if (r.getLeagueNo() != null)
+					leagueNos.add(r.getLeagueNo());
+				if (r.getClanNo() != null)
+					clanNos.add(r.getClanNo());
+			}
+			Map<String, String> leagueNameMap = new HashMap<>();
+			if (!leagueNos.isEmpty()) {
+				List<League> leagues = leagueMapper.selectList(new QueryWrapper<League>().in("league_no", leagueNos));
+				for (League l : leagues)
+					leagueNameMap.put(l.getLeagueNo(), l.getLeagueName());
+			}
+			Map<String, String> clanNameMap = new HashMap<>();
+			if (!clanNos.isEmpty()) {
+				List<Clan> clans = clanMapper.selectList(new QueryWrapper<Clan>().in("clan_no", clanNos));
+				for (Clan c : clans)
+					clanNameMap.put(c.getClanNo(), c.getClanName());
+			}
+			for (LeagueRecord r : records) {
+				if (r.getLeagueNo() != null)
+					r.setLeagueName(leagueNameMap.get(r.getLeagueNo()));
+				if (r.getClanNo() != null)
+					r.setClanName(clanNameMap.get(r.getClanNo()));
+			}
+		}
+		return ApiResponse.ok(records);
+	}
+
+	/**
 	 * 联赛部落成绩查询（公开）。 入参：{ groupNo, clanNo, leagueNo? }。 行为： 1) groupNo 必传且群组必须存在； 2)
 	 * leagueNo 缺省时取群组最近一个联赛； 3) 按 (groupNo + leagueNo + clanNo) 查询 league_clan_score
 	 * 单条记录； 4) 回填部落名称后直接返回该记录（不存在时返回 null）。 用于结果页「部落战绩」模块展示段位、排名、晋级状态、联赛币等真实数据。

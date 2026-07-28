@@ -76,7 +76,14 @@ public class ClanMemberImportController {
 
 		for (ClanMemberRow row : rows) {
 			boolean hasNo = row.memberNo != null && !row.memberNo.trim().isEmpty();
-			row.exists = hasNo ? exist.nos.contains(row.memberNo.trim()) : exist.names.contains(row.memberName.trim());
+			ClanMember matched = hasNo ? exist.byNo.get(row.memberNo.trim()) : exist.byAnyName.get(row.memberName.trim());
+			if (matched != null) {
+				row.exists = true;
+				// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
+				row.memberName = matched.getMemberName();
+			} else {
+				row.exists = false;
+			}
 		}
 
 		Map<String, Object> data = new HashMap<>(4);
@@ -122,11 +129,11 @@ public class ClanMemberImportController {
 				no = null;
 			}
 			boolean hasNo = no != null;
-			// 条件唯一：填了编号 → 校验编号唯一；没填编号 → 校验名称唯一
-			boolean dup = hasNo ? exist.nos.contains(no) : exist.names.contains(name);
+			// 条件唯一：填了编号 → 校验编号唯一；没填编号 → 按名称或备用名称(别名)匹配同一人
+			boolean dup = hasNo ? exist.nos.contains(no) : exist.byAnyName.containsKey(name);
 			if (dup) {
 				// 已存在成员：若导入的大本等级/匹配值/战斗力非空，则更新这些字段
-				ClanMember existMember = hasNo ? exist.byNo.get(no) : exist.byName.get(name);
+				ClanMember existMember = hasNo ? exist.byNo.get(no) : exist.byAnyName.get(name);
 				Integer thLevel = toInteger(rec.get("thLevel"));
 				Integer matchValue = toInteger(rec.get("matchValue"));
 				Integer combatPower = toInteger(rec.get("combatPower"));
@@ -170,6 +177,7 @@ public class ClanMemberImportController {
 			}
 			else {
 				exist.names.add(name);
+				exist.byAnyName.put(name, member);
 			}
 			inserted++;
 		}
@@ -344,7 +352,8 @@ public class ClanMemberImportController {
 		if (clanNo != null && !clanNo.trim().isEmpty()) {
 			qw.eq("clan_no", clanNo);
 		}
-		qw.select("id", "member_name", "member_no", "th_level", "match_value", "combat_power");
+		qw.select("id", "member_name", "member_no", "th_level", "match_value", "combat_power",
+				"backup_name1", "backup_name2", "backup_name3", "backup_name4", "backup_name5");
 		List<ClanMember> list = clanMemberMapper.selectList(qw);
 		ExistSets s = new ExistSets();
 		if (list != null) {
@@ -353,15 +362,28 @@ public class ClanMemberImportController {
 					String nm = m.getMemberName().trim();
 					s.names.add(nm);
 					s.byName.put(nm, m);
+					s.byAnyName.put(nm, m);
 				}
 				if (m.getMemberNo() != null && !m.getMemberNo().trim().isEmpty()) {
 					String no = m.getMemberNo().trim();
 					s.nos.add(no);
 					s.byNo.put(no, m);
 				}
+				addAlias(s, m.getBackupName1(), m);
+				addAlias(s, m.getBackupName2(), m);
+				addAlias(s, m.getBackupName3(), m);
+				addAlias(s, m.getBackupName4(), m);
+				addAlias(s, m.getBackupName5(), m);
 			}
 		}
 		return s;
+	}
+
+	/** 把某个备用名称(别名)加入按任意名称匹配的映射；空值或空串忽略 */
+	private static void addAlias(ExistSets s, String alias, ClanMember m) {
+		if (alias != null && !alias.trim().isEmpty()) {
+			s.byAnyName.put(alias.trim(), m);
+		}
 	}
 
 	/** 已存在成员的名称/编号集合（按 group_no + clan_no 范围）。 */
@@ -374,6 +396,9 @@ public class ClanMemberImportController {
 		Map<String, ClanMember> byName = new HashMap<>();
 
 		Map<String, ClanMember> byNo = new HashMap<>();
+
+		/** 任意名称（主名称 + 全部备用名称）trim 后 → 成员，用于按别名匹配同一人 */
+		Map<String, ClanMember> byAnyName = new HashMap<>();
 
 	}
 

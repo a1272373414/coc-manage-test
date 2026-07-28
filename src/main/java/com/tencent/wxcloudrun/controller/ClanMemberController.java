@@ -106,6 +106,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		String memberNo = trimToNull(request.getParameter("memberNo"));
 		String clanNo = trimToNull(request.getParameter("clanNo"));
 		Integer warStatus = toIntParam(request.getParameter("warStatus"));
+		Integer memberStatus = toIntParam(request.getParameter("memberStatus"));
 		Integer thLevel = toIntParam(request.getParameter("thLevel"));
 		String sortField = trimToNull(request.getParameter("sortField"));
 		String sortOrder = trimToNull(request.getParameter("sortOrder"));
@@ -133,6 +134,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			qw.like("member_no", memberNo);
 		if (warStatus != null)
 			qw.eq("war_status", warStatus);
+		if (memberStatus != null)
+			qw.eq("member_status", memberStatus);
 		if (clanNo != null)
 			qw.eq("clan_no", clanNo);
 		if (thLevel != null)
@@ -175,6 +178,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	/** 排序字段白名单：前端 prop 名 → 数据库列名，防止 order by 注入。 */
 	private String sortColumn(String field) {
 		switch (field) {
+			case "memberName":
+				return "member_name";
 			case "thLevel":
 				return "th_level";
 			case "matchValue":

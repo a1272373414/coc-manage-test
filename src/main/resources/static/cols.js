@@ -29,8 +29,31 @@
       prop: "memberName",
       label: "成员名称",
       search: true,
+      sortable: true,
       rule: req("请输入成员名称"),
     },
+    // 表格中合并展示的虚拟列：表单里隐藏，由下面 5 个独立字段组成
+    {
+      prop: "backupNames",
+      label: "备用名称",
+      hideInForm: true,
+      formatter: (row) =>
+        [
+          row.backupName1,
+          row.backupName2,
+          row.backupName3,
+          row.backupName4,
+          row.backupName5,
+        ]
+          .filter((x) => x != null && x !== "")
+          .join("、") || "-",
+    },
+    // 备用名称拆成 5 个独立字段，仅出现在新增/编辑表单（表格隐藏）
+    { prop: "backupName1", label: "备用名称1", hideInTable: true },
+    { prop: "backupName2", label: "备用名称2", hideInTable: true },
+    { prop: "backupName3", label: "备用名称3", hideInTable: true },
+    { prop: "backupName4", label: "备用名称4", hideInTable: true },
+    { prop: "backupName5", label: "备用名称5", hideInTable: true },
     { prop: "memberNo", label: "成员编号" },
     // 部落编号：远程下拉选择，从 /api/clan 接口拉取部落列表（label=clanName, value=clanNo）
     {

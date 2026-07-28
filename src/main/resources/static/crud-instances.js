@@ -858,8 +858,13 @@
         names: names,
       });
       var exists = (res && res.exists) || [];
+      var nameMap = (res && res.nameMap) || {};
       for (var j = 0; j < this.previewList.length; j++) {
         var r = this.previewList[j];
+        var real = nameMap[(r.memberName || "").trim()];
+        if (real) {
+          r.memberName = real; // 以数据库为准修正预览名称
+        }
         r.memberExists = exists.indexOf((r.memberName || "").trim()) !== -1;
       }
     } catch (e) {

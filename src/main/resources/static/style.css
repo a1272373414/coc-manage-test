@@ -251,6 +251,14 @@ a {
   background: #fafafa !important;
 }
 
+/* 表格行 hover 时背景色加深，使行高亮更明显 */
+.el-table {
+  --el-table-row-hover-bg-color: #e8eef7;
+}
+.el-table--enable-row-hover .el-table__body tr:hover > td {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+
 /* ====== 响应式 ====== */
 @media (max-width: 900px) {
   .layout-aside {

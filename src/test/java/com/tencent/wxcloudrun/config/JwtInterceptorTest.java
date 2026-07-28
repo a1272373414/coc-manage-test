@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.config;
 
-import com.tencent.wxcloudrun.config.JwtInterceptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
