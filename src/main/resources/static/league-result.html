@@ -279,6 +279,43 @@
       text-align: center; color: var(--ink-3); font-size: 12px;
       padding: 28px 0 36px; letter-spacing: .3px;
     }
+
+    /* ===== 响应式：移动端适配 (≤768px) ===== */
+    @media (max-width: 768px) {
+      .qs-top { height: 56px; padding: 0 14px; }
+      .qs-top-left { gap: 10px; }
+      .qs-brand .qs-sub { display: none; }
+      .qs-brand .qs-title { font-size: 15px; }
+      .qs-nav-link { padding: 0 10px; font-size: 12px; }
+      .qs-user-name { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .qs-container { width: 100%; max-width: 100%; padding: 16px 14px 0; }
+      .qs-block { padding: 16px 14px; margin-top: 14px; }
+      .qs-block::before { top: 14px; bottom: 14px; }
+
+      .qs-clan-tabs { gap: 8px; padding: 12px 2px 4px; }
+      .qs-clan-tab { padding: 7px 14px; font-size: 13px; }
+
+      .qs-league-wrap { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 2px 4px; }
+      .qs-league-wrap .el-select { width: 100% !important; }
+
+      /* 战绩总览 4 列 → 2 列 */
+      .qs-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 4px 2px 4px; }
+      .qs-stat { padding: 12px 14px; }
+      .qs-stat .qs-stat-value { font-size: 22px; }
+
+      /* 成员分析 3 列 → 1 列 */
+      .qs-analysis { grid-template-columns: 1fr; gap: 10px; padding: 4px 2px 4px; }
+
+      /* 表格横向滚动，保留最小宽度避免挤压 */
+      .qs-table { margin: 4px 2px 0; overflow-x: auto; }
+      .qs-table-head, .qs-row { min-width: 720px; }
+
+      .qs-foot { padding: 20px 0 28px; }
+    }
+    @media (max-width: 420px) {
+      .qs-stat .qs-stat-value { font-size: 20px; }
+    }
   </style>
 </head>
 <body>
