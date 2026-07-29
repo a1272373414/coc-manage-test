@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -47,6 +48,10 @@ public class JwtInterceptor implements HandlerInterceptor {
 		if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
 			return true;
 		}
+		// 标记 @IgnoreLogin 的接口（类或方法）免登录，直接放行，不校验令牌
+		if (hasIgnoreLogin(handler)) {
+			return true;
+		}
 		String token = resolveToken(request);
 		if (token == null) {
 			write(response, ApiResponse.error(401, "未登录或缺少令牌"));
@@ -83,8 +88,18 @@ public class JwtInterceptor implements HandlerInterceptor {
 		UserContext.clear();
 	}
 
+	/** 是否为免登录接口（无需携带令牌即可访问）：方法或类标注 @IgnoreLogin 即放行。静态资源等无法解析为 HandlerMethod 的请求按默认逻辑处理。 */
+	private boolean hasIgnoreLogin(Object handler) {
+		if (!(handler instanceof HandlerMethod)) {
+			return false;
+		}
+		HandlerMethod hm = (HandlerMethod) handler;
+		return hm.hasMethodAnnotation(IgnoreLogin.class)
+				|| hm.getBeanType().isAnnotationPresent(IgnoreLogin.class);
+	}
+
 	/** 是否为系统基本数据接口（超级管理员可访问）：用户/角色/菜单/配置/字典/认证 */
-	private boolean isSystemBasicData(String path) {
+	private boolean isSystemBasicData(String path) {		
 		for (String pattern : SYSTEM_BASIC_DATA_PATTERNS) {
 			if (pathMatcher.match(pattern, path)) {
 				return true;

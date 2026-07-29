@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tencent.wxcloudrun.config.ApiResponse;
+import com.tencent.wxcloudrun.config.IgnoreLogin;
 import com.tencent.wxcloudrun.entity.sys.SysRole;
 import com.tencent.wxcloudrun.mapper.SysRoleMapper;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,8 @@ public class CommonController {
 		return ApiResponse.ok(data);
 	}
 
-	/** 返回服务器当前时间（格式化字符串 yyyy-MM-dd HH:mm:ss），供前端展示等场景使用。所有登录用户可访问。 */
+	/** 返回服务器当前时间（格式化字符串 yyyy-MM-dd HH:mm:ss），供前端展示等场景使用。免登录公开接口。 */
+	@IgnoreLogin
 	@GetMapping("/serverTime")
 	public ApiResponse serverTime() {
 		String formatted = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
