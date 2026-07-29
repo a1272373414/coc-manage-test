@@ -129,10 +129,42 @@ public class LeagueSignupController {
 		return doSignup(body);
 	}
 
-	/** 编辑（前端 createCrud 调用 PUT） */
+	/**
+	 * 编辑（前端 createCrud 调用 PUT）：按主键 id 保存，不调用报名接口的“按名称幂等 upsert”，避免编辑名称时新增重复记录。
+	 */
 	@PutMapping
 	public ApiResponse signupUpdate(@RequestBody LeagueSignup body) {
-		return doSignup(body);
+		if (body.getId() == null) {
+			return ApiResponse.error("报名记录 id 不能为空");
+		}
+		LeagueSignup existing = signupMapper.selectById(body.getId());
+		if (existing == null) {
+			return ApiResponse.error(404, "未找到报名记录");
+		}
+		if (body.getLeagueNo() != null && !body.getLeagueNo().trim().isEmpty()) {
+			String leagueNo = body.getLeagueNo().trim();
+			existing.setLeagueNo(leagueNo);
+			// 联赛变更时同步更新 group_no
+			League league = leagueMapper.selectOne(new QueryWrapper<League>().eq("league_no", leagueNo));
+			if (league != null) {
+				existing.setGroupNo(league.getGroupNo());
+			}
+		}
+		if (body.getClanNo() != null) {
+			existing.setClanNo(body.getClanNo());
+		}
+		if (body.getMemberName() != null && !body.getMemberName().trim().isEmpty()) {
+			existing.setMemberName(body.getMemberName().trim());
+		}
+		if (body.getMemberNo() != null) {
+			String memberNo = body.getMemberNo().trim();
+			existing.setMemberNo(memberNo.isEmpty() ? null : memberNo);
+		}
+		if (body.getSignupStatus() != null) {
+			existing.setSignupStatus(body.getSignupStatus());
+		}
+		signupMapper.updateById(existing);
+		return ApiResponse.ok(existing);
 	}
 
 	/** 删除报名记录（逻辑删除） */

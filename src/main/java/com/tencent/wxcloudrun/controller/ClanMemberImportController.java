@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tencent.wxcloudrun.config.ApiResponse;
 import com.tencent.wxcloudrun.config.UserContext;
 import com.tencent.wxcloudrun.entity.biz.ClanMember;
+import com.tencent.wxcloudrun.entity.biz.LeagueRecord;
+import com.tencent.wxcloudrun.entity.biz.LeagueSignup;
 import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
+import com.tencent.wxcloudrun.mapper.LeagueRecordMapper;
+import com.tencent.wxcloudrun.mapper.LeagueSignupMapper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -34,7 +38,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 部落成员 Excel 批量导入。 导入时按成员名称（member_name）在「同一群组(group_no) + 部落(clan_no)」范围内查重，已存在则忽略（跳过）。
+ * 部落成员批量导入。 支持三种导入方式：Excel 导入、根据联赛成员战绩导入、根据联赛报名数据导入。
+ * 导入时按成员名称（member_name，含别名）在「同一群组(group_no) + 部落(clan_no)」范围内查重，已存在则忽略（跳过）。
  */
 @RestController
 @RequestMapping("/api/clan/member/import")
@@ -43,14 +48,29 @@ public class ClanMemberImportController {
 	@Autowired
 	private ClanMemberMapper clanMemberMapper;
 
-	/** 预览：解析 Excel 并标注每条记录是否已存在（按成员名称查重）。 */
+	@Autowired
+	private LeagueRecordMapper leagueRecordMapper;
+
+	@Autowired
+	private LeagueSignupMapper leagueSignupMapper;
+
+	/**
+	 * 预览。 支持三种导入方式：
+	 * <ul>
+	 *   <li>excel：解析上传的 Excel 并标注每条记录是否已存在（按成员名称查重）。</li>
+	 *   <li>leagueRecord：根据联赛成员战绩导入，查询联赛成员战绩表中「部落成员表还没有」的人。</li>
+	 *   <li>leagueSignup：根据联赛报名数据导入，查询联赛报名表中「部落成员表还没有」的人。</li>
+	 * </ul>
+	 */
 	@PostMapping("/preview")
 	public ApiResponse preview(@RequestParam("type") String type,
+			@RequestParam(value = "leagueNo", required = false) String leagueNo,
 			@RequestParam(value = "clanNo", required = false) String clanNo,
 			@RequestParam(value = "groupNo", required = false) String groupNo,
-			@RequestParam("files") MultipartFile file) {
-		if (!"excel".equalsIgnoreCase(type)) {
-			return ApiResponse.error("仅支持 Excel 导入");
+			@RequestParam(value = "files", required = false) MultipartFile file) {
+		if (!"excel".equalsIgnoreCase(type) && !"leagueRecord".equalsIgnoreCase(type)
+				&& !"leagueSignup".equalsIgnoreCase(type)) {
+			return ApiResponse.error("不支持的导入方式");
 		}
 		if (clanNo == null || clanNo.trim().isEmpty()) {
 			return ApiResponse.error("请选择部落");
@@ -61,29 +81,43 @@ public class ClanMemberImportController {
 		}
 
 		List<ClanMemberRow> rows;
-		try {
-			rows = parseExcel(file.getInputStream());
-		}
-		catch (Exception e) {
-			return ApiResponse.error("Excel 解析失败：" + e.getMessage());
-		}
-		if (rows.isEmpty()) {
-			return ApiResponse.error("未从 Excel 中解析到成员数据");
-		}
-
-		// 批量拉取该部落已存在的成员名称/编号，本地按“编号/名称”条件查重
-		ExistSets exist = loadExist(g, clanNo);
-
-		for (ClanMemberRow row : rows) {
-			boolean hasNo = row.memberNo != null && !row.memberNo.trim().isEmpty();
-			ClanMember matched = hasNo ? exist.byNo.get(row.memberNo.trim()) : exist.byAnyName.get(row.memberName.trim());
-			if (matched != null) {
-				row.exists = true;
-				// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
-				row.memberName = matched.getMemberName();
-			} else {
-				row.exists = false;
+		if ("excel".equalsIgnoreCase(type)) {
+			if (file == null || file.isEmpty()) {
+				return ApiResponse.error("请上传 Excel 文件");
 			}
+			try {
+				rows = parseExcel(file.getInputStream());
+			}
+			catch (Exception e) {
+				return ApiResponse.error("Excel 解析失败：" + e.getMessage());
+			}
+			if (rows.isEmpty()) {
+				return ApiResponse.error("未从 Excel 中解析到成员数据");
+			}
+
+			// 批量拉取该部落已存在的成员名称/编号，本地按“编号/名称”条件查重
+			ExistSets exist = loadExist(g, clanNo);
+
+			for (ClanMemberRow row : rows) {
+				boolean hasNo = row.memberNo != null && !row.memberNo.trim().isEmpty();
+				ClanMember matched = hasNo ? exist.byNo.get(row.memberNo.trim())
+						: exist.byAnyName.get(row.memberName.trim());
+				if (matched != null) {
+					row.exists = true;
+					// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
+					row.memberName = matched.getMemberName();
+				}
+				else {
+					row.exists = false;
+				}
+			}
+		}
+		else {
+			// 联赛成员战绩 / 联赛报名数据：根据本群组内「部落成员表还没有」的人生成预览
+			if (leagueNo == null || leagueNo.trim().isEmpty()) {
+				return ApiResponse.error("请选择联赛");
+			}
+			rows = parseFromLeague(type, leagueNo.trim(), clanNo.trim(), g);
 		}
 
 		Map<String, Object> data = new HashMap<>(4);
@@ -91,6 +125,73 @@ public class ClanMemberImportController {
 		data.put("clanNo", clanNo);
 		data.put("groupNo", g);
 		return ApiResponse.ok(data);
+	}
+
+	/**
+	 * 根据联赛成员战绩 / 联赛报名数据生成待导入预览：查询联赛对应表（league_no + clan_no）中、
+	 * 在部落成员表中尚不存在的成员（按成员名称查重，含别名）。
+	 */
+	private List<ClanMemberRow> parseFromLeague(String type, String leagueNo, String clanNo, String groupNo) {
+		// 1) 取联赛成员（战绩表 / 报名表）
+		List<LeagueMemberView> source = new ArrayList<>();
+		if ("leagueRecord".equalsIgnoreCase(type)) {
+			QueryWrapper<LeagueRecord> qw = new QueryWrapper<>();
+			qw.eq("league_no", leagueNo).eq("clan_no", clanNo);
+			qw.select("member_name", "member_no");
+			List<LeagueRecord> list = leagueRecordMapper.selectList(qw);
+			for (LeagueRecord r : list) {
+				source.add(new LeagueMemberView(r.getMemberName(), r.getMemberNo()));
+			}
+		}
+		else {
+			QueryWrapper<LeagueSignup> qw = new QueryWrapper<>();
+			qw.eq("league_no", leagueNo).eq("clan_no", clanNo);
+			qw.select("member_name", "member_no");
+			List<LeagueSignup> list = leagueSignupMapper.selectList(qw);
+			for (LeagueSignup r : list) {
+				source.add(new LeagueMemberView(r.getMemberName(), r.getMemberNo()));
+			}
+		}
+
+		// 2) 过滤：部落成员表中尚不存在的人（按成员名称查重，含别名）
+		ExistSets exist = loadExist(groupNo, clanNo);
+		List<ClanMemberRow> rows = new ArrayList<>();
+		Set<String> seenInLeague = new LinkedHashSet<>();
+		for (LeagueMemberView v : source) {
+			if (v.name == null || v.name.trim().isEmpty()) {
+				continue;
+			}
+			String name = v.name.trim();
+			if (seenInLeague.contains(name)) {
+				continue; // 联赛表里同名去重，避免重复预览
+			}
+			seenInLeague.add(name);
+			boolean hasNo = v.no != null && !v.no.trim().isEmpty();
+			boolean already = hasNo ? exist.nos.contains(v.no.trim()) : exist.byAnyName.containsKey(name);
+			if (already) {
+				continue; // 部落成员表已存在，跳过
+			}
+			ClanMemberRow row = new ClanMemberRow();
+			row.memberName = name;
+			row.memberNo = hasNo ? v.no.trim() : "";
+			row.exists = false;
+			rows.add(row);
+		}
+		return rows;
+	}
+
+	/** 联赛成员（战绩/报名）的名称与编号视图。 */
+	private static class LeagueMemberView {
+
+		final String name;
+
+		final String no;
+
+		LeagueMemberView(String name, String no) {
+			this.name = name;
+			this.no = no;
+		}
+
 	}
 
 	/** 确认导入：跳过已存在的成员（按成员名称查重），其余插入；已存在成员的导入字段（大本等级/匹配值/战斗力）非空时更新到数据库。 */

@@ -45,9 +45,21 @@
   <el-dialog v-model="importDialogVisible" title="导入部落成员" width="720px" @closed="onImportClosed">
     <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px"
       title="导入说明"
-      description="选择部落并上传 Excel（含“名称”“编号”“大本等级”“匹配值”“战斗力”五列，后四列均可留空），按成员名称查重，已存在的成员自动跳过。" />
+      description="支持三种导入方式：① 根据联赛成员战绩导入；② 根据联赛报名数据导入；③ Excel 导入。前两种方式会根据所选「联赛 + 部落」，自动找出联赛表中有、但部落成员表中还没有的成员。" />
 
-    <el-form label-width="72px" style="margin-bottom:12px">
+    <el-form label-width="84px" style="margin-bottom:12px">
+      <el-form-item label="导入方式" required>
+        <el-radio-group v-model="importType">
+          <el-radio value="leagueRecord">联赛成员战绩</el-radio>
+          <el-radio value="leagueSignup">联赛报名数据</el-radio>
+          <el-radio value="excel">Excel 导入</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="联赛" required v-if="importType !== 'excel'">
+        <el-select v-model="importLeagueNo" filterable placeholder="请选择联赛" style="width:100%">
+          <el-option v-for="o in importLeagueOptions" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="部落" required>
         <el-select v-model="importClanNo" filterable placeholder="请选择部落" style="width:100%">
           <el-option v-for="o in remoteOptions.clanNo" :key="o.value" :label="o.label" :value="o.value" />
@@ -56,6 +68,7 @@
     </el-form>
 
     <el-upload
+      v-if="importType === 'excel'"
       ref="importUpload"
       :auto-upload="false"
       :limit="1"
@@ -69,6 +82,7 @@
       <el-button style="margin-left:8px" type="success" :loading="previewLoading" @click="doParseImport">解析预览</el-button>
       <el-link type="primary" style="margin-left:12px" @click="downloadTemplate">下载导入模板</el-link>
     </el-upload>
+    <el-button v-else type="success" :loading="previewLoading" @click="doParseImport">查询待导入成员</el-button>
 
     <div v-if="previewList.length" style="margin-top:12px">
       <el-table :data="previewList" border size="small" max-height="320">
@@ -190,6 +204,9 @@
   memberCrud.data = function () {
     var d = _memberOrigData.call(this);
     d.importDialogVisible = false;
+    d.importType = "excel";
+    d.importLeagueNo = "";
+    d.importLeagueOptions = [];
     d.importClanNo = "";
     d.importFiles = [];
     d.previewList = [];
@@ -219,16 +236,24 @@
         ".member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;color:#2e7d32;font-weight:700;}";
       document.head.appendChild(s);
     }
+    this.importType = "excel";
+    this.importLeagueNo = "";
+    this.importLeagueOptions = [];
     this.importClanNo = (this.filters && this.filters.clanNo) || "";
     this.importFiles = [];
     this.previewList = [];
     this.previewLoading = false;
     this.confirmLoading = false;
     this.importDialogVisible = true;
+    // 联赛下拉（根据联赛成员战绩 / 报名数据导入时使用）
+    this.loadImportLeagues();
   };
 
   // 关闭弹窗后重置状态
   memberCrud.methods.onImportClosed = function () {
+    this.importType = "excel";
+    this.importLeagueNo = "";
+    this.importLeagueOptions = [];
     this.importClanNo = "";
     this.importFiles = [];
     this.previewList = [];
@@ -241,38 +266,63 @@
     this.importFiles = fileList;
   };
 
-  // 解析预览：将 Excel 发给后台，按成员名称查重并标注 exists
+  // 解析预览 / 查询待导入成员：
+  //  - excel：上传 Excel，按成员名称查重并标注 exists；
+  //  - leagueRecord / leagueSignup：查询联赛表中「部落成员表还没有」的成员。
   memberCrud.methods.doParseImport = async function () {
     if (!this.importClanNo) {
       ElementPlus.ElMessage.warning("请先选择部落");
       return;
     }
-    if (!this.importFiles.length) {
+    var isExcel = this.importType === "excel";
+    if (!isExcel && !this.importLeagueNo) {
+      ElementPlus.ElMessage.warning("请先选择联赛");
+      return;
+    }
+    if (isExcel && !this.importFiles.length) {
       ElementPlus.ElMessage.warning("请选择 Excel 文件");
       return;
     }
     this.previewLoading = true;
+    this.previewList = [];
     try {
       var fd = new FormData();
-      fd.append("type", "excel");
+      fd.append("type", this.importType);
       fd.append("clanNo", this.importClanNo);
-      var raw = this.importFiles[0].raw;
-      if (raw) fd.append("files", raw);
+      if (!isExcel) {
+        fd.append("leagueNo", this.importLeagueNo);
+      } else {
+        var raw = this.importFiles[0].raw;
+        if (raw) fd.append("files", raw);
+      }
       var res = await COC.api.clanMemberImportPreview(fd);
       this.previewList = (res && res.records) || [];
-      // 同步后台返回的 clanNo/groupNo（预览时服务端已按当前群组处理）
+      // 同步后台返回的 clanNo（预览时服务端已按当前群组处理）
       if (res && res.clanNo) this.importClanNo = res.clanNo;
       ElementPlus.ElMessage.success(
-        "解析完成，共 " + this.previewList.length + " 条",
+        "查询完成，共 " + this.previewList.length + " 条待导入",
       );
     } catch (e) {
       ElementPlus.ElMessage.error(
-        "解析失败：" +
+        "查询失败：" +
           ((e && e.response && e.response.data && e.response.data.message) ||
-            "请检查文件格式"),
+            "请检查输入"),
       );
     } finally {
       this.previewLoading = false;
+    }
+  };
+
+  // 加载联赛下拉选项（联赛成员战绩 / 报名数据导入时使用）
+  memberCrud.methods.loadImportLeagues = async function () {
+    try {
+      var res = await COC.api.page("/api/league", { size: 9999, current: 1 });
+      var rows = (res && res.records) || [];
+      this.importLeagueOptions = rows.map(function (l) {
+        return { label: l.leagueName + "（" + l.leagueNo + "）", value: l.leagueNo };
+      });
+    } catch (e) {
+      this.importLeagueOptions = [];
     }
   };
 
