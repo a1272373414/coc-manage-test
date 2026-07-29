@@ -279,6 +279,10 @@
             if (c.type === "switch") v = v == null ? 1 : Number(v);
             if (c.type === "remote-select" && (v === "" || v === undefined))
               v = null;
+            // 字典类下拉选项 value 已规范为 Number，若后台返回的是纯数字串则同步转 Number 以回显中文
+            if (c.dictCode && typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim())) {
+              v = Number(v.trim());
+            }
             f[c.prop] = v;
           });
           this.form = f;

@@ -37,4 +37,11 @@ public class CommonController {
 		}).collect(Collectors.toList());
 		return ApiResponse.ok(data);
 	}
+
+	/** 返回服务器当前时间（格式化字符串 yyyy-MM-dd HH:mm:ss），供前端展示等场景使用。所有登录用户可访问。 */
+	@GetMapping("/serverTime")
+	public ApiResponse serverTime() {
+		String formatted = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
+		return ApiResponse.ok(formatted);
+	}
 }
