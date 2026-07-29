@@ -24,8 +24,10 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tencent.com/g' /etc/apk/repositorie
     && apk add --update --no-cache openjdk8-jre-base \
     && rm -f /var/cache/apk/*
 
-# 容器默认时区为UTC，如需使用上海时间请启用以下时区设置命令
-# RUN apk add tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo Asia/Shanghai > /etc/timezone
+# 设置容器时区为北京时间（Asia/Shanghai），避免微信云托管默认 UTC 导致时间相差 8 小时
+ENV TZ=Asia/Shanghai
+RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 
 # 使用 HTTPS 协议访问容器云调用证书安装
 RUN apk add ca-certificates
