@@ -247,6 +247,7 @@
     .qs-act-btn:active { transform: translateY(1px); }
     .qs-act-set { background: #e9f7ef; color: var(--ok); }
     .qs-act-cancel { background: #fdecec; color: #e04848; }
+    .qs-act-change { background: #eaf2ff; color: #2f6bff; }
 
     .qs-status-tag {
       display: inline-flex; align-items: center; gap: 6px;
@@ -488,6 +489,7 @@
               <div v-if="isOwner && inSignupWindow" class="qs-actions">
                 <button v-if="(r.signupStatus || 1) !== 3" class="qs-act-btn qs-act-set" @click="setSignupStatus(r, 3)">参赛</button>
                 <button v-if="(r.signupStatus || 1) !== 1" class="qs-act-btn qs-act-cancel" @click="setSignupStatus(r, 1)">退赛</button>
+                <button class="qs-act-btn qs-act-change" @click="openChangeClan(r)">换部落</button>
               </div>
             </div>
           </div>
@@ -580,6 +582,32 @@
       </el-table>
     </el-dialog>
 
+    <!-- 换部落弹窗 -->
+    <el-dialog v-model="changeClanVisible" title="换部落" width="440px" :close-on-click-modal="false">
+      <el-form label-width="84px">
+        <el-form-item label="成员">
+          <el-input :model-value="changeClanRow ? changeClanRow.memberName : ''" disabled />
+        </el-form-item>
+        <el-form-item label="当前部落">
+          <el-input :model-value="changeClanRow ? clanNameOf(changeClanRow.clanNo) : ''" disabled />
+        </el-form-item>
+        <el-form-item label="目标部落" required>
+          <el-select v-model="changeClanTarget" placeholder="选择目标部落" style="width: 100%">
+            <el-option
+              v-for="c in clans" :key="c.clanNo"
+              :label="c.clanName || c.clanNo"
+              :value="c.clanNo"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div class="qs-tip">若目标部落已存在该成员报名，将先移除其原有报名再转移，避免重复报名。</div>
+      <template #footer>
+        <el-button @click="changeClanVisible = false">取消</el-button>
+        <el-button type="primary" :loading="changeClanSubmitting" @click="submitChangeClan">确定</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 
   <!-- 依赖 -->
@@ -660,6 +688,19 @@
           const loadError = ref('');
           const dialogVisible = ref(false);
           const submitting = ref(false);
+          // 换部落弹窗状态
+          const changeClanVisible = ref(false);
+          const changeClanSubmitting = ref(false);
+          const changeClanRow = ref(null);
+          const changeClanTarget = ref('');
+          // 部落编号 -> 部落名称
+          function clanNameOf(no) {
+            const arr = clans.value || [];
+            for (let i = 0; i < arr.length; i++) {
+              if (arr[i].clanNo === no) return arr[i].clanName || arr[i].clanNo;
+            }
+            return no || '';
+          }
           const form = reactive({ memberName: '', memberNo: '', signupStatus: '3', clanName: '' });
 
           // 登录态
@@ -927,6 +968,41 @@
             }
           }
 
+          // 换部落：打开弹窗，默认选中当前部落
+          function openChangeClan(row) {
+            if (!row || !row.id) return;
+            changeClanRow.value = row;
+            changeClanTarget.value = row.clanNo || '';
+            changeClanVisible.value = true;
+          }
+
+          // 换部落：提交时先校验部落是否变动，无变动直接关闭弹窗；变动则调用后端（目标部落已有该成员报名会先删除再更新）
+          async function submitChangeClan() {
+            const row = changeClanRow.value;
+            if (!row || !row.id) return;
+            if (!changeClanTarget.value) {
+              ElementPlus.ElMessage.warning('请选择目标部落');
+              return;
+            }
+            // 部落未变动：直接关闭弹窗
+            if (changeClanTarget.value === row.clanNo) {
+              changeClanVisible.value = false;
+              ElementPlus.ElMessage.info('部落未变更');
+              return;
+            }
+            changeClanSubmitting.value = true;
+            try {
+              await authPost('/api/league/signup/changeClan', { id: row.id, clanNo: changeClanTarget.value });
+              ElementPlus.ElMessage.success('已转移到「' + clanNameOf(changeClanTarget.value) + '」');
+              changeClanVisible.value = false;
+              await loadSignups();
+            } catch (e) {
+              ElementPlus.ElMessage.error((e && e.message) || '换部落失败');
+            } finally {
+              changeClanSubmitting.value = false;
+            }
+          }
+
           // 成员联赛战绩弹窗（点击头像打开，可按 游戏名称/联赛编号/群组编号 搜索）
           const memberRecordsVisible = ref(false);
           const memberRecordsLoading = ref(false);
@@ -986,10 +1062,11 @@
             groupNo, clans, activeClanNo, signups, leagues, selectedLeagueNo,
             loadingClans, loadingLeagues, loadingSignups, loadError,
             dialogVisible, submitting, form, loginUser, accessDenied, inSignupWindow, selectedLeague, fmtTime, isOwner,
-            statusStats, statusLabel, avatarText, leagueLabel, formatTime, memberNoView,
+            statusStats, statusLabel, avatarText, leagueLabel, formatTime, memberNoView, clanNameOf,
             memberRecordsVisible, memberRecordsLoading, memberRecords, histForm, openMemberRecords, loadMemberRecords,
             selectClan, onLeagueChange, openSignupDialog, submitSignup,
-            setSignupStatus,
+            setSignupStatus, openChangeClan, submitChangeClan,
+            changeClanVisible, changeClanSubmitting, changeClanRow, changeClanTarget,
             queryClanMembers, onMemberSelected,
             goLogin, logout, resultUrl
           };

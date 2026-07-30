@@ -207,6 +207,65 @@ public class LeagueSignupController {
 		return ApiResponse.ok();
 	}
 
+	/**
+	 * 换部落：将某条报名记录转移到目标部落。 权限由前端 isOwner（群主/部落管理员）控制，此处仅要求已登录且非超级管理员（JwtInterceptor 拦截）。
+	 * 逻辑： 1) 校验 id、目标 clanNo； 2) 部落未变更时直接返回；
+	 * 3) 目标部落 + 同一联赛已存在该成员报名 → 先逻辑删除该重复记录，避免换部落后出现重复报名； 4) 更新当前记录的 clan_no。
+	 */
+	@PostMapping("/changeClan")
+	public ApiResponse changeClan(@RequestBody Map<String, Object> body) {
+		Object idObj = body.get("id");
+		Object clanObj = body.get("clanNo");
+		if (idObj == null) {
+			return ApiResponse.error("报名记录 id 不能为空");
+		}
+		if (clanObj == null || String.valueOf(clanObj).trim().isEmpty()) {
+			return ApiResponse.error("目标部落不能为空");
+		}
+		Long id;
+		try {
+			id = Long.valueOf(String.valueOf(idObj));
+		} catch (Exception e) {
+			return ApiResponse.error("报名记录 id 不合法");
+		}
+		final String targetClanNo = String.valueOf(clanObj).trim();
+
+		LeagueSignup current = signupMapper.selectById(id);
+		if (current == null) {
+			return ApiResponse.error(404, "未找到报名记录");
+		}
+
+		// 部落未变更：直接返回（前端也会预校验）
+		if (targetClanNo.equals(current.getClanNo())) {
+			return ApiResponse.ok("部落未变更");
+		}
+
+		// 校验目标部落存在且属于同一群组（多租户隔离已限定当前 group_no，跨群部落查不到）
+		Clan targetClan = clanMapper.selectOne(new QueryWrapper<Clan>().eq("clan_no", targetClanNo));
+		if (targetClan == null) {
+			return ApiResponse.error("目标部落不存在: " + targetClanNo);
+		}
+
+		// 目标部落已存在同一成员的报名数据 → 先逻辑删除，再转移，避免重复报名
+		QueryWrapper<LeagueSignup> dupQw = new QueryWrapper<LeagueSignup>()
+			.eq("league_no", current.getLeagueNo())
+			.eq("clan_no", targetClanNo);
+		if (current.getMemberNo() != null && !current.getMemberNo().trim().isEmpty()) {
+			dupQw.eq("member_no", current.getMemberNo().trim());
+		} else {
+			dupQw.eq("member_name", current.getMemberName());
+		}
+		LeagueSignup duplicate = signupMapper.selectOne(dupQw);
+		if (duplicate != null) {
+			signupMapper.deleteById(duplicate.getId());
+		}
+
+		// 更新当前报名记录的部落编号
+		current.setClanNo(targetClanNo);
+		signupMapper.updateById(current);
+		return ApiResponse.ok(current);
+	}
+
 	private ApiResponse doSignup(LeagueSignup body) {
 		if (body.getLeagueNo() == null || body.getLeagueNo().trim().isEmpty()) {
 			return ApiResponse.error("leagueNo 不能为空");
