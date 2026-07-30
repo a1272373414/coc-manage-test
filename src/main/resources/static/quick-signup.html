@@ -567,6 +567,9 @@
         </div>
       </template>
       <el-table :data="memberRecords" v-loading="memberRecordsLoading" empty-text="暂无战绩" stripe border size="small">
+        <el-table-column label="联赛编号" width="120" align="center">
+          <template #default="{ row }">{{ row.leagueNo != null ? row.leagueNo : '-' }}</template>
+        </el-table-column>
         <el-table-column label="排名" width="90" align="center">
           <template #default="{ row }">{{ row.memberRank != null ? row.memberRank : '-' }}</template>
         </el-table-column>
