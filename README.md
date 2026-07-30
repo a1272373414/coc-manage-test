@@ -46,6 +46,8 @@
 2. 修改 `src/main/resources/application-dev.yml` 中的数据源连接信息
 3. 启动 `WxCloudRunApplication`，默认端口 `8080`
 4. 详细调试指引参考 [微信云托管本地调试指南](https://developers.weixin.qq.com/miniprogram/dev/wxcloudrun/src/guide/debug/)
+5. 编译命令 mvn -s settings.xml compile -DskipTests 
+6. 测试用例运行命令 mvn -s settings.xml test
 
 ### 3.3 实时开发
 
@@ -150,17 +152,6 @@ curl -X POST -H 'content-type: application/json' \
   http://localhost:8080/api/auth/login
 ```
 
-### 6.5 示例：计数器（模板保留）
-
-```bash
-# 获取当前计数
-curl http://localhost:8080/api/count
-
-# 计数加一
-curl -X POST -H 'content-type: application/json' \
-  -d '{"action":"inc"}' \
-  http://localhost:8080/api/count
-```
 
 ## 七、角色权限
 
