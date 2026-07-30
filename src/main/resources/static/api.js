@@ -196,6 +196,7 @@
       http.post("/api/clan/member/import/confirm", body),
     clanMemberImportTemplate: () =>
       http.get("/api/clan/member/import/template", { responseType: "blob" }),
+    clanMemberMerge: (body) => http.post("/api/clan/member/merge", body),
 
     // 一键计算战斗力
     combatPowerConfig: () => http.get("/api/clan/member/combatPower/config"),

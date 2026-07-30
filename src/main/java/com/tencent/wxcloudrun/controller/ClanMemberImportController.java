@@ -9,6 +9,7 @@ import com.tencent.wxcloudrun.entity.biz.LeagueSignup;
 import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
 import com.tencent.wxcloudrun.mapper.LeagueRecordMapper;
 import com.tencent.wxcloudrun.mapper.LeagueSignupMapper;
+import com.tencent.wxcloudrun.util.MemberNoGenerator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -32,6 +33,7 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,22 +97,30 @@ public class ClanMemberImportController {
 				return ApiResponse.error("未从 Excel 中解析到成员数据");
 			}
 
-			// 批量拉取该部落已存在的成员名称/编号，本地按“编号/名称”条件查重
-			ExistSets exist = loadExist(g, clanNo);
+		// 批量拉取该部落已存在的成员名称/编号，本地按“编号/名称”条件查重
+		ExistSets exist = loadExist(g, clanNo);
+		Map<String, Long> nameCount = countByNameMap(g, clanNo);
 
-			for (ClanMemberRow row : rows) {
-				boolean hasNo = row.memberNo != null && !row.memberNo.trim().isEmpty();
-				ClanMember matched = hasNo ? exist.byNo.get(row.memberNo.trim())
-						: exist.byAnyName.get(row.memberName.trim());
-				if (matched != null) {
-					row.exists = true;
-					// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
-					row.memberName = matched.getMemberName();
-				}
-				else {
-					row.exists = false;
-				}
+		for (ClanMemberRow row : rows) {
+			boolean hasNo = row.memberNo != null && !row.memberNo.trim().isEmpty();
+			ClanMember matched = hasNo ? exist.byNo.get(row.memberNo.trim())
+					: exist.byAnyName.get(row.memberName.trim());
+			if (matched != null) {
+				row.exists = true;
+				// 以数据库为准：导入名若匹配到的是备用名称(别名)，预览展示的成员名称修正为数据库中的真实主名称
+				row.memberName = matched.getMemberName();
 			}
+			else {
+				row.exists = false;
+			}
+		}
+		// 编号为空且同名成员≥2条：无法唯一匹配，提示补充编号
+		for (ClanMemberRow row : rows) {
+			if ((row.memberNo == null || row.memberNo.trim().isEmpty())
+					&& hasDuplicateName(nameCount, row.memberName)) {
+				row.error = "存在同名成员【" + row.memberName + "】，请补充编号";
+			}
+		}
 		}
 		else {
 			// 联赛成员战绩 / 联赛报名数据：根据本群组内「部落成员表还没有」的人生成预览
@@ -155,6 +165,7 @@ public class ClanMemberImportController {
 
 		// 2) 过滤：部落成员表中尚不存在的人（按成员名称查重，含别名）
 		ExistSets exist = loadExist(groupNo, clanNo);
+		Map<String, Long> nameCount = countByNameMap(groupNo, clanNo);
 		List<ClanMemberRow> rows = new ArrayList<>();
 		Set<String> seenInLeague = new LinkedHashSet<>();
 		for (LeagueMemberView v : source) {
@@ -175,6 +186,10 @@ public class ClanMemberImportController {
 			row.memberName = name;
 			row.memberNo = hasNo ? v.no.trim() : "";
 			row.exists = false;
+			// 编号为空且同名成员≥2条：无法唯一匹配，提示补充编号
+			if (!hasNo && hasDuplicateName(nameCount, name)) {
+				row.error = "存在同名成员【" + name + "】，请补充编号";
+			}
 			rows.add(row);
 		}
 		return rows;
@@ -215,6 +230,8 @@ public class ClanMemberImportController {
 		List<Map<String, Object>> records = (List<Map<String, Object>>) recordsObj;
 
 		ExistSets exist = loadExist(g, clanNo);
+		Map<String, Long> nameCount = countByNameMap(g, clanNo);
+		Set<String> generatedNos = new HashSet<String>();
 		int inserted = 0;
 		int skipped = 0;
 		int updated = 0;
@@ -228,6 +245,15 @@ public class ClanMemberImportController {
 			String no = rec.get("memberNo") == null ? null : String.valueOf(rec.get("memberNo")).trim();
 			if (no != null && no.isEmpty()) {
 				no = null;
+			}
+			// 编号为空且同名成员≥2条：无法唯一匹配，提示补充编号后重试
+			if (no == null && hasDuplicateName(nameCount, name)) {
+				return ApiResponse.error("存在同名成员【" + name + "】，请补充编号");
+			}
+			// 成员编号为空时自动生成 10 位（数字+小写字母）编号，保证同一部落下唯一
+			if (no == null) {
+				no = MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, g, clanNo, generatedNos);
+				generatedNos.add(no);
 			}
 			boolean hasNo = no != null;
 			// 条件唯一：填了编号 → 校验编号唯一；没填编号 → 按名称或备用名称(别名)匹配同一人
@@ -272,6 +298,8 @@ public class ClanMemberImportController {
 			if (combatPower != null)
 				member.setCombatPower(combatPower);
 			clanMemberMapper.insert(member);
+			// 同步联赛成员战绩表 / 联赛报名表：将同名且 member_no 为空的关联记录补全为该成员编号
+			syncLeagueNoByMemberName(name, clanNo, g, no);
 			// 把新插入的名称/编号加入已存在集合，避免同一批次内重复插入
 			if (hasNo) {
 				exist.nos.add(no);
@@ -487,6 +515,73 @@ public class ClanMemberImportController {
 		}
 	}
 
+	/** 统计指定群组内各名称（主名称 + 全部备用名称）对应的出现次数，用于导入同名去重校验。 */
+	private Map<String, Long> countByNameMap(String groupNo, String clanNo) {
+		QueryWrapper<ClanMember> qw = new QueryWrapper<ClanMember>();
+		if (groupNo != null && !groupNo.trim().isEmpty()) {
+			qw.eq("group_no", groupNo.trim());
+		}
+		if (clanNo != null && !clanNo.trim().isEmpty()) {
+			qw.eq("clan_no", clanNo.trim());
+		}
+		qw.select("member_name", "backup_name1", "backup_name2", "backup_name3", "backup_name4", "backup_name5");
+		List<ClanMember> list = clanMemberMapper.selectList(qw);
+		Map<String, Long> map = new HashMap<String, Long>();
+		for (ClanMember m : list) {
+			addNameCount(map, m.getMemberName());
+			addNameCount(map, m.getBackupName1());
+			addNameCount(map, m.getBackupName2());
+			addNameCount(map, m.getBackupName3());
+			addNameCount(map, m.getBackupName4());
+			addNameCount(map, m.getBackupName5());
+		}
+		return map;
+	}
+
+	private static void addNameCount(Map<String, Long> map, String name) {
+		if (name != null && !name.trim().isEmpty()) {
+			String nm = name.trim();
+			map.put(nm, map.getOrDefault(nm, 0L) + 1);
+		}
+	}
+
+	/** 导入校验：编号为空时，若同名（含备用名称）成员达到两条以上则无法唯一匹配。 */
+	private boolean hasDuplicateName(Map<String, Long> nameCount, String name) {
+		if (name == null || name.trim().isEmpty()) {
+			return false;
+		}
+		return nameCount.getOrDefault(name.trim(), 0L) >= 2;
+	}
+
+	/** 按成员名称（部落 + 群组）将联赛表中 member_no 为空的关联记录补全为 newNo。 */
+	private void syncLeagueNoByMemberName(String memberName, String clanNo, String groupNo, String newNo) {
+		if (memberName == null || memberName.trim().isEmpty()) {
+			return;
+		}
+		String name = memberName.trim();
+		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
+		rqw.eq("clan_no", clanNo);
+		if (groupNo != null && !groupNo.trim().isEmpty()) {
+			rqw.eq("group_no", groupNo);
+		}
+		rqw.eq("member_name", name);
+		rqw.and(w -> w.isNull("member_no").or().eq("member_no", ""));
+		LeagueRecord ru = new LeagueRecord();
+		ru.setMemberNo(newNo);
+		leagueRecordMapper.update(ru, rqw);
+
+		QueryWrapper<LeagueSignup> sqw = new QueryWrapper<LeagueSignup>();
+		sqw.eq("clan_no", clanNo);
+		if (groupNo != null && !groupNo.trim().isEmpty()) {
+			sqw.eq("group_no", groupNo);
+		}
+		sqw.eq("member_name", name);
+		sqw.and(w -> w.isNull("member_no").or().eq("member_no", ""));
+		LeagueSignup su = new LeagueSignup();
+		su.setMemberNo(newNo);
+		leagueSignupMapper.update(su, sqw);
+	}
+
 	/** 已存在成员的名称/编号集合（按 group_no + clan_no 范围）。 */
 	private static class ExistSets {
 
@@ -517,6 +612,9 @@ public class ClanMemberImportController {
 		public Integer combatPower;
 
 		public boolean exists;
+
+		/** 校验错误信息（如存在同名成员需补充编号），前端展示用 */
+		public String error;
 
 	}
 

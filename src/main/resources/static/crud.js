@@ -33,6 +33,7 @@
           dictOptions: {}, // { groupCode: [{label,value}] }
           remoteOptions: {}, // { propName: [{label,value}] } - 远程搜索下拉的候选
           extraButtons: opts.extraButtons || [], // 额外按钮（如"一键初始化报名"）
+          rowButtons: opts.rowButtons || [], // 行内按钮（如"合并成员"）
           initDialogVisible: false, // 初始化报名对话框
           initLeagueNo: "", // 初始化报名选中的联赛
           initClanNo: "", // 初始化报名选中的部落
@@ -80,6 +81,22 @@
           return (opts.extraButtons || []).filter(
             (b) => !b.perm || COC.store.hasPerm(b.perm),
           );
+        },
+        // 经过权限过滤后可见的行内按钮（如"合并成员"）
+        visibleRowButtons() {
+          return (opts.rowButtons || []).filter(
+            (b) => !b.perm || COC.store.hasPerm(b.perm),
+          );
+        },
+        // 操作列动态宽度：编辑 + 删除 + 行内按钮
+        opColumnWidth() {
+          let n = 0;
+          if (this.canEdit) n++;
+          if (this.canDelete) n++;
+          n += (opts.rowButtons || []).filter(
+            (b) => !b.perm || COC.store.hasPerm(b.perm),
+          ).length;
+          return Math.max(150, n * 52 + 30);
         },
       },
       async mounted() {
@@ -430,11 +447,12 @@
               </template>
             </el-table-column>
           </template>
-          <el-table-column label="操作" width="150" fixed="right">
+          <el-table-column label="操作" :width="opColumnWidth" fixed="right">
             <template #default="{ row }">
-              <template v-if="canEdit || canDelete">
+              <template v-if="canEdit || canDelete || visibleRowButtons.length">
                 <el-button v-if="canEdit" link type="primary" @click="openEdit(row)">编辑</el-button>
                 <el-button v-if="canDelete" link type="danger" @click="remove(row)">删除</el-button>
+                <el-button v-for="b in visibleRowButtons" :key="b.text" link :type="b.type || 'primary'" @click="this[b.click](row)">{{ b.text }}</el-button>
               </template>
               <span v-else>-</span>
             </template>

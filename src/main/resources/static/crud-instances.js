@@ -173,6 +173,28 @@
   </template>
 </el-dialog>`;
 
+  // 合并成员弹窗模板：当前成员为主数据，下拉选择同部落其他成员为被合并数据
+  const CLAN_MEMBER_MERGE_DIALOG_TEMPLATE = `
+<el-dialog v-model="mergeDialogVisible" title="合并成员" width="520px" :close-on-click-modal="false">
+  <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px"
+    title="合并说明"
+    description="将“被合并成员”并入下方“主数据”：被合并成员的名称会写入主数据空闲的备用名称栏，其关联的联赛战绩与报名记录一并转给主数据，随后被合并成员将被删除。" />
+  <el-form label-width="96px">
+    <el-form-item label="主数据" required>
+      <el-input :model-value="mergeMain ? (mergeMain.memberName + (mergeMain.memberNo ? '（' + mergeMain.memberNo + '）' : '')) : ''" disabled />
+    </el-form-item>
+    <el-form-item label="被合并成员" required>
+      <el-select v-model="mergeTargetId" filterable clearable placeholder="请选择同部落其他成员" style="width:100%">
+        <el-option v-for="o in mergeOptions" :key="o.value" :label="o.label" :value="o.value" />
+      </el-select>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="mergeDialogVisible = false">取消</el-button>
+    <el-button type="primary" :loading="mergeLoading" @click="doMerge">确认合并</el-button>
+  </template>
+</el-dialog>`;
+
   const memberCrud = createCrud({
     name: "MemberCrud",
     baseUrl: "/api/clan/member",
@@ -182,6 +204,10 @@
       edit: "clan:member:edit",
       delete: "clan:member:delete",
     },
+    // 行内按钮：合并成员（使用独立权限 clan:member:merge）
+    rowButtons: [
+      { text: "合并成员", type: "warning", click: "openMerge", perm: "clan:member:merge" },
+    ],
     extraButtons: [
       {
         text: "导入成员",
@@ -197,7 +223,9 @@
       },
     ],
     extraTemplate:
-      CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE + CLAN_MEMBER_CALC_DIALOG_TEMPLATE,
+      CLAN_MEMBER_IMPORT_DIALOG_TEMPLATE +
+      CLAN_MEMBER_CALC_DIALOG_TEMPLATE +
+      CLAN_MEMBER_MERGE_DIALOG_TEMPLATE,
   });
   // 部落成员导入弹窗所需的 data 字段（保留基类默认 data）
   var _memberOrigData = memberCrud.data;
@@ -223,6 +251,12 @@
     };
     d.calcInfo = { maxThLevel: 17, maxMatchValue: 0 };
     d.calcLoading = false;
+    // 合并成员弹窗字段
+    d.mergeDialogVisible = false;
+    d.mergeMain = null;
+    d.mergeTargetId = "";
+    d.mergeOptions = [];
+    d.mergeLoading = false;
     return d;
   };
 
@@ -462,6 +496,78 @@
       );
     } finally {
       this.calcLoading = false;
+    }
+  };
+
+  // 合并成员：当前行成员为主数据，打开弹窗选择同部落其他成员进行合并
+  memberCrud.methods.openMerge = function (row) {
+    function isEmpty(s) {
+      return !s || !String(s).trim();
+    }
+    var hasEmpty = isEmpty(row.backupName1) || isEmpty(row.backupName2)
+      || isEmpty(row.backupName3) || isEmpty(row.backupName4) || isEmpty(row.backupName5);
+    if (!hasEmpty) {
+      ElementPlus.ElMessage.warning("主数据备用名称字段已满，无法合并");
+      return;
+    }
+    this.mergeMain = row;
+    this.mergeTargetId = "";
+    this.mergeOptions = [];
+    this.mergeLoading = false;
+    this.mergeDialogVisible = true;
+    this.loadMergeOptions(row);
+  };
+
+  // 加载同部落（同群组）的其他成员作为“被合并成员”候选
+  memberCrud.methods.loadMergeOptions = async function (row) {
+    try {
+      var params = { size: 9999, current: 1 };
+      if (row.clanNo) {
+        params.clanNo = row.clanNo;
+      }
+      var res = await COC.api.page("/api/clan/member", params);
+      var rows = (res && res.records) || [];
+      this.mergeOptions = rows
+        .filter(function (m) { return m.id !== row.id; })
+        .map(function (m) {
+          return {
+            label: m.memberName + (m.memberNo ? "（" + m.memberNo + "）" : ""),
+            value: m.id,
+          };
+        });
+    } catch (e) {
+      this.mergeOptions = [];
+    }
+  };
+
+  // 执行合并：被合并成员名称写入主数据空闲备用名称，联赛两表记录转给主数据，删除被合并成员
+  memberCrud.methods.doMerge = async function () {
+    if (!this.mergeMain) {
+      ElementPlus.ElMessage.warning("请先选择主数据");
+      return;
+    }
+    if (!this.mergeTargetId) {
+      ElementPlus.ElMessage.warning("请选择被合并成员");
+      return;
+    }
+    this.mergeLoading = true;
+    try {
+      await COC.api.clanMemberMerge({
+        mainId: this.mergeMain.id,
+        mergeId: this.mergeTargetId,
+      });
+      ElementPlus.ElMessage.success("合并成功");
+      this.mergeDialogVisible = false;
+      await this.load();
+    } catch (e) {
+      ElementPlus.ElMessage.error(
+        "合并失败：" +
+          ((e && e.response && e.response.data && e.response.data.message) ||
+            (e && e.message) ||
+            ""),
+      );
+    } finally {
+      this.mergeLoading = false;
     }
   };
 
