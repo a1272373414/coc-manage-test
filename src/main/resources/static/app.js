@@ -169,6 +169,7 @@
       return {
         pwdVisible: false,
         pwdForm: { oldPassword: "", newPassword: "" },
+        mobileNavOpen: false,
       };
     },
     computed: {
@@ -213,6 +214,12 @@
       active(p) {
         return this.$route.path === p;
       },
+      toggleNav() {
+        this.mobileNavOpen = !this.mobileNavOpen;
+      },
+      closeNav() {
+        this.mobileNavOpen = false;
+      },
       async logout() {
         try {
           await COC.api.logout();
@@ -241,19 +248,28 @@
         } catch (e) {}
       },
     },
+    watch: {
+      $route() {
+        this.closeNav();
+      },
+    },
     template: `
-    <div class="layout">
+    <div class="layout" :class="{ 'nav-open': mobileNavOpen }">
+      <div class="layout-mask" @click="closeNav"></div>
       <aside class="layout-aside">
         <div class="logo">COC 联赛管理</div>
         <nav class="aside-menu">
-          <a v-for="n in visibleNav" :key="n.path" :href="'#'+n.path" :class="{active: active(n.path)}">
+          <a v-for="n in visibleNav" :key="n.path" :href="'#'+n.path" :class="{active: active(n.path)}" @click="closeNav">
             <el-icon><component :is="n.icon" /></el-icon>{{ n.title }}
           </a>
         </nav>
       </aside>
       <div class="layout-main">
         <header class="layout-header">
-          <span class="title">{{ (visibleNav.find(n=>active(n.path))||{}).title || '部落冲突部落联赛管理系统' }}</span>
+          <div class="header-left">
+            <el-icon class="nav-toggle" @click="toggleNav"><Menu /></el-icon>
+            <span class="title">{{ (visibleNav.find(n=>active(n.path))||{}).title || '部落冲突部落联赛管理系统' }}</span>
+          </div>
           <div class="user">
             <span>欢迎，{{ user.nickname || user.username }}</span>
             <el-dropdown @command="c=>{ if(c==='pwd') pwdVisible=true; if(c==='logout') logout(); }">
@@ -295,6 +311,10 @@
     },
     mounted() {
       this.load();
+      window.addEventListener("resize", this.onChartResize);
+    },
+    beforeUnmount() {
+      window.removeEventListener("resize", this.onChartResize);
     },
     computed: {
       warWin() {
@@ -314,6 +334,10 @@
       sumBy(status) {
         const f = this.warStat.find((x) => x.winStatus === status);
         return f ? f.count : 0;
+      },
+      onChartResize() {
+        if (this.pie) this.pie.resize();
+        if (this.bar) this.bar.resize();
       },
       async load() {
         this.loading = true;
@@ -710,7 +734,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <div class="coc-pager" style="display:flex;justify-content:flex-end;margin-top:12px">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
           :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
           @current-change="load" @size-change="load" />
@@ -931,7 +955,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <div class="coc-pager" style="display:flex;justify-content:flex-end;margin-top:12px">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
           :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
           @current-change="load" @size-change="load" />
@@ -1447,7 +1471,7 @@
         </el-table-column>
       </el-table>
 
-      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <div class="coc-pager" style="display:flex;justify-content:flex-end;margin-top:12px">
         <el-pagination v-model:current-page="page" v-model:page-size="size" :total="total"
           :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
           @current-change="load" @size-change="load" />
@@ -1501,7 +1525,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <div class="coc-pager" style="display:flex;justify-content:flex-end;margin-top:12px">
           <el-pagination v-model:current-page="page.current" v-model:page-size="page.size" :total="page.total"
             :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" background
             @current-change="c=>load(page.size,c)" @size-change="s=>load(s,1)" />

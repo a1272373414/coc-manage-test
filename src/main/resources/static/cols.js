@@ -135,7 +135,7 @@
       search: true,
       rule: req("请输入部落编号"),
     },
-    { prop: "memberName", label: "成员名称", rule: req("请输入成员名称") },
+    { prop: "memberName", label: "成员名称", search: true, rule: req("请输入成员名称") },
     { prop: "memberNo", label: "成员编号", rule: req("请输入成员编号") },
     { prop: "atk1Stars", label: "一攻星数", type: "number" },
     { prop: "atk1Rate", label: "一攻百分比", type: "number" },

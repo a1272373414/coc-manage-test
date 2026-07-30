@@ -459,7 +459,7 @@
           </el-table-column>
         </el-table>
 
-        <div style="display:flex;justify-content:flex-end;margin-top:12px" v-if="!isListView">
+        <div class="coc-pager" style="display:flex;justify-content:flex-end;margin-top:12px" v-if="!isListView">
           <el-pagination
             v-model:current-page="page" v-model:page-size="size"
             :total="total" :page-sizes="[10,20,50,100]"

@@ -259,25 +259,91 @@ a {
   background-color: var(--el-table-row-hover-bg-color) !important;
 }
 
-/* ====== 响应式 ====== */
+/* ====== 响应式（PC + 移动端） ====== */
+/* 手机端导航开关（汉堡按钮）：默认隐藏，仅移动端显示 */
+.nav-toggle {
+  display: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #303133;
+  margin-right: 12px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+/* 移动端抽屉遮罩：默认隐藏 */
+.layout-mask {
+  display: none;
+}
+
 @media (max-width: 900px) {
+  /* 顶部显示汉堡按钮 */
+  .nav-toggle { display: inline-flex; }
+
+  /* 侧边栏改为可滑出的抽屉（默认隐藏在屏幕左侧外） */
   .layout-aside {
-    width: 60px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 220px;
+    z-index: 1001;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
   }
-  .logo {
-    font-size: 14px;
-    letter-spacing: 0;
+  .layout.nav-open .layout-aside { transform: translateX(0); }
+
+  /* 抽屉打开时的半透明遮罩（仅在 nav-open 时显示） */
+  .layout.nav-open .layout-mask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1000;
   }
-  .aside-menu a span:not(.el-icon) {
-    display: none;
+
+  /* 抽屉内显示完整菜单文字 */
+  .aside-menu a span:not(.el-icon) { display: inline; }
+  .logo { font-size: 18px; letter-spacing: 2px; }
+
+  /* 内容区留白收窄 */
+  .layout-content { padding: 10px; }
+  .page-card { padding: 14px; }
+  .layout-header { padding: 0 12px; }
+  .layout-header .user > span { display: none; } /* 移动端隐藏"欢迎，xxx" */
+
+  /* 看板卡片单列铺满 */
+  .dash-cards > * { max-width: 100%; flex: 1 1 100%; }
+  .chart-row { flex-direction: column; }
+
+  /* 弹窗在移动端占满可用宽度 */
+  .el-dialog { width: 92vw !important; max-width: 92vw !important; }
+  .el-message-box { width: 88vw !important; }
+
+  /* 搜索工具栏换行，控件占满整行 */
+  .coc-toolbar .el-form-item { margin-right: 0; width: 100%; }
+  .coc-toolbar .el-select,
+  .coc-toolbar .el-input,
+  .coc-toolbar .el-date-editor { width: 100% !important; }
+
+  /* 分页器允许横向滚动，避免溢出 */
+  .coc-pager {
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .dash-cards > * {
-    max-width: 100%;
-    flex: none;
-  }
-  .chart-row {
-    flex-direction: column;
-  }
+  .coc-pager .el-pagination { flex: none; white-space: nowrap; }
+}
+
+/* 超小屏进一步压缩留白 */
+@media (max-width: 480px) {
+  .layout-content { padding: 8px; }
+  .page-card { padding: 10px; }
+  .dash-card { padding: 14px 16px; }
+  .dash-card .v { font-size: 24px; }
 }
 
 /* ============ MenuTree 组件（菜单管理 - 树视图） ============ */

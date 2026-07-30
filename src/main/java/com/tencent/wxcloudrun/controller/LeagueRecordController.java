@@ -60,12 +60,20 @@ public class LeagueRecordController extends BaseCrudController<LeagueRecord> {
 		HttpServletRequest req = attrs != null ? attrs.getRequest() : null;
 		String leagueNo = req != null ? req.getParameter("leagueNo") : null;
 		String clanNo = req != null ? req.getParameter("clanNo") : null;
+		String memberName = req != null ? req.getParameter("memberName") : null;
+		String signupStatus = req != null ? req.getParameter("signupStatus") : null;
 
 		if (leagueNo != null && !leagueNo.trim().isEmpty()) {
 			qw.eq("league_no", leagueNo.trim());
 		}
 		if (clanNo != null && !clanNo.trim().isEmpty()) {
 			qw.eq("clan_no", clanNo.trim());
+		}
+		if (memberName != null && !memberName.trim().isEmpty()) {
+			qw.like("member_name", memberName.trim());
+		}
+		if (signupStatus != null && !signupStatus.trim().isEmpty()) {
+			qw.eq("signup_status", signupStatus.trim());
 		}
 		if (keyword != null && !keyword.trim().isEmpty()) {
 			String kw = keyword.trim();
