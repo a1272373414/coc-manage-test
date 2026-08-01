@@ -217,9 +217,22 @@ describe("api.js - 前端接口层", function () {
     });
 
     test("生产环境空 apiUrl 时使用 location.origin", function () {
-      loadAllScripts({ configEnv: "prod" });
-      // prod 配置中 apiUrl 为 ''，应回退到 location.origin
-      expect(COC.API_BASE).toBe(window.location.origin);
+      // jsdom 默认 origin 带端口(8080)，模拟真实部署域名（无端口）场景
+      var savedLocation = window.location;
+      Object.defineProperty(window, "location", {
+        value: { origin: "http://localhost", href: "http://localhost/" },
+        configurable: true,
+      });
+      try {
+        loadAllScripts({ configEnv: "prod" });
+        // prod 配置中 apiUrl 为 ''，应回退到 location.origin
+        expect(COC.API_BASE).toBe(window.location.origin);
+      } finally {
+        Object.defineProperty(window, "location", {
+          value: savedLocation,
+          configurable: true,
+        });
+      }
     });
   });
 });
