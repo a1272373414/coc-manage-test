@@ -460,24 +460,23 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		}
 		String clanNo = req.getClanNo().trim();
 		String groupNo = UserContext.getGroupNo();
+		if (groupNo == null || groupNo.isEmpty()) {
+			return ApiResponse.error("群组编号为空");
+		}
 
 		// 部落成员
 		QueryWrapper<ClanMember> mqw = new QueryWrapper<ClanMember>();
 		mqw.eq("clan_no", clanNo);
-		if (groupNo != null && !groupNo.isEmpty()) {
-			mqw.eq("group_no", groupNo);
-		}
+		mqw.eq("group_no", groupNo);
 		List<ClanMember> members = clanMemberMapper.selectList(mqw);
 		if (members.isEmpty()) {
 			return ApiResponse.error("该部落下没有成员数据");
 		}
 
-		// 联赛成员战绩
+		// 联赛成员战绩，不区分部落
 		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
-		rqw.eq("clan_no", clanNo);
-		if (groupNo != null && !groupNo.isEmpty()) {
-			rqw.eq("group_no", groupNo);
-		}
+		// rqw.eq("clan_no", clanNo);
+		rqw.eq("group_no", groupNo);
 		List<LeagueRecord> records = leagueRecordMapper.selectList(rqw);
 
 		// 按成员名聚合战绩
