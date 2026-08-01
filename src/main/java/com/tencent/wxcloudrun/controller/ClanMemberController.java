@@ -479,17 +479,17 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		rqw.eq("group_no", groupNo);
 		List<LeagueRecord> records = leagueRecordMapper.selectList(rqw);
 
-		// 按成员名聚合战绩
+		// 按成员编号聚合战绩
 		Map<String, RecordAgg> aggMap = new HashMap<String, RecordAgg>();
 		for (LeagueRecord r : records) {
-			String name = r.getMemberName();
-			if (name == null || name.trim().isEmpty()) {
+			String memberNo = r.getMemberNo();
+			if (memberNo == null || memberNo.trim().isEmpty()) {
 				continue;
 			}
-			RecordAgg a = aggMap.get(name);
+			RecordAgg a = aggMap.get(memberNo);
 			if (a == null) {
 				a = new RecordAgg();
-				aggMap.put(name, a);
+				aggMap.put(memberNo, a);
 			}
 			a.actual += (r.getActualAttacks() == null ? 0 : r.getActualAttacks());
 			a.required += (r.getRequiredAttacks() == null ? 0 : r.getRequiredAttacks());
@@ -509,7 +509,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 
 		int updated = 0;
 		for (ClanMember m : members) {
-			RecordAgg a = aggMap.get(m.getMemberName());
+			RecordAgg a = aggMap.get(m.getMemberNo());
 			double attackProb = 0d;
 			double participateProb = 0d;
 			double threeStarProb = 0d;
