@@ -41,7 +41,7 @@ import java.util.Set;
 
 /**
  * 部落成员批量导入。 支持三种导入方式：Excel 导入、根据联赛成员战绩导入、根据联赛报名数据导入。
- * 导入时按成员名称（member_name，含别名）在「同一群组(group_no) + 部落(clan_no)」范围内查重，已存在则忽略（跳过）。
+ * 导入时按成员名称（member_name，含别名）在整个群组(group_no)范围内查重，已存在则忽略（跳过）；不限制同一部落。
  */
 @RestController
 @RequestMapping("/api/clan/member/import")

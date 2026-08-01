@@ -111,8 +111,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	}
 
 	/**
-	 * 历史数据处理：为成员表中 member_no 为空的成员生成唯一编号，并同步更新
-	 * 联赛成员战绩表、联赛报名表中关联记录的 member_no（按 名称 + 部落 + 群组 匹配且原 member_no 为空）。
+	 * 历史数据处理：为成员表中 member_no 为空的成员生成唯一编号（整个群组范围内唯一），并同步更新
+	 * 联赛成员战绩表、联赛报名表中关联记录的 member_no（按 名称 + 群组 匹配且原 member_no 为空，不限制部落）。
 	 */
 	@IgnoreLogin
 	@GetMapping("/backfillMemberNo")
