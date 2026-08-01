@@ -80,8 +80,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 				return ApiResponse.error("存在同名成员【" + memberName + "】，请补充编号");
 			}
 			body.setMemberNo(MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, groupNo, null));
-		}
-		else {
+		} else {
 			body.setMemberNo(body.getMemberNo().trim());
 		}
 		ApiResponse dup = checkDuplicate(body, null);
@@ -233,8 +232,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		}
 		if (hadNo) {
 			rqw.eq("member_no", oldNo);
-		}
-		else {
+		} else {
 			rqw.eq("member_name", oldName);
 		}
 		LeagueRecord recordUpd = new LeagueRecord();
@@ -252,8 +250,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		}
 		if (hadNo) {
 			sqw.eq("member_no", oldNo);
-		}
-		else {
+		} else {
 			sqw.eq("member_name", oldName);
 		}
 		LeagueSignup signupUpd = new LeagueSignup();
@@ -273,7 +270,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	public ApiResponse page(@RequestParam(required = false) String keyword,
 			@RequestParam(defaultValue = "1") long current, @RequestParam(defaultValue = "10") long size) {
 		HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
-			.getRequest();
+				.getRequest();
 		String memberName = trimToNull(request.getParameter("memberName"));
 		String memberNo = trimToNull(request.getParameter("memberNo"));
 		String clanNo = trimToNull(request.getParameter("clanNo"));
@@ -341,8 +338,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			return null;
 		try {
 			return Integer.valueOf(t);
-		}
-		catch (NumberFormatException e) {
+		} catch (NumberFormatException e) {
 			return null;
 		}
 	}
@@ -364,8 +360,10 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	}
 
 	/**
-	 * 条件唯一校验（同一群组 group_no 内，即整个群组范围，不限制同一部落）： - 成员编号不为空 → 按 (group_no, member_no) 查重 -
-	 * 成员编号为空 → 按 (group_no, member_name) 查重 excludeId 不为空时排除该记录本身（编辑场景）。无群组上下文时返回 null（跳过校验）。
+	 * 条件唯一校验（同一群组 group_no 内，即整个群组范围，不限制同一部落）： - 成员编号不为空 → 按 (group_no, member_no)
+	 * 查重 -
+	 * 成员编号为空 → 按 (group_no, member_name) 查重 excludeId 不为空时排除该记录本身（编辑场景）。无群组上下文时返回
+	 * null（跳过校验）。
 	 */
 	private ApiResponse checkDuplicate(ClanMember body, Long excludeId) {
 		String groupNo = UserContext.getGroupNo();
@@ -381,8 +379,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		if (hasNo) {
 			// 成员编号查重：整个群组下唯一，不限制同一部落
 			qw.eq("member_no", body.getMemberNo().trim());
-		}
-		else {
+		} else {
 			// 成员名称查重：整个群组下唯一，不限制同一部落
 			qw.eq("member_name", body.getMemberName().trim());
 		}
@@ -416,8 +413,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		}
 		try {
 			return Integer.parseInt(v.trim());
-		}
-		catch (NumberFormatException e) {
+		} catch (NumberFormatException e) {
 			return defaultValue;
 		}
 	}
@@ -470,20 +466,29 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
 		// rqw.eq("clan_no", clanNo);
 		rqw.eq("group_no", groupNo);
+		rqw.orderByDesc("league_no");
 		List<LeagueRecord> records = leagueRecordMapper.selectList(rqw);
 
 		// 按成员编号聚合战绩
 		Map<String, RecordAgg> aggMap = new HashMap<String, RecordAgg>();
+		Map<String, Integer> aggCountMap = new HashMap<String, Integer>();
 		for (LeagueRecord r : records) {
 			String memberNo = r.getMemberNo();
 			if (memberNo == null || memberNo.trim().isEmpty()) {
 				continue;
 			}
 			RecordAgg a = aggMap.get(memberNo);
+			Integer aggCount = aggCountMap.get(memberNo);
 			if (a == null) {
 				a = new RecordAgg();
 				aggMap.put(memberNo, a);
+				aggCount = 0;
 			}
+			// 每个用户只取最近5条，前面查询已按联赛编号倒序
+			if (aggCount.compareTo(5) >= 0) {
+				continue;
+			}
+			aggCountMap.put(memberNo, aggCount + 1);
 			a.actual += (r.getActualAttacks() == null ? 0 : r.getActualAttacks());
 			a.required += (r.getRequiredAttacks() == null ? 0 : r.getRequiredAttacks());
 			a.winStars += (r.getWinStars() == null ? 0 : r.getWinStars());
@@ -601,17 +606,13 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		String n = name.trim();
 		if (isBlank(main.getBackupName1())) {
 			main.setBackupName1(n);
-		}
-		else if (isBlank(main.getBackupName2())) {
+		} else if (isBlank(main.getBackupName2())) {
 			main.setBackupName2(n);
-		}
-		else if (isBlank(main.getBackupName3())) {
+		} else if (isBlank(main.getBackupName3())) {
 			main.setBackupName3(n);
-		}
-		else if (isBlank(main.getBackupName4())) {
+		} else if (isBlank(main.getBackupName4())) {
 			main.setBackupName4(n);
-		}
-		else if (isBlank(main.getBackupName5())) {
+		} else if (isBlank(main.getBackupName5())) {
 			main.setBackupName5(n);
 		}
 	}
@@ -623,8 +624,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	/** 主数据是否还有为空的备用名称字段（backup_name1~5）。 */
 	private boolean hasEmptyBackupName(ClanMember m) {
 		return isBlank(m.getBackupName1()) || isBlank(m.getBackupName2())
-			|| isBlank(m.getBackupName3()) || isBlank(m.getBackupName4())
-			|| isBlank(m.getBackupName5());
+				|| isBlank(m.getBackupName3()) || isBlank(m.getBackupName4())
+				|| isBlank(m.getBackupName5());
 	}
 
 	/** 将被合并成员关联的联赛两表记录改为关联主数据（按成员名称或编号匹配）。 */

@@ -39,6 +39,7 @@ public class DictItemController extends BaseCrudController<DictItem> {
 	 * groupCode，按字典组精确过滤 - 按 sort 升序排列 前端通过 COC.api.dictItems(groupCode) 加载下拉选项时传
 	 * groupCode + size=9999。
 	 */
+	@SuppressWarnings("null")
 	@Override
 	@GetMapping("/page")
 	public ApiResponse page(@RequestParam(required = false) String keyword,

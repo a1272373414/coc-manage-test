@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * GroupTenantHandler 单元测试：聚焦"超级管理员同样按 group_no 隔离业务数据，不再放行全部业务数据"。 直接实例化
  * MyBatisPlusConfig.GroupTenantHandler，通过 UserContext 设置登录上下文。
  */
-@SuppressWarnings("null")
+// @SuppressWarnings("null")
 @DisplayName("多租户隔离处理器测试")
 class GroupTenantHandlerTest {
 
