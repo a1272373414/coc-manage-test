@@ -73,14 +73,13 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			return ApiResponse.error("成员名称不能为空");
 		}
 		String groupNo = resolveGroupNo(body);
-		String clanNo = body.getClanNo() == null ? null : body.getClanNo().trim();
 		String memberName = body.getMemberName().trim();
-		// 成员编号为空时：若存在同名成员（含备用名称）则要求补充编号，否则自动生成 10 位（数字+小写字母）编号
+		// 成员编号为空时：若整个群组下存在同名成员（含备用名称）则要求补充编号，否则自动生成 10 位（数字+小写字母）编号
 		if (body.getMemberNo() == null || body.getMemberNo().trim().isEmpty()) {
-			if (existsSameNameMember(groupNo, clanNo, memberName)) {
+			if (existsSameNameMember(groupNo, memberName)) {
 				return ApiResponse.error("存在同名成员【" + memberName + "】，请补充编号");
 			}
-			body.setMemberNo(MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, groupNo, clanNo));
+			body.setMemberNo(MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, groupNo, null));
 		}
 		else {
 			body.setMemberNo(body.getMemberNo().trim());
@@ -91,13 +90,13 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		}
 		body.setId(null);
 		clanMemberMapper.insert(body);
-		// 同步联赛成员战绩表 / 联赛报名表：将同名且 member_no 为空的关联记录补全为该成员编号
-		syncLeagueNoByMemberName(memberName, clanNo, groupNo, body.getMemberNo());
+		// 同步联赛成员战绩表 / 联赛报名表：将同名且 member_no 为空的关联记录补全为该成员编号（整个群组范围，不限制同一部落）
+		syncLeagueNoByMemberName(memberName, groupNo, body.getMemberNo());
 		return ApiResponse.ok(body);
 	}
 
-	/** 是否存在同名成员（主名称或任一备用名称），用于新增校验；按 group_no（非空）+ clan_no（非空）范围判断。 */
-	private boolean existsSameNameMember(String groupNo, String clanNo, String memberName) {
+	/** 是否存在同名成员（主名称或任一备用名称），用于新增校验；按 group_no（非空）整个群组范围判断，不再限制同一部落。 */
+	private boolean existsSameNameMember(String groupNo, String memberName) {
 		if (memberName == null || memberName.trim().isEmpty()) {
 			return false;
 		}
@@ -105,9 +104,6 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		QueryWrapper<ClanMember> qw = new QueryWrapper<ClanMember>();
 		if (groupNo != null && !groupNo.trim().isEmpty()) {
 			qw.eq("group_no", groupNo.trim());
-		}
-		if (clanNo != null && !clanNo.trim().isEmpty()) {
-			qw.eq("clan_no", clanNo.trim());
 		}
 		qw.and(w -> w.eq("member_name", name).or().eq("backup_name1", name).or().eq("backup_name2", name)
 				.or().eq("backup_name3", name).or().eq("backup_name4", name).or().eq("backup_name5", name));
@@ -130,10 +126,10 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			if (m.getMemberNo() != null && !m.getMemberNo().trim().isEmpty()) {
 				continue;
 			}
-			String newNo = MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, m.getGroupNo(), m.getClanNo());
+			String newNo = MemberNoGenerator.generateUniqueMemberNo(clanMemberMapper, m.getGroupNo(), null);
 			m.setMemberNo(newNo);
 			clanMemberMapper.updateById(m);
-			syncLeagueNoByMemberName(m.getMemberName(), m.getClanNo(), m.getGroupNo(), newNo);
+			syncLeagueNoByMemberName(m.getMemberName(), m.getGroupNo(), newNo);
 			updated++;
 		}
 		Map<String, Object> result = new HashMap<String, Object>(2);
@@ -150,14 +146,13 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		return groupNo;
 	}
 
-	/** 按成员名称（部落 + 群组）将联赛表中 member_no 为空的关联记录补全为 newNo。 */
-	private void syncLeagueNoByMemberName(String memberName, String clanNo, String groupNo, String newNo) {
+	/** 按成员名称（整个群组范围，不限制同一部落）将联赛表中 member_no 为空的关联记录补全为 newNo。 */
+	private void syncLeagueNoByMemberName(String memberName, String groupNo, String newNo) {
 		if (memberName == null || memberName.trim().isEmpty()) {
 			return;
 		}
 		String name = memberName.trim();
 		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
-		rqw.eq("clan_no", clanNo);
 		if (groupNo != null && !groupNo.trim().isEmpty()) {
 			rqw.eq("group_no", groupNo);
 		}
@@ -168,7 +163,6 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		leagueRecordMapper.update(ru, rqw);
 
 		QueryWrapper<LeagueSignup> sqw = new QueryWrapper<LeagueSignup>();
-		sqw.eq("clan_no", clanNo);
 		if (groupNo != null && !groupNo.trim().isEmpty()) {
 			sqw.eq("group_no", groupNo);
 		}
@@ -370,8 +364,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	}
 
 	/**
-	 * 条件唯一校验（同一群组 group_no 内）： - 成员编号不为空 → 按 (group_no, member_no) 查重 - 成员编号为空 → 按
-	 * (group_no, member_name) 查重 excludeId 不为空时排除该记录本身（编辑场景）。无群组上下文时返回 null（跳过校验）。
+	 * 条件唯一校验（同一群组 group_no 内，即整个群组范围，不限制同一部落）： - 成员编号不为空 → 按 (group_no, member_no) 查重 -
+	 * 成员编号为空 → 按 (group_no, member_name) 查重 excludeId 不为空时排除该记录本身（编辑场景）。无群组上下文时返回 null（跳过校验）。
 	 */
 	private ApiResponse checkDuplicate(ClanMember body, Long excludeId) {
 		String groupNo = UserContext.getGroupNo();
@@ -384,13 +378,12 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		boolean hasNo = body.getMemberNo() != null && !body.getMemberNo().trim().isEmpty();
 		QueryWrapper<ClanMember> qw = new QueryWrapper<>();
 		qw.eq("group_no", groupNo);
-		if (body.getClanNo() != null && !body.getClanNo().trim().isEmpty()) {
-			qw.eq("clan_no", body.getClanNo().trim());
-		}
 		if (hasNo) {
+			// 成员编号查重：整个群组下唯一，不限制同一部落
 			qw.eq("member_no", body.getMemberNo().trim());
 		}
 		else {
+			// 成员名称查重：整个群组下唯一，不限制同一部落
 			qw.eq("member_name", body.getMemberName().trim());
 		}
 		if (excludeId != null) {
@@ -558,7 +551,7 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 	 * 1) 被合并成员的名称（不含备用名称）写入主数据第一个为空的备用名称字段；
 	 * 2) 被合并成员关联的联赛成员战绩表、联赛报名表记录改为关联主数据；
 	 * 3) 删除被合并成员。
-	 * 仅允许合并同一群组（group_no）与同一部落（clan_no）下的成员。
+	 * 仅允许合并同一群组（group_no）下的成员（不限制同一部落，因整群下同一成员为单条记录，可跨部落移动）。
 	 */
 	@PostMapping("/merge")
 	@Transactional
@@ -580,8 +573,8 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		if (!hasEmptyBackupName(main)) {
 			return ApiResponse.error("主数据备用名称字段已满，无法合并");
 		}
-		if (!sameGroupAndClan(main, merge)) {
-			return ApiResponse.error("仅可合并同一部落下的成员");
+		if (!sameGroup(main, merge)) {
+			return ApiResponse.error("仅可合并同一群组下的成员");
 		}
 		// 1) 被合并成员名称写入主数据空闲的备用名称字段
 		fillBackupName(main, merge.getMemberName());
@@ -593,19 +586,11 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		return ApiResponse.ok();
 	}
 
-	/** 主数据与被合并数据是否同群组且同部落。 */
-	private boolean sameGroupAndClan(ClanMember a, ClanMember b) {
-		String ac = a.getClanNo() == null ? "" : a.getClanNo();
-		String bc = b.getClanNo() == null ? "" : b.getClanNo();
-		if (!ac.equals(bc)) {
-			return false;
-		}
+	/** 主数据与被合并数据是否同群组（不再限制同部落）。 */
+	private boolean sameGroup(ClanMember a, ClanMember b) {
 		String ag = a.getGroupNo() == null ? "" : a.getGroupNo();
 		String bg = b.getGroupNo() == null ? "" : b.getGroupNo();
-		if (!ag.equals(bg)) {
-			return false;
-		}
-		return true;
+		return ag.equals(bg);
 	}
 
 	/** 将名称写入主数据第一个为空的备用名称字段（backup_name1~5）。 */

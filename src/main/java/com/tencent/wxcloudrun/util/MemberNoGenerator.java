@@ -9,7 +9,8 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * 成员编号生成器：生成 10 位“数字 + 小写字母”组成的编号，并在指定 group_no + clan_no 范围内保证唯一。
+ * 成员编号生成器：生成 10 位“数字 + 小写字母”组成的编号，并在指定 group_no（整个群组）范围内保证唯一。
+ * 注意：同一群组下同一成员仅存在一条记录，可在不同部落间移动，因此编号唯一性以 group_no 为准，不再限制部落。
  */
 public final class MemberNoGenerator {
 
@@ -24,16 +25,11 @@ public final class MemberNoGenerator {
 	private MemberNoGenerator() {
 	}
 
-	/** 生成唯一编号（不传已用编号集合，仅按数据库校验唯一）。 */
-	public static String generateUniqueMemberNo(ClanMemberMapper mapper, String groupNo, String clanNo) {
-		return generateUniqueMemberNo(mapper, groupNo, clanNo, null);
-	}
-
 	/**
 	 * 生成唯一编号；excludeNos 为本次批次内已生成/占用的编号集合（避免重复查询数据库），可传 null。
-	 * 唯一性校验范围：group_no（非空时）+ clan_no（非空时）+ member_no。
+	 * 唯一性校验范围：group_no（非空时）+ member_no（整个群组下唯一，不限制同一部落）。
 	 */
-	public static String generateUniqueMemberNo(ClanMemberMapper mapper, String groupNo, String clanNo,
+	public static String generateUniqueMemberNo(ClanMemberMapper mapper, String groupNo,
 			Set<String> excludeNos) {
 		Set<String> ex = excludeNos == null ? Collections.<String>emptySet() : excludeNos;
 		for (int attempt = 0; attempt < MAX_ATTEMPT; attempt++) {
@@ -44,9 +40,6 @@ public final class MemberNoGenerator {
 			QueryWrapper<ClanMember> qw = new QueryWrapper<ClanMember>();
 			if (groupNo != null && !groupNo.trim().isEmpty()) {
 				qw.eq("group_no", groupNo.trim());
-			}
-			if (clanNo != null && !clanNo.trim().isEmpty()) {
-				qw.eq("clan_no", clanNo.trim());
 			}
 			qw.eq("member_no", candidate);
 			if (mapper.selectCount(qw) == 0) {

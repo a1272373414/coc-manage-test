@@ -209,8 +209,8 @@ com.tencent.wxcloudrun
 |------|------|------|
 | id | BIGINT PK | |
 | member_name | VARCHAR(64) | 成员名称 |
-| member_no | VARCHAR(32) | 成员编号，唯一 |
-| clan_no | VARCHAR(32) | 所属部落编号 |
+| member_no | VARCHAR(32) | 成员编号，群组内唯一 |
+| clan_no | VARCHAR(32) | 所属部落编号（成员可在不同部落间移动） |
 | group_no | VARCHAR(32) | 所属群组编号 |
 | war_status | TINYINT | 参战状态 0=不参战 1=参战（字典项） |
 | intro | VARCHAR(500) | 简介 |
@@ -220,6 +220,12 @@ com.tencent.wxcloudrun
 | updated_by | VARCHAR(32) | 修改者 |
 | deleted | TINYINT | |
 | INDEX(group_no), INDEX(clan_no) | | |
+
+> **成员唯一性与写入规则**：同一群组（group_no）下，同一成员仅存在一条记录。
+> - 成员名称与成员编号的唯一性均以**整个群组**为范围校验（不再限制为同一个部落）。
+> - 成员可在不同部落间移动：通过修改记录的 `clan_no` 实现换部落，原记录保留，其关联的联赛战绩、报名等记录随之归属到该成员（按 `member_no` 关联）。
+> - 新增 / 编辑 / 导入时：填了成员编号则校验群组内编号唯一；未填编号则校验群组内名称（含备用名称）唯一，重名时要求补充编号或自动生成 10 位（数字+小写字母）编号。
+> - 成员合并（/merge）仅限同一群组下的两条记录，不限制是否同部落。
 
 **league（联赛表）**
 | 字段 | 类型 | 说明 |
