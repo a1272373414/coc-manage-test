@@ -10,7 +10,7 @@ import com.tencent.wxcloudrun.entity.biz.LeagueSignup;
 import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
 import com.tencent.wxcloudrun.mapper.LeagueRecordMapper;
 import com.tencent.wxcloudrun.mapper.LeagueSignupMapper;
-import com.tencent.wxcloudrun.service.LeagueImageOcrService;
+import com.tencent.wxcloudrun.service.LeagueImageOcrManager;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -18,6 +18,8 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,7 +47,7 @@ import java.util.regex.Pattern;
 /**
  * 联赛战绩导入。支持图片 / Excel / JSON 三种方式。
  *
- * - 图片：调用腾讯云 OCR 表格识别V3（LeagueImageOcrService），返回 Excel 后走共享解析。 - Excel：直接读取后走共享解析。 -
+ * - 图片：综合调用百度/腾讯 OCR 表格识别（LeagueImageOcrManager），返回数据后走共享解析。 - Excel：直接读取后走共享解析。 -
  * JSON：前端本地解析（兼容脚本输出的 metadata/data/records 格式）。
  *
  * 共享解析逻辑移植自 image_to_excel_oneclick.py： 表头关键字映射 + 内容模式检测 + attacks 规范化(777→7/7) + 跨列补救 +
@@ -54,6 +56,26 @@ import java.util.regex.Pattern;
 @RestController
 @RequestMapping("/api/league/record/import")
 public class LeagueImportController {
+
+	private static final Logger log = LoggerFactory.getLogger(LeagueImportController.class);
+
+	// ==================== 联赛战绩字段值范围（COC 官方规则） ====================
+	/** 胜利之星单场最大 7，联赛累计最大 21（7×3） */
+	private static final int STARS_MIN = 0;
+
+	private static final int STARS_MAX = 21;
+	/** 摧毁率单次 0-100，联赛累计最大 700（7×100） */
+	private static final int DEST_MIN = 0;
+
+	private static final int DEST_MAX = 700;
+	/** 进攻次数单场 0-7 */
+	private static final int ATK_MIN = 0;
+
+	private static final int ATK_MAX = 7;
+	/** 联赛排名 1-50（50 名成员上限） */
+	private static final int RANK_MIN = 1;
+
+	private static final int RANK_MAX = 50;
 
 	@Resource
 	private LeagueRecordMapper leagueRecordMapper;
@@ -65,7 +87,7 @@ public class LeagueImportController {
 	private LeagueSignupMapper leagueSignupMapper;
 
 	@Resource
-	private LeagueImageOcrService imageOcrService;
+	private LeagueImageOcrManager imageOcrManager;
 
 	/**
 	 * 预览：接收图片或 Excel 文件，解析后返回预览数据。 JSON 方式由前端本地解析，不走此接口。
@@ -314,19 +336,44 @@ public class LeagueImportController {
 		List<Map<String, Object>> list = new ArrayList<>();
 		int fallbackIdx = 1;
 		for (MultipartFile f : sorted) {
+			String fn = f.getOriginalFilename() == null ? "" : f.getOriginalFilename();
+			log.info("联赛战绩导入：开始处理图片 {}，大小 {} bytes", fn, f.getSize());
 			try {
-				List<String[]> rows = imageOcrService.ocrToRows(f);
+				List<String[]> rows = imageOcrManager.ocrToRows(f);
+				int rowCnt = (rows == null) ? 0 : rows.size();
+				log.info("联赛战绩导入：{} OCR 综合返回 {} 行", fn, rowCnt);
 				if (rows != null && !rows.isEmpty()) {
-					list.addAll(parseTableRows(rows, leagueNo, clanNo, groupNo));
+					List<Map<String, Object>> parsed = parseTableRows(rows, leagueNo, clanNo, groupNo);
+					int parsedCnt = (parsed == null) ? 0 : parsed.size();
+					log.info("联赛战绩导入：{} 解析得到 {} 条有效记录", fn, parsedCnt);
+					if (parsed != null && !parsed.isEmpty()) {
+						list.addAll(parsed);
+						continue;
+					}
+					// OCR 返回了行，但解析后没有可用数据行（如列识别失败导致全部行被 continue）
+					Map<String, Object> m = newEmptyRow(leagueNo, clanNo, groupNo);
+					m.put("rank", String.valueOf(fallbackIdx++));
+					m.put("remark", fn + " (OCR识别到 " + rows.size() + " 行但解析无结果，请手动补全)");
+					list.add(m);
 					continue;
 				}
 			}
 			catch (Exception e) {
-				// OCR 失败：留一行空模板，标注失败原因，便于用户手动补全
+				// OCR 异常：留一行空模板，标注失败原因，便于用户手动补全
+				log.error("联赛战绩导入：{} OCR 调用失败", fn, e);
+				Map<String, Object> m = newEmptyRow(leagueNo, clanNo, groupNo);
+				m.put("rank", String.valueOf(fallbackIdx++));
+				String msg = e.getMessage();
+				if (msg != null && msg.length() > 100)
+					msg = msg.substring(0, 100);
+				m.put("remark", fn + " (识别失败: " + (msg == null ? "未知错误" : msg) + ")");
+				list.add(m);
+				continue;
 			}
+			// OCR 返回空 rows
+			log.warn("联赛战绩导入：{} OCR 返回空数据", fn);
 			Map<String, Object> m = newEmptyRow(leagueNo, clanNo, groupNo);
 			m.put("rank", String.valueOf(fallbackIdx++));
-			String fn = f.getOriginalFilename() == null ? "" : f.getOriginalFilename();
 			m.put("remark", fn + " (识别失败，请手动补全)");
 			list.add(m);
 		}
@@ -465,35 +512,90 @@ public class LeagueImportController {
 			String dest = destIdx != null ? safeGet(cells, destIdx) : null;
 			String atk = atkIdx != null ? safeGet(cells, atkIdx) : null;
 
-			// 跨列补救：某字段为空时，扫描所有列找匹配内容
-			if (atk == null) {
-				for (String c : cells) {
-					String n = normalizeAttacks(c);
-					if (n != null) {
-						atk = n;
+// 跨列补救：某字段为空时，扫描所有列找匹配内容（严格按值范围匹配）
+		if (atk == null) {
+			for (int ci = 0; ci < cells.length; ci++) {
+				String c = cells[ci];
+				// 跳过已被识别为其它字段的列，避免误把其它字段数字当进攻次数
+				if (rankIdx != null && ci == rankIdx)
+					continue;
+				if (nameIdx != null && ci == nameIdx)
+					continue;
+				if (starsIdx != null && ci == starsIdx)
+					continue;
+				if (destIdx != null && ci == destIdx)
+					continue;
+				if (actualIdx != null && ci == actualIdx)
+					continue;
+				if (requiredIdx != null && ci == requiredIdx)
+					continue;
+				// 进攻次数格式 X/Y 且 X、Y 都在 0-7 范围
+				Matcher mAtk = Pattern.compile("^(\\d+)\\s*/\\s*(\\d+)$").matcher(c == null ? "" : c);
+				if (mAtk.matches()) {
+					int a = Integer.parseInt(mAtk.group(1));
+					int r = Integer.parseInt(mAtk.group(2));
+					if (a >= ATK_MIN && a <= ATK_MAX && r >= ATK_MIN && r <= ATK_MAX) {
+						atk = a + "/" + r;
 						break;
 					}
 				}
 			}
-			if (dest == null) {
-				for (String c : cells) {
-					if (c != null && c.matches("^\\d{2,4}(\\.\\d+)?$")) {
+		}
+		if (dest == null) {
+			for (int ci = 0; ci < cells.length; ci++) {
+				String c = cells[ci];
+				// 跳过已被识别为其它字段的列，避免把排名数字（如"33"）误填到摧毁率
+				if (rankIdx != null && ci == rankIdx)
+					continue;
+				if (nameIdx != null && ci == nameIdx)
+					continue;
+				if (starsIdx != null && ci == starsIdx)
+					continue;
+				if (atkIdx != null && ci == atkIdx)
+					continue;
+				if (actualIdx != null && ci == actualIdx)
+					continue;
+				if (requiredIdx != null && ci == requiredIdx)
+					continue;
+				if (c != null && c.matches("^\\d{1,3}(\\.\\d+)?$")) {
+					int v = Integer.parseInt(c.replaceAll("\\.\\d+$", "").trim());
+					// 摧毁率 0-700 范围；同时排除明显是排名(1-50)或胜利之星(0-21)的小数字
+					if (v >= DEST_MIN && v <= DEST_MAX && v > STARS_MAX) {
 						dest = c.trim();
 						break;
 					}
 				}
 			}
-			if (stars == null) {
-				for (String c : cells) {
-					if (c != null && c.matches("^\\d{1,2}$")) {
-						int v = Integer.parseInt(c.trim());
-						if (v >= 0 && v <= 50) {
-							stars = c.trim();
+		}
+		if (stars == null) {
+			for (int ci = 0; ci < cells.length; ci++) {
+				String c = cells[ci];
+				// 跳过已被识别为其它字段的列，避免把排名数字（如"33"）误填到胜利之星
+				if (rankIdx != null && ci == rankIdx)
+					continue;
+				if (destIdx != null && ci == destIdx)
+					continue;
+				if (atkIdx != null && ci == atkIdx)
+					continue;
+				if (actualIdx != null && ci == actualIdx)
+					continue;
+				if (requiredIdx != null && ci == requiredIdx)
+					continue;
+				if (nameIdx != null && ci == nameIdx)
+					continue;
+				// 胜利之星 0-21 范围；带★后缀（"21★"）也兼容
+				if (c != null) {
+					Matcher ms = Pattern.compile("^(\\d{1,2})\\s*★?\\s*$").matcher(c.trim());
+					if (ms.matches()) {
+						int v = Integer.parseInt(ms.group(1));
+						if (v >= STARS_MIN && v <= STARS_MAX) {
+							stars = String.valueOf(v);
 							break;
 						}
 					}
 				}
 			}
+		}
 
 			int actual, required;
 			if (actualIdx != null && requiredIdx != null) {
@@ -573,10 +675,11 @@ public class LeagueImportController {
 	}
 
 	/**
-	 * 无表头或表头不全时，按数据行的内容模式自动检测各列角色。 移植自 Python _detect_columns_by_pattern： 进攻次数=X/Y(最独特) →
-	 * 名称=含文字 → 摧毁率=3-4位大数字 → 排名=1-50 → 星数=0-15
+	 * 无表头或表头不全时，按数据行的内容模式自动检测各列角色。 各字段值范围： 胜利之星 0-21（★图标）/ 纯数字 0-21
+	 * 摧毁率 0-700 进攻次数 0-7（X/Y格式或"777"误读） 排名 1-50
 	 */
 	private Map<String, Integer> detectColumnsByPattern(List<String[]> dataRows) {
+
 		if (dataRows == null || dataRows.isEmpty())
 			return null;
 		int nCols = 0;
@@ -588,7 +691,7 @@ public class LeagueImportController {
 		int[] atkHits = new int[nCols];
 		int[] atkRepeat = new int[nCols];
 		int[] textHits = new int[nCols];
-		int[] bigHits = new int[nCols];
+		int[] destHits = new int[nCols];
 		int[] rankHits = new int[nCols];
 		int[] starHits = new int[nCols];
 		List<List<Integer>> numVals = new ArrayList<>();
@@ -602,21 +705,32 @@ public class LeagueImportController {
 					continue;
 				String s = val.trim();
 
-				if (s.matches("^\\d+\\s*/\\s*\\d+$")) {
-					atkHits[ci]++;
-					continue;
+				// 进攻次数：标准 X/Y 格式，且 X、Y 都在 0-7 范围
+				Matcher mAtk = Pattern.compile("^(\\d+)\\s*/\\s*(\\d+)$").matcher(s);
+				if (mAtk.matches()) {
+					int a = Integer.parseInt(mAtk.group(1));
+					int r = Integer.parseInt(mAtk.group(2));
+					if (a >= ATK_MIN && a <= ATK_MAX && r >= ATK_MIN && r <= ATK_MAX) {
+						atkHits[ci]++;
+						continue;
+					}
 				}
+				// OCR 误读：7/7 → 777（3 位重复数字），仅当首数字在 0-7 范围时才视为进攻
 				Matcher mr = Pattern.compile("^(\\d)\\1{1,2}$").matcher(s);
-				if (mr.matches() && s.length() <= 3) {
-					atkRepeat[ci]++;
-					continue;
+				if (mr.matches() && s.length() == 3) {
+					int d = Integer.parseInt(s.substring(0, 1));
+					if (d >= ATK_MIN && d <= ATK_MAX) {
+						atkRepeat[ci]++;
+						continue;
+					}
 				}
 
+				// 含中文/英文 → 名称列 或 胜利之星带★格式
 				if (s.matches(".*[\\u4e00-\\u9fa5a-zA-Z].*")) {
 					Matcher ms = Pattern.compile("^(\\d{1,2})\\s*★").matcher(s);
 					if (ms.matches()) {
 						int num = Integer.parseInt(ms.group(1));
-						if (num >= 0 && num <= 15) {
+						if (num >= STARS_MIN && num <= STARS_MAX) {
 							starHits[ci]++;
 							numVals.get(ci).add(num);
 						}
@@ -627,16 +741,43 @@ public class LeagueImportController {
 					continue;
 				}
 
+				// 胜利之星列在 0★ 时，OCR 可能输出 "0★"/"0 ★"/"★0"/纯 "★"，需要兼容识别
+				Matcher mstar = Pattern.compile("^\\s*(\\d{0,2})?\\s*[★☆*]\\s*(\\d{0,2})?\\s*$").matcher(s);
+				if (mstar.matches()) {
+					String numStr = mstar.group(1);
+					if (numStr == null || numStr.isEmpty())
+						numStr = mstar.group(2);
+					int num = (numStr == null || numStr.isEmpty()) ? 0 : Integer.parseInt(numStr);
+					if (num >= STARS_MIN && num <= STARS_MAX) {
+						starHits[ci]++;
+						numVals.get(ci).add(num);
+					}
+					continue;
+				}
+
+				// 纯数字：按值范围判定 rank(1-50) / destruction(0-700) / stars(0-21)
 				Matcher mn = Pattern.compile("^(\\d+)\\.?$").matcher(s);
 				if (mn.matches()) {
 					int num = Integer.parseInt(mn.group(1));
 					numVals.get(ci).add(num);
-					if (num >= 1 && num <= 50)
+					if (num >= RANK_MIN && num <= RANK_MAX)
 						rankHits[ci]++;
-					if (num >= 100 && num <= 9999)
-						bigHits[ci]++;
-					if (num >= 0 && num <= 15)
+					// 摧毁率：100-700 是典型摧毁率值，最易识别
+					if (num >= 100 && num <= DEST_MAX)
+						destHits[ci]++;
+					if (num >= STARS_MIN && num <= STARS_MAX)
 						starHits[ci]++;
+				}
+				else {
+					// 含小数点的摧毁率（如 "700.0"）
+					Matcher md = Pattern.compile("^(\\d{1,3})(\\.\\d+)?$").matcher(s);
+					if (md.matches()) {
+						int num = Integer.parseInt(md.group(1));
+						if (num >= DEST_MIN && num <= DEST_MAX) {
+							destHits[ci]++;
+							numVals.get(ci).add(num);
+						}
+					}
 				}
 			}
 		}
@@ -663,7 +804,7 @@ public class LeagueImportController {
 			used.add(p[0]);
 		}
 
-		p = pickBest(bigHits, used);
+p = pickBest(destHits, used);
 		if (p[1] > 0) {
 			mapping.put("destruction", p[0]);
 			used.add(p[0]);
@@ -675,23 +816,57 @@ public class LeagueImportController {
 			used.add(p[0]);
 		}
 
-		// 剩余有数值的列按均值区分 星数(小) / 摧毁率(大)
+		// 剩余有数值的列按均值区分 星数(0-21 均值小) / 摧毁率(0-700 均值大)
 		List<Integer> remaining = new ArrayList<>();
 		for (int ci = 0; ci < nCols; ci++) {
 			if (!used.contains(ci) && !numVals.get(ci).isEmpty())
 				remaining.add(ci);
 		}
 		if (!remaining.isEmpty()) {
-			remaining.sort((a, b) -> Double.compare(avg(numVals.get(a)), avg(numVals.get(b))));
+			// 优先：均值 ≤ STARS_MAX 的列作为 stars
 			if (!mapping.containsKey("stars")) {
+				int starCol = -1;
+				for (int ci : remaining) {
+					double a = avg(numVals.get(ci));
+					if (a >= STARS_MIN && a <= STARS_MAX) {
+						starCol = ci;
+						break;
+					}
+				}
+				if (starCol >= 0) {
+					mapping.put("stars", starCol);
+					used.add(starCol);
+					remaining.remove(Integer.valueOf(starCol));
+				}
+			}
+			// 否则按均值最小原则
+			if (!mapping.containsKey("stars") && !remaining.isEmpty()) {
+				remaining.sort((a, b) -> Double.compare(avg(numVals.get(a)), avg(numVals.get(b))));
 				mapping.put("stars", remaining.get(0));
 				used.add(remaining.get(0));
 				remaining = new ArrayList<>(remaining.subList(1, remaining.size()));
 			}
+			// 优先：均值 > STARS_MAX（即 > 21）的列作为 destruction
 			if (!mapping.containsKey("destruction") && !remaining.isEmpty()) {
-				int last = remaining.get(remaining.size() - 1);
-				mapping.put("destruction", last);
-				used.add(last);
+				int destCol = -1;
+				for (int ci : remaining) {
+					double a = avg(numVals.get(ci));
+					if (a > STARS_MAX && a <= DEST_MAX) {
+						destCol = ci;
+						break;
+					}
+				}
+				if (destCol >= 0) {
+					mapping.put("destruction", destCol);
+					used.add(destCol);
+					remaining.remove(Integer.valueOf(destCol));
+				}
+				else {
+					// 兜底：取均值最大的列
+					int last = remaining.get(remaining.size() - 1);
+					mapping.put("destruction", last);
+					used.add(last);
+				}
 			}
 		}
 
@@ -730,18 +905,26 @@ public class LeagueImportController {
 		return new int[] { bestCi, bestScore };
 	}
 
-	/** 规范化进攻次数：标准 X/Y 或 OCR 误读(777→7/7, 000→0/0)。无法识别返回 null */
+	/**
+	 * 规范化进攻次数：标准 X/Y 或 OCR 误读(777→7/7, 000→0/0)。无法识别返回 null。 仅将 3 位重复数字（如 777）视为进攻误读，2 位重复（如 33、44）通常是排名，避免误判。
+	 * 同时限制 X、Y 数字在 ATK_MIN(0)~ATK_MAX(7) 范围内。
+	 */
 	private String normalizeAttacks(String val) {
 		if (val == null)
 			return null;
 		String s = val.trim();
 		Matcher m = Pattern.compile("^(\\d+)\\s*/\\s*(\\d+)$").matcher(s);
-		if (m.matches())
-			return m.group(1) + "/" + m.group(2);
+		if (m.matches()) {
+			int a = Integer.parseInt(m.group(1));
+			int r = Integer.parseInt(m.group(2));
+			if (a >= ATK_MIN && a <= ATK_MAX && r >= ATK_MIN && r <= ATK_MAX)
+				return a + "/" + r;
+		}
 		m = Pattern.compile("^(\\d)\\1{1,2}$").matcher(s);
-		if (m.matches() && s.length() <= 3) {
-			String d = m.group(1);
-			return d + "/" + d;
+		if (m.matches() && s.length() == 3) {
+			int d = Integer.parseInt(s.substring(0, 1));
+			if (d >= ATK_MIN && d <= ATK_MAX)
+				return d + "/" + d;
 		}
 		return null;
 	}
@@ -755,12 +938,10 @@ public class LeagueImportController {
 			return;
 		for (int i = 0; i < data.size(); i++) {
 			Map<String, Object> row = data.get(i);
-			int actual = toInt(row.get("actualAttacks"), 0);
-			int required = toInt(row.get("requiredAttacks"), 0);
-			// 仅当进攻次数明确为 0/0 或 0/1 时才视为未参战，避免把进攻次数字段解析失败的行误判为 0 分
 			String atkStr = asString(row.get("attacks"));
-			boolean notParticipated = "0/0".equals(atkStr) || "0/1".equals(atkStr)
-					|| (actual == 0 && required == 0) || (actual == 0 && required == 1);
+			// 仅当进攻次数字符串明确为 0/0 或 0/1 时才视为未参战。OCR 漏识别胜利之星/进攻时 atkStr=null，
+			// 此时 actual/required=0/0 不能视为未参战，否则会把整行 winStars/destroyRate 误清 0。
+			boolean notParticipated = "0/0".equals(atkStr) || "0/1".equals(atkStr);
 			if (notParticipated) {
 				row.put("winStars", 0);
 				row.put("destroyRate", 0);
@@ -851,7 +1032,12 @@ public class LeagueImportController {
 		try {
 			if (o instanceof Number)
 				return ((Number) o).intValue();
-			return Integer.parseInt(String.valueOf(o).trim());
+			String s = String.valueOf(o).trim();
+			// 提取首个连续数字（处理 OCR 输出 "21★"、"20 %"、"700.0" 等带符号的数字）
+			Matcher m = Pattern.compile("^(-?\\d+)").matcher(s);
+			if (m.find())
+				return Integer.parseInt(m.group(1));
+			return Integer.parseInt(s);
 		}
 		catch (Exception e) {
 			return def;

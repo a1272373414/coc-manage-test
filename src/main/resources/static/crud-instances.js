@@ -735,7 +735,11 @@
 
     <div v-if="importStep==='preview'">
       <div style="margin-bottom:8px;color:#909399;font-size:13px;">共 {{ previewList.length }} 条，可编辑后确认导入：</div>
-        <el-table :data="previewList" border stripe max-height="420" size="small" style="width:100%;table-layout:fixed">
+      <el-alert v-if="previewList.length === 0" type="warning" :closable="false" show-icon style="margin-bottom:12px"
+        title="未识别到任何数据"
+        description="可能是图片 OCR 识别失败，请检查图片清晰度或使用 JSON 导入方式">
+      </el-alert>
+      <el-table v-if="previewList.length > 0" :data="previewList" border stripe max-height="420" size="small" style="width:100%;table-layout:fixed">
         <el-table-column type="index" label="#" width="50" />
         <el-table-column label="排名" width="72">
           <template #default="{row}"><el-input v-model="row.rank" size="small" /></template>
@@ -766,6 +770,9 @@
         </el-table-column>
         <el-table-column label="应进攻" width="100">
           <template #default="{row}"><el-input-number v-model="row.requiredAttacks" :min="0" controls-position="right" size="small" /></template>
+        </el-table-column>
+        <el-table-column label="备注" width="200" v-if="previewList.some(function(r){return r.remark;})">
+          <template #default="{row}"><span style="color:#f56c6c;font-size:12px;">{{ row.remark || '' }}</span></template>
         </el-table-column>
         <el-table-column label="操作" width="80" fixed="right">
           <template #default="{row,$index}"><el-button link type="danger" size="small" @click="previewList.splice($index,1)">删除</el-button></template>
