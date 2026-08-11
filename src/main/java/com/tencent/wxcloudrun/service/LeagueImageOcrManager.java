@@ -116,41 +116,54 @@ public class LeagueImageOcrManager {
 		OcrResult baidu = findResult(results, "BaiduImageOcrService");
 		OcrResult tencent = findResult(results, "TencentImageOcrService");
 
-		// 2.1 双方都成功 → 以百度为基准，空值用腾讯填充
-		if (baidu != null && baidu.success && tencent != null && tencent.success) {
-			List<String[]> merged = mergeResults(baidu.rows, tencent.rows, fn);
-			log.info("OCR 综合结果: file={}, 选用 百度+腾讯合并 数据，{} 行", fn, merged.size());
-			printSummary(fn, results);
-			return merged;
-		}
+		List<String[]> finalResult = null;
 
+		// 2.1 双方都成功 → 先各自清理排名、校验排名递增、修正进攻字段，再以百度为基准，空值用腾讯填充
+		if (baidu != null && baidu.success && tencent != null && tencent.success) {
+			cleanRankColumn(baidu.rows, fn);
+			cleanRankColumn(tencent.rows, fn);
+			validateRankColumn(baidu.rows, fn);
+			validateRankColumn(tencent.rows, fn);
+			fixAttackColumn(baidu.rows, fn);
+			fixAttackColumn(tencent.rows, fn);
+			finalResult = mergeResults(baidu.rows, tencent.rows, fn);
+			log.info("OCR 综合结果: file={}, 选用 百度+腾讯合并 数据，{} 行", fn, finalResult.size());
+		}
 		// 2.2 仅百度成功
-		if (baidu != null && baidu.success) {
+		else if (baidu != null && baidu.success) {
+			finalResult = baidu.rows;
 			log.info("OCR 综合结果: file={}, 选用 BaiduImageOcrService 数据，{} 行，耗时 {} ms",
 					fn, baidu.rowCount, baidu.elapsedMs);
-			printSummary(fn, results);
-			return baidu.rows;
 		}
-
 		// 2.3 仅腾讯成功
-		if (tencent != null && tencent.success) {
+		else if (tencent != null && tencent.success) {
+			finalResult = tencent.rows;
 			log.info("OCR 综合结果: file={}, 选用 TencentImageOcrService 数据，{} 行，耗时 {} ms",
 					fn, tencent.rowCount, tencent.elapsedMs);
-			printSummary(fn, results);
-			return tencent.rows;
+		}
+		// 2.4 按注册顺序回退到其他服务
+		else {
+			for (LeagueImageOcrService svc : services) {
+				String svcName = svc.getClass().getSimpleName();
+				for (OcrResult r : results) {
+					if (svcName.equals(r.serviceName) && r.success) {
+						finalResult = r.rows;
+						log.info("OCR 综合结果: file={}, 选用 {} 数据，{} 行，耗时 {} ms",
+								fn, svcName, r.rowCount, r.elapsedMs);
+						break;
+					}
+				}
+				if (finalResult != null)
+					break;
+			}
 		}
 
-		// 2.4 按注册顺序回退到其他服务
-		for (LeagueImageOcrService svc : services) {
-			String svcName = svc.getClass().getSimpleName();
-			for (OcrResult r : results) {
-				if (svcName.equals(r.serviceName) && r.success) {
-					log.info("OCR 综合结果: file={}, 选用 {} 数据，{} 行，耗时 {} ms",
-							fn, svcName, r.rowCount, r.elapsedMs);
-					printSummary(fn, results);
-					return r.rows;
-				}
-			}
+		if (finalResult != null) {
+			cleanRankColumn(finalResult, fn);
+			validateRankColumn(finalResult, fn);
+			fixAttackColumn(finalResult, fn);
+			printSummary(fn, results);
+			return finalResult;
 		}
 
 		// 全部失败
@@ -237,6 +250,102 @@ public class LeagueImageOcrManager {
 			default:
 				return false;
 		}
+	}
+
+	/**
+	 * 清理排名列（列索引 0）：去掉末尾的点号或其他非数字字符，保留纯数字。
+	 * 例如：27. → 27, 28. → 28, 3, → 3。
+	 */
+	private void cleanRankColumn(List<String[]> rows, String fileName) {
+		int cleanCount = 0;
+		for (int ri = 0; ri < rows.size(); ri++) {
+			String[] row = rows.get(ri);
+			if (row.length > 0 && row[0] != null) {
+				String oldVal = row[0].trim();
+				String cleaned = oldVal.replaceAll("[^\\d]+$", ""); // 去掉末尾所有非数字字符
+				if (!cleaned.equals(oldVal) && cleaned.length() > 0) {
+					row[0] = cleaned;
+					cleanCount++;
+					log.debug("OCR 清理排名: file={}, row={}, {} → {}", fileName, ri, oldVal, cleaned);
+				}
+			}
+		}
+		if (cleanCount > 0) {
+			log.info("OCR 清理排名: file={}, 共清理{}处 (如 27.→27)", fileName, cleanCount);
+		}
+	}
+
+	/**
+	 * 校验排名列（列索引 0）的递增合法性：后一行排名必须 >= 前一行排名。
+	 * 不合法的排名置空，留待人工处理。空的排名行跳过（不参与比较）。
+	 * 例如：1, 3, 2, 5 → 1, 3, 空, 5（2 < 3，置空）
+	 */
+	private void validateRankColumn(List<String[]> rows, String fileName) {
+		int invalidCount = 0;
+		int prevRank = 0;
+		for (int ri = 0; ri < rows.size(); ri++) {
+			String[] row = rows.get(ri);
+			if (row.length > 0 && row[0] != null && !row[0].isEmpty()) {
+				try {
+					int cur = Integer.parseInt(row[0]);
+					if (cur < prevRank) {
+						log.warn("OCR 排名校验失败: file={}, row={}, 排名{} < 前一排名{}, 置空",
+								fileName, ri, cur, prevRank);
+						row[0] = "";
+						invalidCount++;
+					} else {
+						prevRank = cur;
+					}
+				} catch (NumberFormatException e) {
+					// 非数字的排名也置空
+					log.warn("OCR 排名校验失败: file={}, row={}, 排名\"{}\" 不是数字, 置空",
+							fileName, ri, row[0]);
+					row[0] = "";
+					invalidCount++;
+				}
+			}
+		}
+		if (invalidCount > 0) {
+			log.info("OCR 排名校验: file={}, 共{}处不合法排名已置空", fileName, invalidCount);
+		}
+	}
+
+	/**
+	 * 修正进攻次数列（列索引 4）中被 OCR 误识别的值。
+	 *
+	 * 问题场景：OCR 将 "7/7" 中的 "/" 误识别为其他字符（1/V/\等），导致值异常。
+	 * 修正规则：三位字符、首尾为数字、中间不是 "/" → 将中间替换为 "/"。
+	 * 例如：717→7/7, 616→6/6, 1V2→1/2, 1\2→1/2, 1|2→1/2。
+	 */
+	private void fixAttackColumn(List<String[]> rows, String fileName) {
+		int fixCount = 0;
+		for (int ri = 0; ri < rows.size(); ri++) {
+			String[] row = rows.get(ri);
+			if (row.length > 4 && row[4] != null) {
+				String oldVal = row[4].trim();
+				if (fixAttackValue(oldVal)) {
+					String fixed = oldVal.charAt(0) + "/" + oldVal.charAt(2);
+					row[4] = fixed;
+					fixCount++;
+					log.debug("OCR 修正进攻字段: file={}, row={}, {} → {}", fileName, ri, oldVal, fixed);
+				}
+			}
+		}
+		if (fixCount > 0) {
+			log.info("OCR 修正进攻字段: file={}, 共修正{}处", fileName, fixCount);
+		}
+	}
+
+	/**
+	 * 判断进攻次数列的值是否需要修正：三位字符、首尾为数字、中间不是 "/"。
+	 */
+	private boolean fixAttackValue(String val) {
+		if (val == null || val.length() != 3) {
+			return false;
+		}
+		return Character.isDigit(val.charAt(0))
+				&& val.charAt(1) != '/'
+				&& Character.isDigit(val.charAt(2));
 	}
 
 	private void printSummary(String fn, List<OcrResult> results) {

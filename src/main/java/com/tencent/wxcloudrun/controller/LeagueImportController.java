@@ -250,6 +250,14 @@ public class LeagueImportController {
 		if (records.isEmpty())
 			return ApiResponse.error("无导入数据");
 
+		// 先删除同一部落同一联赛的旧数据，再插入新数据（覆盖式导入）
+		QueryWrapper<LeagueRecord> deleteQw = new QueryWrapper<>();
+		deleteQw.eq("league_no", leagueNo).eq("clan_no", clanNo);
+		long deletedCount = leagueRecordMapper.delete(deleteQw);
+		if (deletedCount > 0) {
+			log.info("联赛战绩覆盖导入: league={}, clan={}, 已删除旧数据 {} 条", leagueNo, clanNo, deletedCount);
+		}
+
 		// 一次性查出该联赛+部落下的报名状态映射（成员名称 -> 报名状态）
 		Map<String, Integer> signupMap = loadSignupStatus(leagueNo, clanNo);
 		// 成员名称映射（主名称 + 全部备用名称 -> 真实主名称），用于按别名匹配同一成员
@@ -283,6 +291,7 @@ public class LeagueImportController {
 
 		Map<String, Object> result = new HashMap<>();
 		result.put("inserted", count);
+		result.put("deleted", (int) deletedCount);
 		return ApiResponse.ok(result);
 	}
 

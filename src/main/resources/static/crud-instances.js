@@ -747,7 +747,7 @@
         <el-table-column label="成员名称" min-width="160">
           <template #default="{row}">
             <div :class="row.memberExists ? 'member-exists-cell' : ''" :title="row.memberExists ? '该成员已在部落成员表中' : ''">
-              <el-input v-model="row.memberName" size="small" />
+              <el-input v-model="row.memberName" size="small" :class="hasRowEmpty(row) ? 'ocr-empty-row-input' : ''" />
             </div>
           </template>
         </el-table-column>
@@ -833,7 +833,10 @@
       "" +
       ".member-exists-cell{background:#f0f9eb;border:1px solid #67c23a;border-radius:4px;padding:2px 2px;}" +
       ".member-exists-cell .el-input__wrapper{background-color:transparent!important;box-shadow:none!important;}" +
-      ".member-exists-cell .el-input__inner{color:#2e7d32!important;font-weight:700;}";
+      ".member-exists-cell .el-input__inner{color:#2e7d32!important;font-weight:700;}" +
+      ".ocr-empty-row-input .el-input__wrapper{box-shadow:0 0 0 1px #f56c6c inset!important;background:#fef0f0!important;}" +
+      ".ocr-empty-row-input .el-input__inner{color:#f56c6c!important;font-weight:700;}" +
+      ".ocr-empty-row-input .el-input__inner::placeholder{color:#f56c6c80!important;}";
     document.head.appendChild(s);
   }
 
@@ -1044,6 +1047,16 @@
     m = s.match(/^(\d)\1{1,2}$/);
     if (m && s.length <= 3) return m[1] + "/" + m[1];
     return null;
+  };
+
+  // 判断预览行是否存在空值字段（排名、成员名称、胜利之星、摧毁率、实际进攻、应进攻）
+  leagueRecordCrud.methods.hasRowEmpty = function (row) {
+    return !row.rank
+      || !row.memberName || String(row.memberName).trim() === ""
+      || row.winStars == null || row.winStars === ""
+      || row.destroyRate == null || row.destroyRate === ""
+      || row.actualAttacks == null || row.actualAttacks === ""
+      || row.requiredAttacks == null || row.requiredAttacks === "";
   };
 
   leagueRecordCrud.methods.downloadTemplate = async function (type) {
