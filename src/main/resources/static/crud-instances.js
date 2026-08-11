@@ -1025,11 +1025,16 @@
       });
       var exists = (res && res.exists) || [];
       var nameMap = (res && res.nameMap) || {};
+      var noMap = (res && res.noMap) || {};
       for (var j = 0; j < this.previewList.length; j++) {
         var r = this.previewList[j];
-        var real = nameMap[(r.memberName || "").trim()];
+        var rawName = (r.memberName || "").trim();
+        var real = nameMap[rawName];
         if (real) {
           r.memberName = real; // 以数据库为准修正预览名称
+          // 同时回填成员编号（按真实主名称查找）
+          var _no = noMap[real.trim()];
+          if (_no) r.memberNo = _no;
         }
         r.memberExists = exists.indexOf((r.memberName || "").trim()) !== -1;
       }

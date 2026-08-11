@@ -146,19 +146,22 @@ public class LeagueImportController {
 
 		Set<String> exists = new HashSet<>();
 		Map<String, String> nameMap = new HashMap<>();
+		Map<String, String> noMap = new HashMap<>();
 		if (clanNo != null && !clanNo.isEmpty() && groupNo != null && !groupNo.isEmpty() && !names.isEmpty()) {
 			Map<String, String> all = loadClanMemberNameMap(clanNo, groupNo);
+			Map<String, String> allNo = loadClanMemberNoMap(clanNo, groupNo);
 			for (Object o : names) {
 				String n = asString(o);
 				if (n != null && !n.isEmpty() && all.containsKey(n.trim()))
 					exists.add(n.trim());
 			}
 			nameMap = all;
+			noMap = allNo;
 		}
 		Map<String, Object> result = new HashMap<>();
 		result.put("exists", exists);
-		// 返回名称映射（别名 → 数据库真实名称），供前端修正预览界面成员名称
 		result.put("nameMap", nameMap);
+		result.put("noMap", noMap);
 		return ApiResponse.ok(result);
 	}
 
@@ -208,6 +211,22 @@ public class LeagueImportController {
 		if (alias != null && !alias.trim().isEmpty()) {
 			map.put(alias.trim(), real);
 		}
+	}
+
+	/**
+	 * 一次性查出该部落+群组下的成员编号映射（真实主名称 → member_no），用于导入时回填战绩记录的成员编号。
+	 */
+	private Map<String, String> loadClanMemberNoMap(String clanNo, String groupNo) {
+		QueryWrapper<ClanMember> qw = new QueryWrapper<>();
+		qw.select("member_name", "member_no").eq("clan_no", clanNo).eq("group_no", groupNo);
+		List<ClanMember> rows = clanMemberMapper.selectList(qw);
+		Map<String, String> map = new HashMap<>();
+		for (ClanMember r : rows) {
+			if (r.getMemberName() != null && r.getMemberNo() != null) {
+				map.put(r.getMemberName().trim(), r.getMemberNo().trim());
+			}
+		}
+		return map;
 	}
 
 	/** 一次性查出该联赛+部落下的报名状态映射（成员名称 -> 报名状态），用于导入时同步 */
@@ -262,6 +281,8 @@ public class LeagueImportController {
 		Map<String, Integer> signupMap = loadSignupStatus(leagueNo, clanNo);
 		// 成员名称映射（主名称 + 全部备用名称 -> 真实主名称），用于按别名匹配同一成员
 		Map<String, String> nameMap = loadClanMemberNameMap(clanNo, groupNo);
+		// 成员编号映射（真实主名称 -> memberNo），用于回填战绩记录的成员编号
+		Map<String, String> noMap = loadClanMemberNoMap(clanNo, groupNo);
 
 		int count = 0;
 		for (Map<String, Object> r : records) {
@@ -271,7 +292,12 @@ public class LeagueImportController {
 					: rawName;
 			LeagueRecord rec = new LeagueRecord();
 			rec.setMemberName(realName);
-			rec.setMemberNo(asString(r.get("memberNo")));
+			// memberNo：优先取前端传入值，为空则从部落成员表反查
+			String memberNo = asString(r.get("memberNo"));
+			if ((memberNo == null || memberNo.isEmpty()) && realName != null) {
+				memberNo = noMap.get(realName.trim());
+			}
+			rec.setMemberNo(memberNo);
 			rec.setMemberRank(toInt(r.get("rank"), 0));
 			rec.setLeagueNo(orDefault(asString(r.get("leagueNo")), leagueNo));
 			rec.setClanNo(orDefault(asString(r.get("clanNo")), clanNo));
