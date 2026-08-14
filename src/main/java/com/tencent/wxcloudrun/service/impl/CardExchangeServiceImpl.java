@@ -101,12 +101,12 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 			old.setTribe(member.getTribe());
 			old.setUpdatedBy(operator == null ? "" : operator);
 			getBaseMapper().updateById(old);
-			member = old;
 			// 先删除旧卡牌明细（逻辑删除），再重新插入
 			QueryWrapper<CardExchangeMemberCard> del = new QueryWrapper<>();
 			del.eq("member_id", member.getId());
 			del.eq("group_no", groupNo);
 			cardMapper.delete(del);
+			// 注意：保留原始 member 引用，以便后续写入前端传入的 cards
 		}
 
 		// 写入卡牌明细
@@ -250,14 +250,13 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 	@SuppressWarnings("unchecked")
 	private void addPair(Map<String, Map<String, Object>> groupMap, CardExchangeMember opp,
 			CardExchangeMemberCard gain, CardExchangeMemberCard oppGive, CardExchangeMemberCard myReturn) {
-		String key = opp.getMemberName() + "|" + (gain.getCardCategory() == null ? "" : gain.getCardCategory());
+		// 按对方成员聚合，不再按分类拆分；前端会按分类二次分组展示
+		String key = opp.getMemberName();
 		Map<String, Object> grp = groupMap.get(key);
 		if (grp == null) {
 			grp = new LinkedHashMap<>();
 			grp.put("memberId", opp.getId());
 			grp.put("memberName", opp.getMemberName());
-			grp.put("cardCategory",
-					gain.getCardCategory() == null ? "" : gain.getCardCategory());
 			grp.put("pairs", new ArrayList<Map<String, Object>>());
 			groupMap.put(key, grp);
 		}

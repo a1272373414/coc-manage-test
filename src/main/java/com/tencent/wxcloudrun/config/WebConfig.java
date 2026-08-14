@@ -19,9 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
 	private static final String[] WHITELIST = { "/", "/index", "/error", "/static/**", "/api/auth/login",
 			"/api/auth/register",
 			// 联赛快速报名：公开页面，前端入口 /league/quickSignup?groupNo=xxx
-			"/api/quick/**",
-			// 卡牌交换活动：公开页面，前端入口 /card-exchange.html?groupNo=xxx
-			"/api/cardExchange/**" };
+			"/api/quick/**" };
 
 	@Override
 	@SuppressWarnings("all")

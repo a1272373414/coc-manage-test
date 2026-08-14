@@ -1,12 +1,19 @@
 package com.tencent.wxcloudrun.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.tencent.wxcloudrun.config.ApiResponse;
 import com.tencent.wxcloudrun.config.IgnoreLogin;
+import com.tencent.wxcloudrun.config.RoleConstants;
 import com.tencent.wxcloudrun.config.UserContext;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
+import com.tencent.wxcloudrun.entity.biz.ClanMember;
+import com.tencent.wxcloudrun.entity.dict.DictItem;
+import com.tencent.wxcloudrun.mapper.ClanMemberMapper;
+import com.tencent.wxcloudrun.mapper.DictItemMapper;
 import com.tencent.wxcloudrun.service.CardExchangeService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +30,42 @@ public class CardExchangeController {
 
 	@Resource
 	private CardExchangeService cardExchangeService;
+
+	@Resource
+	private DictItemMapper dictItemMapper;
+
+	@Resource
+	private ClanMemberMapper clanMemberMapper;
+
+	/** 公开：查询指定群组下已加入的部落成员名称（供卡牌交换成员名称下拉） */
+	@IgnoreLogin
+	@GetMapping("/clanMembers")
+	public ApiResponse clanMembers(@RequestParam String groupNo) {
+		if (groupNo == null || groupNo.trim().isEmpty()) {
+			return ApiResponse.error(400, "群组编号不能为空");
+		}
+		if (!cardExchangeService.groupExists(groupNo)) {
+			return ApiResponse.error(404, "未找到该群组");
+		}
+		QueryWrapper<ClanMember> qw = new QueryWrapper<>();
+		qw.eq("group_no", groupNo.trim())
+		  .eq("member_status", 1)
+		  .orderByAsc("member_name");
+		List<ClanMember> list = clanMemberMapper.selectList(qw);
+		return ApiResponse.ok(list);
+	}
+
+	/** 公开字典项查询：供卡牌交换等公开页面使用，仅返回启用状态的字典项 */
+	@IgnoreLogin
+	@GetMapping("/dict/{groupCode}")
+	public ApiResponse dictItems(@PathVariable String groupCode) {
+		if (groupCode == null || groupCode.trim().isEmpty()) {
+			return ApiResponse.error(400, "字典分组编码不能为空");
+		}
+		QueryWrapper<DictItem> qw = new QueryWrapper<>();
+		qw.eq("group_code", groupCode.trim()).eq("status", 1).orderByAsc("sort");
+		return ApiResponse.ok(dictItemMapper.selectList(qw));
+	}
 
 	/** 群组存在性校验（公开） */
 	@IgnoreLogin
@@ -49,10 +92,10 @@ public class CardExchangeController {
 		return ApiResponse.ok(saved);
 	}
 
-	/** 删除成员（需群主或群组管理员登录） */
+	/** 删除成员（需登录，且仅限本群群的群主或部落管理员操作） */
 	@DeleteMapping("/member/delete")
 	public ApiResponse deleteMember(@RequestParam Long memberId, @RequestParam String groupNo) {
-		ApiResponse denied = assertGroupAdmin(groupNo);
+		ApiResponse denied = assertGroupOrLeagueAdmin(groupNo);
 		if (denied != null) {
 			return denied;
 		}
@@ -78,8 +121,8 @@ public class CardExchangeController {
 		return "";
 	}
 
-	/** 校验当前登录用户为群主或群组管理员，且属于该群组 */
-	private ApiResponse assertGroupAdmin(String groupNo) {
+	/** 校验当前登录用户属于该群组，且为群主（GROUP_ADMIN）或部落管理员（LEAGUE_ADMIN）；否则返回错误响应 */
+	private ApiResponse assertGroupOrLeagueAdmin(String groupNo) {
 		if (UserContext.get() == null) {
 			return ApiResponse.error(401, "请先登录");
 		}
@@ -88,9 +131,10 @@ public class CardExchangeController {
 			return ApiResponse.error(403, "无权操作该群组");
 		}
 		List<String> roles = UserContext.get().getRoleCodes();
-		boolean admin = roles != null && roles.contains("GROUP_ADMIN");
+		boolean admin = roles != null
+				&& (roles.contains(RoleConstants.GROUP_ADMIN) || roles.contains(RoleConstants.LEAGUE_ADMIN));
 		if (!admin) {
-			return ApiResponse.error(403, "仅群主或群组管理员可删除");
+			return ApiResponse.error(403, "仅群主或部落管理员可删除");
 		}
 		return null;
 	}
