@@ -181,9 +181,9 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 				if (oppGives.isEmpty()) {
 					continue;
 				}
-				// 我方回赠：互利互惠 → 我多且对方缺（同分类同名）；单方受益 → 我多同分类任意一张
+				// 我方回赠：必须与当前缺失卡同分类（游戏规则：交换只能在同一分类内进行）
 				List<CardExchangeMemberCard> myReturns = mutual
-						? pickReturnForMutual(myExtra, oppMissing)
+						? pickReturnForMutual(myExtra, oppMissing, miss.getCardCategory())
 						: pickReturn(myExtra, miss.getCardCategory());
 				if (myReturns.isEmpty()) {
 					// 单方受益下若我方无多余卡，则跳过该交换
@@ -212,7 +212,7 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		return res;
 	}
 
-	/** 单方受益回赠：优先取同分类的我方多余卡，否则取任意一张我方多余卡 */
+	/** 单方受益回赠：仅取同分类的我方多余卡（交换限制在同一分类内） */
 	private List<CardExchangeMemberCard> pickReturn(List<CardExchangeMemberCard> myExtra, String category) {
 		List<CardExchangeMemberCard> sameCat = new ArrayList<>();
 		for (CardExchangeMemberCard c : myExtra) {
@@ -225,18 +225,16 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 			one.add(sameCat.get(0));
 			return one;
 		}
-		if (!myExtra.isEmpty()) {
-			List<CardExchangeMemberCard> one = new ArrayList<>();
-			one.add(myExtra.get(0));
-			return one;
-		}
 		return new ArrayList<>();
 	}
 
-	/** 互利互惠回赠：从我方多余卡中，找与对方缺失卡（同分类同名）的一张作为回赠 */
+	/** 互利互惠回赠：在我方缺失卡所属分类内，找与对方缺失卡（同分类同名）的一张作为回赠 */
 	private List<CardExchangeMemberCard> pickReturnForMutual(List<CardExchangeMemberCard> myExtra,
-			List<CardExchangeMemberCard> oppMissing) {
+			List<CardExchangeMemberCard> oppMissing, String category) {
 		for (CardExchangeMemberCard miss : oppMissing) {
+			if (category != null && !category.equals(miss.getCardCategory())) {
+				continue;
+			}
 			List<CardExchangeMemberCard> hit = matchSame(myExtra, miss);
 			if (!hit.isEmpty()) {
 				List<CardExchangeMemberCard> one = new ArrayList<>();
