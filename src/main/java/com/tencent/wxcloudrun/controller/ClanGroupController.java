@@ -3,13 +3,16 @@ package com.tencent.wxcloudrun.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.tencent.wxcloudrun.config.ApiResponse;
+import com.tencent.wxcloudrun.config.IgnoreLogin;
 import com.tencent.wxcloudrun.config.PageResult;
 import com.tencent.wxcloudrun.config.RoleConstants;
+import com.tencent.wxcloudrun.entity.biz.Clan;
 import com.tencent.wxcloudrun.entity.biz.ClanGroup;
 import com.tencent.wxcloudrun.entity.sys.SysRole;
 import com.tencent.wxcloudrun.entity.sys.SysUser;
 import com.tencent.wxcloudrun.entity.sys.SysUserRole;
 import com.tencent.wxcloudrun.mapper.ClanGroupMapper;
+import com.tencent.wxcloudrun.mapper.ClanMapper;
 import com.tencent.wxcloudrun.mapper.SysRoleMapper;
 import com.tencent.wxcloudrun.mapper.SysUserMapper;
 import com.tencent.wxcloudrun.mapper.SysUserRoleMapper;
@@ -40,6 +43,9 @@ public class ClanGroupController extends BaseCrudController<ClanGroup> {
 
 	@Resource
 	private ClanGroupMapper clanGroupMapper;
+
+	@Resource
+	private ClanMapper clanMapper;
 
 	@Resource
 	private SysUserMapper sysUserMapper;
@@ -210,6 +216,25 @@ public class ClanGroupController extends BaseCrudController<ClanGroup> {
 			}
 		}
 		return ApiResponse.ok(group);
+	}
+
+	/**
+	 * 群组下的所有部落（按编号排序）。公开接口，供卡牌交换等公开页面选择所属部落。
+	 * 公开调用（@IgnoreLogin）时 UserContext 为空，TenantLineInnerInterceptor 会自动忽略 clan 表的多租户注入，
+	 * 因此此处显式 eq("group_no", ...) 即可正确按群组隔离。
+	 */
+	@IgnoreLogin
+	@GetMapping("/clans")
+	public ApiResponse clans(@RequestParam String groupNo) {
+		if (groupNo == null || groupNo.trim().isEmpty()) {
+			return ApiResponse.error(400, "群组编号不能为空");
+		}
+		if (clanGroupMapper.selectOne(new QueryWrapper<ClanGroup>().eq("group_no", groupNo.trim())) == null) {
+			return ApiResponse.error(404, "未找到该群组：" + groupNo);
+		}
+		List<Clan> list = clanMapper
+			.selectList(new QueryWrapper<Clan>().eq("group_no", groupNo.trim()).orderByAsc("clan_no"));
+		return ApiResponse.ok(list);
 	}
 
 }

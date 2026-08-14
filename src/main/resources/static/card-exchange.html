@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>卡牌交换</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f54eb'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='Arial'>C</text></svg>" />
+  <link rel="stylesheet" href="https://registry.npmmirror.com/element-plus/2.7.0/files/theme-chalk/index.css" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', system-ui, Arial, sans-serif;
+      color: #2b2f38;
+      background: radial-gradient(1000px 420px at 85% -10%, #eaf0ff 0%, rgba(234,240,255,0) 60%), #f7f8fb;
+      -webkit-font-smoothing: antialiased;
+    }
+    .ce-wrap { min-height: 100vh; }
+    .ce-top {
+      height: 60px; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(135deg, #4b6bff 0%, #2f54eb 60%, #1d39c4 100%);
+      box-shadow: 0 4px 18px rgba(47, 84, 235, .28);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .ce-brand { display: flex; align-items: center; gap: 12px; color: #fff; }
+    .ce-logo {
+      width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,.18);
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;
+    }
+    .ce-title { font-size: 16px; font-weight: 700; }
+    .ce-sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+    .ce-top-right { display: flex; align-items: center; gap: 12px; }
+    .ce-login {
+      display: inline-flex; align-items: center; height: 34px; padding: 0 16px;
+      background: #fff; color: #1d39c4; border-radius: 999px; font-size: 13px; font-weight: 700;
+      text-decoration: none;
+    }
+    .ce-user { color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .ce-avatar {
+      width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.92);
+      color: #1d39c4; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .ce-container { width: 1080px; max-width: calc(100% - 32px); margin: 0 auto; padding: 24px 0 48px; }
+    .ce-banner {
+      background: #fff; border-radius: 14px; padding: 16px 20px; box-shadow: 0 2px 10px rgba(40,44,52,.05);
+      margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    }
+    .ce-banner-info { font-size: 14px; color: #4b5160; }
+    .ce-banner-info b { color: #1d39c4; }
+    .ce-actions { display: flex; gap: 10px; }
+    .ce-table-card { background: #fff; border-radius: 14px; padding: 8px; box-shadow: 0 2px 10px rgba(40,44,52,.05); }
+    .ce-member-row {
+      display: grid; grid-template-columns: 1fr 64px; align-items: center;
+      gap: 14px; padding: 14px 16px; border-bottom: 1px solid #f0f1f5;
+    }
+    .ce-member-row:last-child { border-bottom: none; }
+    .ce-member-main { min-width: 0; }
+    .ce-member-name { font-size: 15px; font-weight: 700; }
+    .ce-member-tribe { font-size: 12px; color: #8a90a0; margin-left: 8px; }
+    .ce-cards { display: flex; gap: 18px; margin-top: 8px; flex-wrap: wrap; }
+    .ce-card-col { flex: 1; min-width: 200px; }
+    .ce-card-col-title { font-size: 12px; color: #8a90a0; margin-bottom: 6px; }
+    .ce-card-group { margin-bottom: 8px; }
+    .ce-card-group-title {
+      font-size: 12px; font-weight: 700; color: #4b5160; margin: 4px 0;
+      display: inline-block; padding: 2px 8px; background: #f0f2f7; border-radius: 6px;
+    }
+    .ce-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; margin: 3px 6px 3px 0;
+      border-radius: 999px; font-size: 13px; background: #f2f4f8; color: #4b5160;
+    }
+    .ce-chip.extra { background: #e8f7ee; color: #1a9c5b; }
+    .ce-chip.missing { background: #fdeeee; color: #d83434; }
+    .ce-chip .ce-ico { width: 20px; height: 20px; border-radius: 4px; background: #d9def0; object-fit: cover; }
+    .ce-ops { display: flex; flex-direction: column; gap: 8px; align-self: center; justify-self: end; width: 56px; }
+    .ce-ops .el-button { width: 100%; margin-left: 0 !important; }
+    .ce-empty { text-align: center; color: #9aa1ad; padding: 48px 0; }
+    .ce-match-group { margin-bottom: 18px; border: 1px solid #eef0f4; border-radius: 12px; overflow: hidden; }
+    .ce-match-head {
+      background: #f5f7ff; padding: 10px 14px; font-weight: 700; color: #1d39c4;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .ce-match-cat-block { padding: 0 14px 10px; }
+    .ce-match-cat-title {
+      font-size: 13px; font-weight: 700; color: #4b5160; background: #e7ebff;
+      display: inline-block; padding: 2px 10px; border-radius: 999px; margin: 8px 0 6px;
+    }
+    .ce-pair {
+      display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #f0f1f5; font-size: 14px;
+    }
+    .ce-match-cat-block .ce-pair:first-of-type { border-top: none; }
+    .ce-pair .arrow { color: #2f54eb; font-weight: 700; }
+    .ce-pair .tag-gain { color: #1a9c5b; }
+    .ce-pair .tag-give { color: #d83434; }
+    .ce-card-line { display: inline-flex; align-items: center; gap: 6px; }
+    .ce-card-line img { width: 22px; height: 22px; border-radius: 4px; }
+    /* 卡牌网格选择器：每行 4 个 */
+    .ce-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .ce-card-item {
+      position: relative; border-radius: 10px; overflow: hidden;
+      background: #f7f8fb; border: 2px solid transparent; cursor: pointer;
+      transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease;
+      user-select: none;
+    }
+    .ce-card-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(40,44,52,.12); }
+    /* 三态：未选（默认灰阶）= 多余（彩色蓝边）= 缺失（灰阶红边带标） */
+    .ce-card-item:not(.多余):not(.缺失) { filter: grayscale(100%); opacity: .7; }
+    .ce-card-item.多余 { border-color: #2f54eb; box-shadow: 0 4px 12px rgba(47,84,235,.18); }
+    .ce-card-item.缺失 { border-color: #d83434; box-shadow: 0 4px 12px rgba(216,52,52,.16); filter: grayscale(100%); }
+    .ce-card-item .ce-card-thumb {
+      width: 56px; height: 56px; margin: 6px auto 0; object-fit: contain; display: block; background: #e8eaf0; border-radius: 6px;
+    }
+    .ce-card-item .ce-card-name {
+      font-size: 12px; color: #4b5160; text-align: center; padding: 4px 4px 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ce-card-item.多余 .ce-card-name { color: #1d39c4; font-weight: 600; }
+    .ce-card-item.缺失 .ce-card-name { color: #d83434; font-weight: 600; }
+    .ce-card-tag {
+      position: absolute; right: 4px; top: 4px; font-size: 10px; font-weight: 700; line-height: 1;
+      padding: 3px 5px; border-radius: 6px; color: #fff;
+    }
+    .ce-card-tag.多余 { background: #2f54eb; }
+    .ce-card-tag.缺失 { background: #d83434; }
+    .ce-card-legend { font-size: 12px; color: #8a90a0; margin-top: 8px; }
+    .ce-card-legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 16px; }
+    .ce-card-legend i { width: 12px; height: 12px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="app" class="ce-wrap">
+  <div class="ce-top">
+    <div class="ce-brand">
+      <div class="ce-logo">C</div>
+      <div>
+        <div class="ce-title">卡牌交换</div>
+        <div class="ce-sub">部落冲突 · 卡牌互助平台</div>
+      </div>
+    </div>
+    <div class="ce-top-right">
+      <template v-if="loginUser">
+        <div class="ce-user">
+          <span class="ce-avatar">{{ userInitial }}</span>
+          <span>{{ userName }}</span>
+        </div>
+        <a class="ce-login" href="#" @click.prevent="logout">退出</a>
+      </template>
+      <template v-else>
+        <a class="ce-login" :href="loginHref">登录</a>
+      </template>
+    </div>
+  </div>
+
+  <div class="ce-container" v-if="groupValid === false">
+    <el-result icon="error" title="群组不存在" sub-title="请检查地址栏中的群组编号是否正确">
+      <template #extra>
+        <a class="ce-login" href="index.html">返回首页</a>
+      </template>
+    </el-result>
+  </div>
+
+  <div class="ce-container" v-else-if="groupValid === true">
+    <div class="ce-banner">
+      <div class="ce-banner-info">当前群组：<b>{{ groupNo }}</b> · 共 {{ members.length }} 名交换成员</div>
+      <div class="ce-actions">
+        <el-button type="primary" @click="openEditor()">新增成员</el-button>
+        <el-button type="success" @click="openMatch()">查找交换对象</el-button>
+      </div>
+    </div>
+
+    <div class="ce-table-card">
+      <div v-if="members.length === 0" class="ce-empty">暂无交换成员，点击右上角「新增成员」开始吧</div>
+      <div v-for="m in members" :key="m.id" class="ce-member-row">
+        <div class="ce-member-main">
+          <div>
+            <span class="ce-member-name">{{ m.memberName }}</span>
+            <span v-if="m.tribe" class="ce-member-tribe">部落：{{ m.tribe }}</span>
+          </div>
+          <div class="ce-cards">
+            <div class="ce-card-col">
+              <div class="ce-card-col-title">多余卡牌</div>
+              <div v-for="(g, gi) in groupCards(extraCards(m))" :key="'eg'+gi" class="ce-card-group">
+                <div class="ce-card-group-title">{{ g.category }}</div>
+                <span v-for="(c, i) in g.items" :key="'e'+gi+'-'+i" class="ce-chip extra">
+                  <img v-if="c.cardIcon" class="ce-ico" :src="c.cardIcon" />
+                  {{ c.cardName }}
+                </span>
+              </div>
+              <span v-if="extraCards(m).length === 0" style="color:#b5bac6;font-size:13px">—</span>
+            </div>
+            <div class="ce-card-col">
+              <div class="ce-card-col-title">缺失卡牌</div>
+              <div v-for="(g, gi) in groupCards(missingCards(m))" :key="'mg'+gi" class="ce-card-group">
+                <div class="ce-card-group-title">{{ g.category }}</div>
+                <span v-for="(c, i) in g.items" :key="'m'+gi+'-'+i" class="ce-chip missing">
+                  <img v-if="c.cardIcon" class="ce-ico" :src="c.cardIcon" />
+                  {{ c.cardName }}
+                </span>
+              </div>
+              <span v-if="missingCards(m).length === 0" style="color:#b5bac6;font-size:13px">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="ce-ops">
+          <el-button size="small" @click="openEditor(m)">编辑</el-button>
+          <el-button v-if="isOwner" size="small" type="danger" plain @click="removeMember(m)">删除</el-button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增 / 编辑 -->
+  <el-dialog v-model="editorVisible" :title="editing ? '编辑成员' : '新增成员'" width="640px">
+    <el-form :model="form" label-width="90px">
+      <el-form-item label="所属部落" required>
+        <el-select v-model="form.tribe" filterable placeholder="选择部落" style="width:100%">
+          <el-option v-for="c in clans" :key="c.clanNo" :label="c.clanName" :value="c.clanName" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="成员名称" required>
+        <el-select
+          v-model="form.memberName"
+          filterable
+          allow-create
+          default-first-option
+          placeholder="请输入或选择成员名称"
+          style="width:100%"
+        >
+          <el-option v-for="n in clanMemberOptions" :key="n" :label="n" :value="n" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="卡牌选择">
+        <div>
+          <el-tabs v-model="activeCardCat" type="border-card">
+            <el-tab-pane v-for="cat in cardCategories" :key="cat.itemValue" :label="cat.itemName" :name="cat.itemName">
+              <div class="ce-card-grid">
+                <div
+                  v-for="opt in cardOptions(cat.itemName)"
+                  :key="opt.name"
+                  class="ce-card-item"
+                  :class="cardState(opt.name).type"
+                  @click="toggleCard(cat.itemName, opt.name)"
+                >
+                  <img class="ce-card-thumb" :src="opt.icon" :alt="opt.name" onerror="this.style.display='none'" />
+                  <span class="ce-card-name">{{ opt.name }}</span>
+                  <span v-if="cardState(opt.name).type" class="ce-card-tag" :class="cardState(opt.name).type">{{ cardState(opt.name).type }}</span>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+          <div class="ce-card-legend">
+            <span><i style="background:#2f54eb"></i>彩色 + 蓝标=多余卡牌</span>
+            <span><i style="background:#8a90a0"></i>灰阶 + 红标=缺失卡牌</span>
+            <span>点击循环切换：未选→多余→缺失</span>
+          </div>
+        </div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editorVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="submitEditor">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 查找交换对象 -->
+  <el-dialog v-model="matchVisible" title="查找交换对象" width="760px">
+    <el-form inline>
+      <el-form-item label="选择成员" required>
+        <el-select v-model="matchMemberId" filterable placeholder="选择本群组成员" style="width:240px">
+          <el-option v-for="m in members" :key="m.id" :label="m.memberName" :value="m.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="匹配方式">
+        <el-radio-group v-model="matchType">
+          <el-radio label="mutual">互利互惠</el-radio>
+          <el-radio label="oneWay">单方受益</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" :loading="matching" @click="doMatch">一键查找</el-button>
+      </el-form-item>
+    </el-form>
+    <div v-if="matchResult.length === 0 && matched" class="ce-empty">未找到合适的交换对象</div>
+    <div v-for="(grp, gi) in matchResult" :key="gi" class="ce-match-group">
+      <div class="ce-match-head">
+        <span>{{ grp.memberName }}</span>
+      </div>
+      <div v-for="(cg, ci) in groupPairsByCategory(grp.pairs)" :key="ci" class="ce-match-cat-block">
+        <div class="ce-match-cat-title">{{ cg.category }}</div>
+        <div v-for="(p, pi) in cg.items" :key="pi" class="ce-pair">
+          <span class="tag-gain">己方得到 {{ p.gainCard.cardName }}</span>
+          <span class="arrow">⇄</span>
+          <span class="tag-give">己方换出 {{ p.giveCard.cardName }}</span>
+        </div>
+      </div>
+    </div>
+  </el-dialog>
+</div>
+
+<script src="https://registry.npmmirror.com/vue/3.3.4/files/dist/vue.global.prod.js"></script>
+<script src="https://registry.npmmirror.com/element-plus/2.7.0/files/dist/index.full.min.js"></script>
+<script src="https://registry.npmmirror.com/axios/1.6.7/files/dist/axios.min.js"></script>
+<script src="api.js"></script>
+<script src="card-data.js"></script>
+<script>
+  const { createApp, reactive, ref, computed, onMounted } = Vue;
+  const { ElMessage, ElMessageBox } = ElementPlus;
+
+  // 卡牌选择池：分类 -> [{name, icon}]，来自 card-data.js
+  // 图标按分类子目录存放：static/icon/<分类>/<卡牌名称>.png
+  const cardPool = {};
+  // 卡牌名称 -> 图标地址 映射（保存时取图标用）
+  const CARD_ICONS = {};
+  (function initCardData() {
+    const src = window.COC_CARD_DATA || {};
+    Object.keys(src).forEach(function (cat) {
+      cardPool[cat] = (src[cat] || []).map(function (name) {
+        const icon = 'icon/' + cat + '/' + name + '.png';
+        CARD_ICONS[name] = icon;
+        return { name: name, icon: icon };
+      });
+    });
+  })();
+  // 分类展示顺序以 card-data.js 的键顺序为准（手动调整数组即可改顺序）
+  const CARD_CAT_ORDER = Object.keys(window.COC_CARD_DATA || {});
+
+  createApp({
+    setup() {
+      const route = new URLSearchParams(location.search);
+      const groupNo = ref(route.get('groupNo') || '');
+      const groupValid = ref(null);
+      const members = ref([]);
+
+      // 登录态（参照快速报名页，独立拉取，不依赖 COC.store）
+      const loginUser = ref(null);
+      async function loadLoginUser() {
+        const token = localStorage.getItem('coc_token');
+        if (!token) { loginUser.value = null; return; }
+        try {
+          const d = await COC.http.get('/api/auth/info', { headers: { Authorization: 'Bearer ' + token } });
+          loginUser.value = (d && d.user) || d || null;
+        } catch (e) {
+          localStorage.removeItem('coc_token');
+          loginUser.value = null;
+        }
+      }
+      const userName = computed(() => (loginUser.value && loginUser.value.username) || '');
+      const userInitial = computed(() => (userName.value ? userName.value.charAt(0).toUpperCase() : 'U'));
+      const isOwner = computed(() => {
+        const u = loginUser.value;
+        if (!u || !u.roleCodes) return false;
+        return u.groupNo === groupNo.value
+          && (u.roleCodes.indexOf('GROUP_ADMIN') !== -1 || u.roleCodes.indexOf('LEAGUE_ADMIN') !== -1);
+      });
+      const loginHref = computed(() => 'index.html#/login?redirect=' + encodeURIComponent(location.pathname + location.search));
+
+      // 字典 / 部落 / 部落成员 选项
+      const cardCategories = ref([]);
+      const clans = ref([]);
+      const clanMemberOptions = ref([]);
+      // 卡牌池：分类 -> [{name, icon}]，来自全局 card-data.js（脚本顶部已初始化）
+      function cardOptions(cat) {
+        return (cardPool[cat] || []);
+      }
+
+      function extraCards(m) { return (m.cards || []).filter(c => c.cardType === '多余'); }
+      function missingCards(m) { return (m.cards || []).filter(c => c.cardType === '缺失'); }
+      function groupCards(cards) {
+        const map = {};
+        (cards || []).forEach(c => {
+          const cat = c.cardCategory || '未分类';
+          if (!map[cat]) map[cat] = [];
+          map[cat].push(c);
+        });
+        return Object.keys(map).map(category => ({ category, items: map[category] }));
+      }
+      function groupPairsByCategory(pairs) {
+        const map = {};
+        const order = ['圣水兵', '黑油兵', '超级兵', '建筑大师基地兵'];
+        (pairs || []).forEach(p => {
+          const cat = (p.gainCard && p.gainCard.cardCategory) || '未分类';
+          if (!map[cat]) map[cat] = [];
+          map[cat].push(p);
+        });
+        const result = [];
+        order.forEach(cat => { if (map[cat]) { result.push({ category: cat, items: map[cat] }); delete map[cat]; } });
+        Object.keys(map).forEach(cat => result.push({ category: cat, items: map[cat] }));
+        return result;
+      }
+
+      // 卡牌选择状态：key=卡牌名称（全游戏唯一），value={ cardCategory, cardName, type }
+      // type: null=未选, '多余'=多余卡牌, '缺失'=缺失卡牌（多余与缺失分别选择）
+      const cardSelections = reactive({});
+      const activeCardCat = ref('');
+      function initCardSelections() {
+        Object.keys(cardSelections).forEach(k => delete cardSelections[k]);
+        cardCategories.value.forEach(cat => {
+          (cardPool[cat.itemName] || []).forEach(opt => {
+            cardSelections[opt.name] = { cardCategory: cat.itemName, cardName: opt.name, type: null };
+          });
+        });
+      }
+      function cardState(name) { return cardSelections[name] || { type: null }; }
+      function toggleCard(category, name) {
+        const s = cardSelections[name];
+        if (!s) return;
+        // 循环切换：未选 -> 多余 -> 缺失 -> 未选
+        if (!s.type) s.type = '多余';
+        else if (s.type === '多余') s.type = '缺失';
+        else s.type = null;
+      }
+
+      async function loadDict() {
+        let dict = [];
+        try {
+          const data = await COC.http.get('/api/cardExchange/dict/card_category');
+          dict = Array.isArray(data) ? data : [];
+        } catch (e) { dict = []; }
+        // 以 card-data.js 的分类顺序为准排序页签；字典中缺失的分类（卡牌池有但字典未配）也补上，保证可展示与保存
+        const byName = {};
+        dict.forEach(d => { byName[d.itemName] = d; });
+        const ordered = [];
+        CARD_CAT_ORDER.forEach(cat => {
+          if (byName[cat]) ordered.push(byName[cat]);
+          else ordered.push({ itemName: cat, itemValue: cat });
+        });
+        // 字典里有但卡牌池没有的分类，追加在末尾
+        dict.forEach(d => { if (CARD_CAT_ORDER.indexOf(d.itemName) === -1) ordered.push(d); });
+        cardCategories.value = ordered;
+      }
+      async function loadClans() {
+        try {
+          const data = await COC.http.get('/api/clan/group/clans', { params: { groupNo: groupNo.value } });
+          clans.value = data || [];
+        } catch (e) { clans.value = []; }
+      }
+      async function loadClanMembers() {
+        try {
+          const data = await COC.http.get('/api/cardExchange/clanMembers', { params: { groupNo: groupNo.value } });
+          const list = Array.isArray(data) ? data : [];
+          const names = [];
+          const seen = new Set();
+          list.forEach(item => {
+            const name = (item && item.memberName) ? item.memberName : '';
+            if (name && !seen.has(name)) {
+              seen.add(name);
+              names.push(name);
+            }
+          });
+          clanMemberOptions.value = names;
+        } catch (e) { clanMemberOptions.value = []; }
+      }
+      async function loadMembers() {
+        const data = await COC.http.get('/api/cardExchange/members', { params: { groupNo: groupNo.value } });
+        members.value = data || [];
+      }
+
+      // 编辑器
+      const editorVisible = ref(false);
+      const editing = ref(false);
+      const saving = ref(false);
+      const form = reactive({ id: null, memberName: '', tribe: '' });
+
+      function openEditor(m) {
+        editing.value = !!m;
+        form.id = m ? m.id : null;
+        form.memberName = m ? m.memberName : '';
+        form.tribe = m ? m.tribe : '';
+        loadClanMembers();
+        initCardSelections();
+        if (m && m.cards) {
+          m.cards.forEach(c => {
+            const s = cardSelections[c.cardName];
+            if (s && (c.cardType === '多余' || c.cardType === '缺失')) s.type = c.cardType;
+          });
+        }
+        activeCardCat.value = cardCategories.value.length ? cardCategories.value[0].itemName : '';
+        editorVisible.value = true;
+      }
+      async function submitEditor() {
+        if (!form.tribe || !form.tribe.trim()) { ElMessage.error('请选择所属部落'); return; }
+        if (!form.memberName || !form.memberName.trim()) { ElMessage.error('请输入成员名称'); return; }
+        const cards = [];
+        Object.values(cardSelections).forEach(s => {
+          if (!s.type) return;
+          cards.push({
+            cardCategory: s.cardCategory,
+            cardName: s.cardName,
+            cardType: s.type, // '多余' 或 '缺失'，分别选择
+            cardIcon: CARD_ICONS[s.cardName] || ''
+          });
+        });
+        saving.value = true;
+        try {
+          const payload = { id: editing.value ? form.id : null, memberName: form.memberName.trim(), tribe: form.tribe, cards: cards };
+          await COC.http.post('/api/cardExchange/member/save?groupNo=' + encodeURIComponent(groupNo.value), payload);
+          ElMessage.success('保存成功');
+          editorVisible.value = false;
+          await loadMembers();
+        } catch (e) { /* 错误提示由拦截器处理 */ }
+        finally { saving.value = false; }
+      }
+
+      // 删除（仅群主或部落管理员可操作，需登录）
+      async function removeMember(m) {
+        if (!loginUser.value) {
+          ElMessage.warning('请先登录后再删除');
+          return;
+        }
+        try {
+          await ElMessageBox.confirm('确认删除成员【' + m.memberName + '】？', '提示', { type: 'warning' });
+        } catch (e) { return; }
+        try {
+          await COC.http.delete('/api/cardExchange/member/delete', { params: { memberId: m.id, groupNo: groupNo.value } });
+          ElMessage.success('已删除');
+          await loadMembers();
+        } catch (e) {
+          // 401 未登录 / 403 无权限：拦截器已清 token，刷新登录态并引导登录
+          if (e && e.response && (e.response.status === 401 || e.response.status === 403)) {
+            await loadLoginUser();
+            ElMessage.error('无权限删除，仅群主或部落管理员可操作');
+          }
+        }
+      }
+
+      // 退出登录
+      async function logout() {
+        const token = localStorage.getItem('coc_token');
+        if (token) {
+          try { await COC.http.post('/api/auth/logout', {}, { headers: { Authorization: 'Bearer ' + token } }); } catch (e) {}
+        }
+        localStorage.removeItem('coc_token');
+        loginUser.value = null;
+        ElMessage.success('已退出登录');
+      }
+
+      // 查找交换对象
+      const matchVisible = ref(false);
+      const matchMemberId = ref(null);
+      const matchType = ref('mutual');
+      const matching = ref(false);
+      const matched = ref(false);
+      const matchResult = ref([]);
+      function openMatch() {
+        matchMemberId.value = members.value.length ? members.value[0].id : null;
+        matchType.value = 'mutual';
+        matched.value = false;
+        matchResult.value = [];
+        matchVisible.value = true;
+      }
+      async function doMatch() {
+        if (!matchMemberId.value) { ElMessage.error('请选择成员'); return; }
+        matching.value = true; matched.value = true;
+        try {
+          const data = await COC.http.post('/api/cardExchange/findMatch?memberId=' + matchMemberId.value + '&matchType=' + matchType.value);
+          matchResult.value = data || [];
+        } catch (e) {}
+        finally { matching.value = false; }
+      }
+
+      onMounted(async () => {
+        if (!groupNo.value) { groupValid.value = false; return; }
+        try {
+          const g = await COC.http.get('/api/cardExchange/group/check', { params: { groupNo: groupNo.value } });
+          if (!g || !g.exists) { groupValid.value = false; return; }
+          groupValid.value = true;
+        } catch (e) { groupValid.value = false; return; }
+        await loadDict();
+        await loadClans();
+        await loadMembers();
+        // 同步登录态（群主登录态用于展示与删除权限）
+        await loadLoginUser();
+      });
+
+      return {
+        groupNo, groupValid, members, loginUser, userName, userInitial, isOwner, loginHref, logout,
+        cardCategories, clans, clanMemberOptions, cardOptions, extraCards, missingCards, groupCards, groupPairsByCategory,
+        cardSelections, activeCardCat, cardState, toggleCard,
+        editorVisible, editing, saving, form, openEditor, submitEditor,
+        removeMember, matchVisible, matchMemberId, matchType, matching, matched, matchResult, openMatch, doMatch,
+      };
+    }
+  }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>
