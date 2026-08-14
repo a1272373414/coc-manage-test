@@ -252,14 +252,14 @@
               <div class="ce-card-grid">
                 <div
                   v-for="opt in cardOptions(cat.itemName)"
-                  :key="opt.name"
+                  :key="cat.itemName + '/' + opt.name"
                   class="ce-card-item"
-                  :class="cardState(opt.name).type"
+                  :class="cardState(cat.itemName, opt.name).type"
                   @click="toggleCard(cat.itemName, opt.name)"
                 >
                   <img class="ce-card-thumb" :src="opt.icon" :alt="opt.name" onerror="this.style.display='none'" />
                   <span class="ce-card-name">{{ opt.name }}</span>
-                  <span v-if="cardState(opt.name).type" class="ce-card-tag" :class="cardState(opt.name).type">{{ cardState(opt.name).type }}</span>
+                  <span v-if="cardState(cat.itemName, opt.name).type" class="ce-card-tag" :class="cardState(cat.itemName, opt.name).type">{{ cardState(cat.itemName, opt.name).type }}</span>
                 </div>
               </div>
             </el-tab-pane>
@@ -346,14 +346,14 @@
   // 卡牌选择池：分类 -> [{name, icon}]，来自 card-data.js
   // 图标按分类子目录存放：static/icon/<分类>/<卡牌名称>.png
   const cardPool = {};
-  // 卡牌名称 -> 图标地址 映射（保存时取图标用）
+  // 分类+卡牌名称 -> 图标地址 映射（保存时取图标用；同名卡在不同分类图标可能不同）
   const CARD_ICONS = {};
   (function initCardData() {
     const src = window.COC_CARD_DATA || {};
     Object.keys(src).forEach(function (cat) {
       cardPool[cat] = (src[cat] || []).map(function (name) {
         const icon = 'icon/' + cat + '/' + name + '.png';
-        CARD_ICONS[name] = icon;
+        CARD_ICONS[cat + '/' + name] = icon;
         return { name: name, icon: icon };
       });
     });
@@ -435,21 +435,22 @@
         return result;
       }
 
-      // 卡牌选择状态：key=卡牌名称（全游戏唯一），value={ cardCategory, cardName, type }
+      // 卡牌选择状态：key=分类/卡牌名称（分类内唯一），value={ cardCategory, cardName, type }
       // type: null=未选, '多余'=多余卡牌, '缺失'=缺失卡牌（多余与缺失分别选择）
       const cardSelections = reactive({});
       const activeCardCat = ref('');
+      function cardKey(category, name) { return category + '/' + name; }
       function initCardSelections() {
         Object.keys(cardSelections).forEach(k => delete cardSelections[k]);
         cardCategories.value.forEach(cat => {
           (cardPool[cat.itemName] || []).forEach(opt => {
-            cardSelections[opt.name] = { cardCategory: cat.itemName, cardName: opt.name, type: null };
+            cardSelections[cardKey(cat.itemName, opt.name)] = { cardCategory: cat.itemName, cardName: opt.name, type: null };
           });
         });
       }
-      function cardState(name) { return cardSelections[name] || { type: null }; }
+      function cardState(category, name) { return cardSelections[cardKey(category, name)] || { type: null }; }
       function toggleCard(category, name) {
-        const s = cardSelections[name];
+        const s = cardSelections[cardKey(category, name)];
         if (!s) return;
         // 循环切换：未选 -> 多余 -> 缺失 -> 未选
         if (!s.type) s.type = '多余';
@@ -517,7 +518,7 @@
         initCardSelections();
         if (m && m.cards) {
           m.cards.forEach(c => {
-            const s = cardSelections[c.cardName];
+            const s = cardSelections[cardKey(c.cardCategory, c.cardName)];
             if (s && (c.cardType === '多余' || c.cardType === '缺失')) s.type = c.cardType;
           });
         }
@@ -534,7 +535,7 @@
             cardCategory: s.cardCategory,
             cardName: s.cardName,
             cardType: s.type, // '多余' 或 '缺失'，分别选择
-            cardIcon: CARD_ICONS[s.cardName] || ''
+            cardIcon: CARD_ICONS[cardKey(s.cardCategory, s.cardName)] || ''
           });
         });
         saving.value = true;
