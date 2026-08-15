@@ -167,6 +167,7 @@ CREATE TABLE `clan` (
   `clan_no` varchar(32) NOT NULL COMMENT '部落编号',
   `group_no` varchar(32) NOT NULL COMMENT '所属群组编号',
   `intro` varchar(500) DEFAULT NULL COMMENT '简介',
+  `sort` bigint(20) NOT NULL DEFAULT '0' COMMENT '排序号，列表按此字段正序展示',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
   `created_by` varchar(32) DEFAULT NULL COMMENT '创建者',

@@ -1,5 +1,6 @@
 package com.tencent.wxcloudrun.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.tencent.wxcloudrun.entity.biz.Clan;
 import com.tencent.wxcloudrun.mapper.ClanMapper;
@@ -25,6 +26,12 @@ public class ClanController extends BaseCrudController<Clan> {
 	@Override
 	protected List<String> keywordFields() {
 		return Arrays.asList("clan_name", "clan_no");
+	}
+
+	@Override
+	protected void applyDefaultOrder(QueryWrapper<Clan> qw) {
+		// 部落列表按排序字段正序展示
+		qw.orderByAsc("sort");
 	}
 
 }

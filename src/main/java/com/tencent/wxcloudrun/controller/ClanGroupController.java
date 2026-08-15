@@ -219,7 +219,7 @@ public class ClanGroupController extends BaseCrudController<ClanGroup> {
 	}
 
 	/**
-	 * 群组下的所有部落（按编号排序）。公开接口，供卡牌交换等公开页面选择所属部落。
+	 * 群组下的所有部落（按 sort 排序）。公开接口，供卡牌交换等公开页面选择所属部落。
 	 * 公开调用（@IgnoreLogin）时 UserContext 为空，TenantLineInnerInterceptor 会自动忽略 clan 表的多租户注入，
 	 * 因此此处显式 eq("group_no", ...) 即可正确按群组隔离。
 	 */
@@ -232,8 +232,8 @@ public class ClanGroupController extends BaseCrudController<ClanGroup> {
 		if (clanGroupMapper.selectOne(new QueryWrapper<ClanGroup>().eq("group_no", groupNo.trim())) == null) {
 			return ApiResponse.error(404, "未找到该群组：" + groupNo);
 		}
-		List<Clan> list = clanMapper
-			.selectList(new QueryWrapper<Clan>().eq("group_no", groupNo.trim()).orderByAsc("clan_no"));
+		List<Clan> list = clanMapper.selectList(new QueryWrapper<Clan>().eq("group_no", groupNo.trim())
+			.orderByAsc("sort").orderByAsc("clan_no"));
 		return ApiResponse.ok(list);
 	}
 

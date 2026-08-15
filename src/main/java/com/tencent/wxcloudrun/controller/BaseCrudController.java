@@ -31,6 +31,11 @@ public abstract class BaseCrudController<Entity extends BaseEntity> {
 		return java.util.Collections.emptyList();
 	}
 
+	/** 列表默认排序，子类可覆盖。默认按 id 倒序。 */
+	protected void applyDefaultOrder(QueryWrapper<Entity> qw) {
+		qw.orderByDesc("id");
+	}
+
 	@GetMapping("/page")
 	public ApiResponse page(@RequestParam(required = false) String keyword,
 			@RequestParam(defaultValue = "1") long current, @RequestParam(defaultValue = "10") long size) {
@@ -50,7 +55,7 @@ public abstract class BaseCrudController<Entity extends BaseEntity> {
 				}
 			});
 		}
-		qw.orderByDesc("id");
+		this.applyDefaultOrder(qw);
 		mapper().selectPage(page, qw);
 		return ApiResponse.ok(PageResult.of(page));
 	}

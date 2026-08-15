@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tencent.wxcloudrun.dto.CompleteExchangeRequest;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
 
 import java.util.List;
@@ -11,8 +12,8 @@ public interface CardExchangeService extends IService<CardExchangeMember> {
 	/** 群组是否存在 */
 	boolean groupExists(String groupNo);
 
-	/** 查询群组下成员列表（含卡牌明细），按 id 倒序 */
-	List<CardExchangeMember> listByGroup(String groupNo);
+	/** 查询群组下成员列表（含卡牌明细），按 id 倒序；tribe 非空时按部落过滤 */
+	List<CardExchangeMember> listByGroup(String groupNo, String tribe);
 
 	/** 新增 / 编辑成员（含卡牌明细）。同一群组(groupNo)+成员名称唯一，忽略已删除数据 */
 	CardExchangeMember saveMember(CardExchangeMember member, String groupNo, String operator);
@@ -27,4 +28,7 @@ public interface CardExchangeService extends IService<CardExchangeMember> {
 	 * @return 按"对方名称+卡牌分类"聚合后的匹配结果
 	 */
 	List<Map<String, Object>> findMatch(Long currentMemberId, String matchType);
+
+	/** 完成交换：删除双方对应的多余/缺失卡牌明细 */
+	void completeExchange(CompleteExchangeRequest request);
 }

@@ -50,8 +50,58 @@
     .ce-banner-info { font-size: 14px; color: #4b5160; }
     .ce-banner-info b { color: #1d39c4; }
     .ce-actions { display: flex; gap: 10px; }
+    .ce-list-title {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px;
+      font-size: 16px; font-weight: 700; color: #2b2f38;
+      padding: 4px 4px 14px;
+      position: relative;
+      flex-wrap: nowrap;
+    }
+    .ce-title-left { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .ce-list-title .ce-section-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #2f54eb;
+    }
     .ce-table-card { background: #fff; border-radius: 14px; padding: 8px; box-shadow: 0 2px 10px rgba(40,44,52,.05); }
-    .ce-member-filter { background: #fff; border-radius: 14px; padding: 6px 16px; box-shadow: 0 2px 10px rgba(40,44,52,.05); margin-bottom: 18px; }
+    /* 卡牌拥有情况区块 + 部落切换 */
+    .ce-section-card {
+      background: #fff; border-radius: 14px; padding: 18px 22px;
+      box-shadow: 0 2px 10px rgba(40,44,52,.05);
+      margin-bottom: 18px; position: relative;
+    }
+    .ce-section-card::before {
+      content: ''; position: absolute; left: 0; top: 16px; bottom: 16px;
+      width: 4px; border-radius: 4px;
+      background: linear-gradient(#4b6bff, #1d39c4);
+    }
+    .ce-section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; padding: 0 4px 12px;
+    }
+    .ce-section-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 15px; font-weight: 700; color: #2b2f38;
+    }
+    .ce-section-dot { width: 8px; height: 8px; border-radius: 3px; background: #2f54eb; }
+    .ce-member-search { display: flex; align-items: center; gap: 10px; }
+    .ce-search-label { font-size: 13px; color: #606266; font-weight: 500; }
+    .ce-clan-tabs { display: flex; flex-wrap: wrap; gap: 12px; padding: 6px 4px 2px; }
+    .ce-clan-tab {
+      cursor: pointer; padding: 8px 18px; color: #2f54eb;
+      font-size: 14px; font-weight: 600; user-select: none;
+      background: #eef2ff;
+      border: 1px solid #c8d3ff;
+      border-radius: 999px;
+      transition: all .18s ease;
+    }
+    .ce-clan-tab:hover { background: #dfe6ff; transform: translateY(-1px); }
+    .ce-clan-tab.is-active {
+      color: #fff;
+      background: linear-gradient(135deg, #4b6bff, #2f54eb);
+      border-color: transparent;
+      box-shadow: 0 6px 16px rgba(47, 84, 235, .35);
+    }
     .ce-member-row {
       display: grid; grid-template-columns: 1fr 64px; align-items: center;
       gap: 14px; padding: 14px 16px; border-bottom: 1px solid #f0f1f5;
@@ -92,6 +142,7 @@
     }
     .ce-pair {
       display: flex; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid #f0f1f5; font-size: 14px;
+      flex-wrap: wrap;
     }
     .ce-match-cat-block .ce-pair:first-of-type { border-top: none; }
     .ce-pair .arrow { color: #2f54eb; font-weight: 700; }
@@ -164,27 +215,34 @@
 
   <div class="ce-container" v-else-if="groupValid === true">
     <div class="ce-banner">
-      <div class="ce-banner-info">当前群组：<b>{{ groupNo }}</b> · 共 {{ members.length }} 名交换成员</div>
+      <div class="ce-banner-info">当前群组：<b>{{ groupNo }}</b></div>
       <div class="ce-actions">
         <el-button type="primary" @click="openEditor()">新增成员</el-button>
         <el-button type="success" @click="openMatch()">查找交换对象</el-button>
       </div>
     </div>
 
-    <div class="ce-member-filter">
-      <el-form inline>
-        <el-form-item label="选择部落">
-          <el-select v-model="memberFilterTribe" clearable placeholder="全部部落" style="width:150px">
-            <el-option v-for="c in clans" :key="c.clanNo" :label="c.clanName" :value="c.clanName" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="成员名称">
-          <el-input v-model="memberFilterName" clearable placeholder="搜索成员" style="width:200px" />
-        </el-form-item>
-      </el-form>
+    <div class="ce-section-card">
+      <div class="ce-section-head">
+        <div class="ce-section-title"><span class="ce-section-dot"></span>选择部落</div>
+      </div>
+      <div class="ce-clan-tabs">
+        <div
+          v-for="c in clanTabs" :key="c.value"
+          class="ce-clan-tab"
+          :class="{ 'is-active': memberFilterTribe === c.value }"
+          @click="memberFilterTribe = c.value; loadMembers(c.value)"
+        >{{ c.label }}</div>
+      </div>
     </div>
 
     <div class="ce-table-card">
+      <div class="ce-list-title">
+        <span class="ce-title-left">
+          <span class="ce-section-dot"></span>卡牌拥有情况
+          <el-input v-model="memberFilterName" clearable placeholder="搜索成员" style="width:200px;margin-left:8px" />
+        </span>
+      </div>
       <div v-if="filteredMemberList.length === 0" class="ce-empty">暂无匹配成员</div>
       <div v-for="m in filteredMemberList" :key="m.id" class="ce-member-row">
         <div class="ce-member-main">
@@ -299,13 +357,8 @@
 
     <div v-if="matchResult.length > 0" class="ce-match-filter">
       <el-form inline>
-        <el-form-item label="选择部落">
-          <el-select v-model="matchTribe" clearable placeholder="全部部落" style="width:150px">
-            <el-option v-for="c in clans" :key="c.clanNo" :label="c.clanName" :value="c.clanName" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="成员名称">
-          <el-input v-model="matchNameQuery" clearable placeholder="搜索成员" style="width:150px" />
+          <el-input v-model="matchNameQuery" clearable placeholder="搜索成员" style="width:200px" />
         </el-form-item>
       </el-form>
     </div>
@@ -328,6 +381,7 @@
             <img v-if="p.gainCard.cardIcon" class="ce-ico" :src="p.gainCard.cardIcon" />
             己方得到 {{ p.gainCard.cardName }}
           </span>
+          <el-button size="small" type="success" plain @click="completeExchange(grp, p)">完成交换</el-button>
         </div>
       </div>
     </div>
@@ -397,10 +451,13 @@
       const clanMemberOptions = ref([]);
       const memberFilterTribe = ref('');
       const memberFilterName = ref('');
+      const clanTabs = computed(() => {
+        return (clans.value || []).map(c => ({ label: c.clanName || c.clanNo, value: c.clanName }));
+      });
+
       const filteredMemberList = computed(() => {
         const q = memberFilterName.value ? memberFilterName.value.trim().toLowerCase() : '';
         return (members.value || []).filter(m => {
-          if (memberFilterTribe.value && m.tribe !== memberFilterTribe.value) return false;
           if (q && (!m.memberName || m.memberName.toLowerCase().indexOf(q) === -1)) return false;
           return true;
         });
@@ -480,6 +537,9 @@
         try {
           const data = await COC.http.get('/api/clan/group/clans', { params: { groupNo: groupNo.value } });
           clans.value = data || [];
+          if (clans.value.length && !memberFilterTribe.value) {
+            memberFilterTribe.value = clans.value[0].clanName;
+          }
         } catch (e) { clans.value = []; }
       }
       async function loadClanMembers() {
@@ -498,8 +558,10 @@
           clanMemberOptions.value = names;
         } catch (e) { clanMemberOptions.value = []; }
       }
-      async function loadMembers() {
-        const data = await COC.http.get('/api/cardExchange/members', { params: { groupNo: groupNo.value } });
+      async function loadMembers(tribe) {
+        const params = { groupNo: groupNo.value };
+        if (tribe) params.tribe = tribe;
+        const data = await COC.http.get('/api/cardExchange/members', { params });
         members.value = data || [];
       }
 
@@ -544,7 +606,7 @@
           await COC.http.post('/api/cardExchange/member/save?groupNo=' + encodeURIComponent(groupNo.value), payload);
           ElMessage.success('保存成功');
           editorVisible.value = false;
-          await loadMembers();
+          await loadMembers(memberFilterTribe.value);
         } catch (e) { /* 错误提示由拦截器处理 */ }
         finally { saving.value = false; }
       }
@@ -561,7 +623,7 @@
         try {
           await COC.http.delete('/api/cardExchange/member/delete', { params: { memberId: m.id, groupNo: groupNo.value } });
           ElMessage.success('已删除');
-          await loadMembers();
+          await loadMembers(memberFilterTribe.value);
         } catch (e) {
           // 401 未登录 / 403 无权限：拦截器已清 token，刷新登录态并引导登录
           if (e && e.response && (e.response.status === 401 || e.response.status === 403)) {
@@ -586,7 +648,6 @@
       const matchVisible = ref(false);
       const matchMemberId = ref(null);
       const matchType = ref('mutual');
-      const matchTribe = ref('');
       const matchNameQuery = ref('');
       const matching = ref(false);
       const matched = ref(false);
@@ -594,16 +655,39 @@
       function openMatch() {
         matchMemberId.value = members.value.length ? members.value[0].id : null;
         matchType.value = 'mutual';
-        matchTribe.value = '';
         matchNameQuery.value = '';
         matched.value = false;
         matchResult.value = [];
         matchVisible.value = true;
       }
+      async function completeExchange(grp, pair) {
+        try {
+          await ElMessageBox.confirm(
+            `确认完成与 ${grp.memberName} 的交换？<br><span style="color:#909399;font-size:13px">交换后，双方对应的多余卡牌和缺少卡牌状态会重置</span>`,
+            '完成交换',
+            { type: 'warning', dangerouslyUseHTMLString: true }
+          );
+        } catch { return; }
+        try {
+          await COC.http.post('/api/cardExchange/exchange/complete', {
+            groupNo: groupNo.value,
+            selfMemberId: matchMemberId.value,
+            oppMemberId: grp.memberId,
+            pairs: [{
+              giveCategory: pair.giveCard.cardCategory,
+              giveCardName: pair.giveCard.cardName,
+              gainCategory: pair.gainCard.cardCategory,
+              gainCardName: pair.gainCard.cardName
+            }]
+          });
+          ElMessage.success('交换完成');
+          await loadMembers(memberFilterTribe.value);
+          doMatch();
+        } catch (e) { /* 错误提示由拦截器处理 */ }
+      }
       const filteredMatchResult = computed(() => {
         const q = matchNameQuery.value ? matchNameQuery.value.trim().toLowerCase() : '';
         return (matchResult.value || []).filter(grp => {
-          if (matchTribe.value && grp.tribe !== matchTribe.value) return false;
           if (q && (!grp.memberName || grp.memberName.toLowerCase().indexOf(q) === -1)) return false;
           return true;
         });
@@ -659,17 +743,17 @@
         } catch (e) { groupValid.value = false; return; }
         await loadDict();
         await loadClans();
-        await loadMembers();
+        await loadMembers(memberFilterTribe.value);
         // 同步登录态（群主登录态用于展示与删除权限）
         await loadLoginUser();
       });
 
       return {
-        groupNo, groupValid, members, filteredMemberList, memberFilterTribe, memberFilterName, loginUser, userName, userInitial, isOwner, loginHref, logout,
+        groupNo, groupValid, members, filteredMemberList, memberFilterTribe, memberFilterName, clanTabs, loginUser, userName, userInitial, isOwner, loginHref, logout,
         cardCategories, clans, clanMemberOptions, cardOptions, extraCards, missingCards, groupCards, groupPairsByCategory,
         cardSelections, activeCardCat, cardState, toggleCard,
-        editorVisible, editing, saving, form, openEditor, submitEditor,
-        removeMember, matchVisible, matchMemberId, matchType, matchTribe, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch,
+        editorVisible, editing, saving, form, openEditor, submitEditor, loadMembers,
+        removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch, completeExchange,
       };
     }
   }).use(ElementPlus).mount('#app');

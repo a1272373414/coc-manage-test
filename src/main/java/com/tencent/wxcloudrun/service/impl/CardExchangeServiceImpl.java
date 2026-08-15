@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tencent.wxcloudrun.dto.CompleteExchangeRequest;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMemberCard;
 import com.tencent.wxcloudrun.entity.biz.ClanGroup;
@@ -43,9 +44,12 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 	}
 
 	@Override
-	public List<CardExchangeMember> listByGroup(String groupNo) {
+	public List<CardExchangeMember> listByGroup(String groupNo, String tribe) {
 		QueryWrapper<CardExchangeMember> qw = new QueryWrapper<>();
 		qw.eq("group_no", groupNo);
+		if (StringUtils.hasText(tribe)) {
+			qw.eq("tribe", tribe.trim());
+		}
 		qw.orderByDesc("id");
 		List<CardExchangeMember> members = getBaseMapper().selectList(qw);
 		for (CardExchangeMember m : members) {
@@ -101,11 +105,11 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 			old.setTribe(member.getTribe());
 			old.setUpdatedBy(operator == null ? "" : operator);
 			getBaseMapper().updateById(old);
-			// 先删除旧卡牌明细（逻辑删除），再重新插入
+			// 先物理删除旧卡牌明细，再重新插入
 			QueryWrapper<CardExchangeMemberCard> del = new QueryWrapper<>();
 			del.eq("member_id", member.getId());
 			del.eq("group_no", groupNo);
-			cardMapper.delete(del);
+			cardMapper.physicalDelete(del);
 			// 注意：保留原始 member 引用，以便后续写入前端传入的 cards
 		}
 
@@ -293,5 +297,36 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		String na = a.getCardName() == null ? "" : a.getCardName();
 		String nb = b.getCardName() == null ? "" : b.getCardName();
 		return na.equals(nb);
+	}
+
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void completeExchange(CompleteExchangeRequest request) {
+		String groupNo = request.getGroupNo();
+		Long selfMemberId = request.getSelfMemberId();
+		Long oppMemberId = request.getOppMemberId();
+		List<CompleteExchangeRequest.ExchangePair> pairs = request.getPairs();
+		if (!StringUtils.hasText(groupNo) || selfMemberId == null || oppMemberId == null || pairs == null
+				|| pairs.isEmpty()) {
+			throw new IllegalArgumentException("参数不完整");
+		}
+		for (CompleteExchangeRequest.ExchangePair pair : pairs) {
+			// 己方：删除换出的多余卡、删除得到的缺失卡
+			deleteCard(groupNo, selfMemberId, pair.getGiveCategory(), pair.getGiveCardName(), TYPE_EXTRA);
+			deleteCard(groupNo, selfMemberId, pair.getGainCategory(), pair.getGainCardName(), TYPE_MISSING);
+			// 对方：删除缺失的换出卡、删除多余的得到卡
+			deleteCard(groupNo, oppMemberId, pair.getGiveCategory(), pair.getGiveCardName(), TYPE_MISSING);
+			deleteCard(groupNo, oppMemberId, pair.getGainCategory(), pair.getGainCardName(), TYPE_EXTRA);
+		}
+	}
+
+	private void deleteCard(String groupNo, Long memberId, String category, String cardName, String cardType) {
+		QueryWrapper<CardExchangeMemberCard> qw = new QueryWrapper<>();
+		qw.eq("group_no", groupNo);
+		qw.eq("member_id", memberId);
+		qw.eq("card_category", category);
+		qw.eq("card_name", cardName);
+		qw.eq("card_type", cardType);
+		cardMapper.physicalDelete(qw);
 	}
 }

@@ -92,7 +92,7 @@ public class LeagueQuickSignupController {
 	}
 
 	/**
-	 * 群组下的所有部落（按编号排序）。用于页面顶部的“部落X” Tab。
+	 * 群组下的所有部落（按排序字段正序）。用于页面顶部的“部落X” Tab。
 	 */
 	@GetMapping("/clans")
 	public ApiResponse clans(@RequestParam String groupNo) {
@@ -100,7 +100,7 @@ public class LeagueQuickSignupController {
 			return ApiResponse.error(400, "群组编号不能为空");
 		}
 		List<Clan> list = clanMapper
-			.selectList(new QueryWrapper<Clan>().eq("group_no", groupNo.trim()).orderByAsc("clan_no"));
+			.selectList(new QueryWrapper<Clan>().eq("group_no", groupNo.trim()).orderByAsc("sort"));
 		return ApiResponse.ok(list);
 	}
 
