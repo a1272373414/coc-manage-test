@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tencent.wxcloudrun.dto.CompleteExchangeRequest;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
 
 import java.util.List;
@@ -27,4 +28,7 @@ public interface CardExchangeService extends IService<CardExchangeMember> {
 	 * @return 按"对方名称+卡牌分类"聚合后的匹配结果
 	 */
 	List<Map<String, Object>> findMatch(Long currentMemberId, String matchType);
+
+	/** 完成交换：删除双方对应的多余/缺失卡牌明细 */
+	void completeExchange(CompleteExchangeRequest request);
 }

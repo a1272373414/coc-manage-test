@@ -2,6 +2,7 @@ package com.tencent.wxcloudrun.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tencent.wxcloudrun.dto.CompleteExchangeRequest;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMemberCard;
 import com.tencent.wxcloudrun.entity.biz.ClanGroup;
@@ -296,5 +297,36 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		String na = a.getCardName() == null ? "" : a.getCardName();
 		String nb = b.getCardName() == null ? "" : b.getCardName();
 		return na.equals(nb);
+	}
+
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void completeExchange(CompleteExchangeRequest request) {
+		String groupNo = request.getGroupNo();
+		Long selfMemberId = request.getSelfMemberId();
+		Long oppMemberId = request.getOppMemberId();
+		List<CompleteExchangeRequest.ExchangePair> pairs = request.getPairs();
+		if (!StringUtils.hasText(groupNo) || selfMemberId == null || oppMemberId == null || pairs == null
+				|| pairs.isEmpty()) {
+			throw new IllegalArgumentException("参数不完整");
+		}
+		for (CompleteExchangeRequest.ExchangePair pair : pairs) {
+			// 己方：删除换出的多余卡、删除得到的缺失卡
+			deleteCard(groupNo, selfMemberId, pair.getGiveCategory(), pair.getGiveCardName(), TYPE_EXTRA);
+			deleteCard(groupNo, selfMemberId, pair.getGainCategory(), pair.getGainCardName(), TYPE_MISSING);
+			// 对方：删除缺失的换出卡、删除多余的得到卡
+			deleteCard(groupNo, oppMemberId, pair.getGiveCategory(), pair.getGiveCardName(), TYPE_MISSING);
+			deleteCard(groupNo, oppMemberId, pair.getGainCategory(), pair.getGainCardName(), TYPE_EXTRA);
+		}
+	}
+
+	private void deleteCard(String groupNo, Long memberId, String category, String cardName, String cardType) {
+		QueryWrapper<CardExchangeMemberCard> qw = new QueryWrapper<>();
+		qw.eq("group_no", groupNo);
+		qw.eq("member_id", memberId);
+		qw.eq("card_category", category);
+		qw.eq("card_name", cardName);
+		qw.eq("card_type", cardType);
+		cardMapper.physicalDelete(qw);
 	}
 }

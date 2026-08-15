@@ -142,6 +142,7 @@
     }
     .ce-pair {
       display: flex; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid #f0f1f5; font-size: 14px;
+      flex-wrap: wrap;
     }
     .ce-match-cat-block .ce-pair:first-of-type { border-top: none; }
     .ce-pair .arrow { color: #2f54eb; font-weight: 700; }
@@ -380,6 +381,7 @@
             <img v-if="p.gainCard.cardIcon" class="ce-ico" :src="p.gainCard.cardIcon" />
             己方得到 {{ p.gainCard.cardName }}
           </span>
+          <el-button size="small" type="success" plain @click="completeExchange(grp, p)">完成交换</el-button>
         </div>
       </div>
     </div>
@@ -658,6 +660,31 @@
         matchResult.value = [];
         matchVisible.value = true;
       }
+      async function completeExchange(grp, pair) {
+        try {
+          await ElMessageBox.confirm(
+            `确认完成与 ${grp.memberName} 的交换？<br><span style="color:#909399;font-size:13px">交换后，双方对应的多余卡牌和缺少卡牌状态会重置</span>`,
+            '完成交换',
+            { type: 'warning', dangerouslyUseHTMLString: true }
+          );
+        } catch { return; }
+        try {
+          await COC.http.post('/api/cardExchange/exchange/complete', {
+            groupNo: groupNo.value,
+            selfMemberId: matchMemberId.value,
+            oppMemberId: grp.memberId,
+            pairs: [{
+              giveCategory: pair.giveCard.cardCategory,
+              giveCardName: pair.giveCard.cardName,
+              gainCategory: pair.gainCard.cardCategory,
+              gainCardName: pair.gainCard.cardName
+            }]
+          });
+          ElMessage.success('交换完成');
+          await loadMembers(memberFilterTribe.value);
+          doMatch();
+        } catch (e) { /* 错误提示由拦截器处理 */ }
+      }
       const filteredMatchResult = computed(() => {
         const q = matchNameQuery.value ? matchNameQuery.value.trim().toLowerCase() : '';
         return (matchResult.value || []).filter(grp => {
@@ -726,7 +753,7 @@
         cardCategories, clans, clanMemberOptions, cardOptions, extraCards, missingCards, groupCards, groupPairsByCategory,
         cardSelections, activeCardCat, cardState, toggleCard,
         editorVisible, editing, saving, form, openEditor, submitEditor, loadMembers,
-        removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch,
+        removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch, completeExchange,
       };
     }
   }).use(ElementPlus).mount('#app');

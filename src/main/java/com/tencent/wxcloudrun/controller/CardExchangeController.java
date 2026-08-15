@@ -5,6 +5,7 @@ import com.tencent.wxcloudrun.config.ApiResponse;
 import com.tencent.wxcloudrun.config.IgnoreLogin;
 import com.tencent.wxcloudrun.config.RoleConstants;
 import com.tencent.wxcloudrun.config.UserContext;
+import com.tencent.wxcloudrun.dto.CompleteExchangeRequest;
 import com.tencent.wxcloudrun.entity.biz.CardExchangeMember;
 import com.tencent.wxcloudrun.entity.biz.ClanMember;
 import com.tencent.wxcloudrun.entity.dict.DictItem;
@@ -111,6 +112,17 @@ public class CardExchangeController {
 			@RequestParam(defaultValue = "mutual") String matchType) {
 		List<Map<String, Object>> result = cardExchangeService.findMatch(memberId, matchType);
 		return ApiResponse.ok(result);
+	}
+
+	/** 完成交换：删除双方对应的多余/缺失卡牌明细（需登录，且仅限本群群主或部落管理员操作） */
+	@PostMapping("/exchange/complete")
+	public ApiResponse completeExchange(@RequestBody CompleteExchangeRequest request) {
+		ApiResponse denied = assertGroupOrLeagueAdmin(request.getGroupNo());
+		if (denied != null) {
+			return denied;
+		}
+		cardExchangeService.completeExchange(request);
+		return ApiResponse.ok();
 	}
 
 	/** 当前操作者标识：登录取用户名，未登录置空 */
