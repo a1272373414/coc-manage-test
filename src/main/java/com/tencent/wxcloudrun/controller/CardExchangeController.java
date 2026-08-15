@@ -118,10 +118,6 @@ public class CardExchangeController {
 	@IgnoreLogin
 	@PostMapping("/exchange/complete")
 	public ApiResponse completeExchange(@RequestBody CompleteExchangeRequest request) {
-		ApiResponse denied = assertGroupOrLeagueAdmin(request.getGroupNo());
-		if (denied != null) {
-			return denied;
-		}
 		cardExchangeService.completeExchange(request);
 		return ApiResponse.ok();
 	}
