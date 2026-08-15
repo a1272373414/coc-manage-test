@@ -76,11 +76,11 @@ public class CardExchangeController {
 		return ApiResponse.ok(data);
 	}
 
-	/** 成员列表（公开，按 URL 群组编号隔离） */
+	/** 成员列表（公开，按 URL 群组编号隔离；可选按 tribe 部落过滤） */
 	@IgnoreLogin
 	@GetMapping("/members")
-	public ApiResponse listMembers(@RequestParam String groupNo) {
-		return ApiResponse.ok(cardExchangeService.listByGroup(groupNo));
+	public ApiResponse listMembers(@RequestParam String groupNo, @RequestParam(required = false) String tribe) {
+		return ApiResponse.ok(cardExchangeService.listByGroup(groupNo, tribe));
 	}
 
 	/** 新增 / 编辑成员（公开；同群组+成员名称唯一，忽略已删除） */

@@ -43,9 +43,12 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 	}
 
 	@Override
-	public List<CardExchangeMember> listByGroup(String groupNo) {
+	public List<CardExchangeMember> listByGroup(String groupNo, String tribe) {
 		QueryWrapper<CardExchangeMember> qw = new QueryWrapper<>();
 		qw.eq("group_no", groupNo);
+		if (StringUtils.hasText(tribe)) {
+			qw.eq("tribe", tribe.trim());
+		}
 		qw.orderByDesc("id");
 		List<CardExchangeMember> members = getBaseMapper().selectList(qw);
 		for (CardExchangeMember m : members) {
@@ -101,11 +104,11 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 			old.setTribe(member.getTribe());
 			old.setUpdatedBy(operator == null ? "" : operator);
 			getBaseMapper().updateById(old);
-			// 先删除旧卡牌明细（逻辑删除），再重新插入
+			// 先物理删除旧卡牌明细，再重新插入
 			QueryWrapper<CardExchangeMemberCard> del = new QueryWrapper<>();
 			del.eq("member_id", member.getId());
 			del.eq("group_no", groupNo);
-			cardMapper.delete(del);
+			cardMapper.physicalDelete(del);
 			// 注意：保留原始 member 引用，以便后续写入前端传入的 cards
 		}
 

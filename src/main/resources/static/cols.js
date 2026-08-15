@@ -22,6 +22,13 @@
     // 群组编号：新增时自动从当前用户取，表单只读，表格不展示
     { prop: "groupNo", label: "群组编号", hideInTable: true, disabled: true },
     { prop: "intro", label: "简介", type: "textarea" },
+    {
+      prop: "sort",
+      label: "排序",
+      type: "number",
+      rule: req("请输入排序号"),
+      default: 0,
+    },
   ];
   const memberCols = [
     { prop: "id", label: "ID", hideInForm: true, hideInTable: true },

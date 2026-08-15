@@ -21,4 +21,7 @@ public class Clan extends BaseEntity {
 
 	private String intro;
 
+	/** 排序号，列表按此字段正序展示 */
+	private Long sort;
+
 }
