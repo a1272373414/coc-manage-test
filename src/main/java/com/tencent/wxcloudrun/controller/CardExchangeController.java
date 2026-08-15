@@ -114,13 +114,10 @@ public class CardExchangeController {
 		return ApiResponse.ok(result);
 	}
 
-	/** 完成交换：删除双方对应的多余/缺失卡牌明细（需登录，且仅限本群群主或部落管理员操作） */
+	/** 完成交换：删除双方对应的多余/缺失卡牌明细（无需登录） */
+	@IgnoreLogin
 	@PostMapping("/exchange/complete")
 	public ApiResponse completeExchange(@RequestBody CompleteExchangeRequest request) {
-		ApiResponse denied = assertGroupOrLeagueAdmin(request.getGroupNo());
-		if (denied != null) {
-			return denied;
-		}
 		cardExchangeService.completeExchange(request);
 		return ApiResponse.ok();
 	}
