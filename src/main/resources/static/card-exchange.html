@@ -250,7 +250,7 @@
         <div class="ce-member-main">
           <div>
             <span class="ce-member-name">{{ m.memberName }}</span>
-            <span v-if="m.tribe" class="ce-member-tribe">部落：{{ m.tribe }}<span v-if="clanUpdatedAt(m.tribe)" class="ce-clan-time"> | 最后更新时间 {{ fmtTime(clanUpdatedAt(m.tribe)) }}</span></span>
+            <span v-if="m.tribe" class="ce-member-tribe">部落：{{ m.tribe }}<span v-if="m.updatedAt" class="ce-clan-time"> | 最后更新时间 {{ fmtTime(m.updatedAt) }}</span></span>
           </div>
           <div class="ce-cards">
             <div class="ce-card-col">
@@ -462,13 +462,8 @@
           + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
       }
 
-      function clanUpdatedAt(clanName) {
-        const c = (clans.value || []).find(x => x.clanName === clanName || x.clanNo === clanName);
-        return c ? c.updatedAt : null;
-      }
-
       const clanTabs = computed(() => {
-        return (clans.value || []).map(c => ({ label: c.clanName || c.clanNo, value: c.clanName, updatedAt: c.updatedAt }));
+        return (clans.value || []).map(c => ({ label: c.clanName || c.clanNo, value: c.clanName }));
       });
 
       const filteredMemberList = computed(() => {
@@ -770,7 +765,7 @@
         cardSelections, activeCardCat, cardState, toggleCard,
         editorVisible, editing, saving, form, openEditor, submitEditor, loadMembers,
         removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch, completeExchange,
-        fmtTime, clanUpdatedAt,
+        fmtTime,
       };
     }
   }).use(ElementPlus).mount('#app');

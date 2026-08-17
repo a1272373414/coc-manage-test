@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -103,6 +104,7 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 			}
 			old.setMemberName(name);
 			old.setTribe(member.getTribe());
+			old.setUpdatedAt(LocalDateTime.now());
 			old.setUpdatedBy(operator == null ? "" : operator);
 			getBaseMapper().updateById(old);
 			// 先物理删除旧卡牌明细，再重新插入
