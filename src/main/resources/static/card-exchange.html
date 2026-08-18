@@ -181,6 +181,51 @@
     .ce-card-legend { font-size: 12px; color: #8a90a0; margin-top: 8px; }
     .ce-card-legend span { display: inline-flex; align-items: center; gap: 4px; margin-right: 16px; }
     .ce-card-legend i { width: 12px; height: 12px; border-radius: 3px; }
+
+    /* ===== 响应式：手机端 ===== */
+    @media (max-width: 768px) {
+      .ce-top { height: 52px; padding: 0 14px; }
+      .ce-title { font-size: 15px; }
+      .ce-sub { display: none; }
+      .ce-login { padding: 0 12px; height: 32px; }
+      .ce-container { padding: 16px 0 36px; }
+      .ce-banner { padding: 12px 14px; border-radius: 12px; }
+      .ce-banner-info { font-size: 13px; }
+      .ce-section-card { padding: 14px 14px; border-radius: 12px; }
+      .ce-section-card::before { top: 12px; bottom: 12px; }
+      .ce-list-title { font-size: 15px; }
+      .ce-clan-tab { padding: 7px 14px; font-size: 13px; }
+      .ce-clan-tabs { gap: 8px; }
+      /* 成员行：手机端改为单列，操作按钮横排铺满 */
+      .ce-member-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 14px 12px;
+      }
+      .ce-ops {
+        flex-direction: row;
+        width: 100%;
+        gap: 10px;
+        justify-self: stretch;
+      }
+      .ce-ops .el-button { flex: 1; }
+      .ce-card-col { min-width: 0; }
+      .ce-cards { gap: 12px; }
+      .ce-member-name { font-size: 14px; }
+      .ce-card-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .ce-card-item .ce-card-thumb { width: 48px; height: 48px; }
+      .ce-pair { gap: 10px; font-size: 13px; }
+      .ce-match-head { flex-wrap: wrap; }
+    }
+
+    /* ===== 响应式：超小屏（窄手机）===== */
+    @media (max-width: 420px) {
+      .ce-banner { flex-direction: column; align-items: flex-start; }
+      .ce-actions { width: 100%; }
+      .ce-actions .el-button { flex: 1; }
+      .ce-card-grid { grid-template-columns: repeat(2, 1fr); }
+      .ce-cards { flex-direction: column; }
+    }
   </style>
 </head>
 <body>
@@ -286,7 +331,7 @@
   </div>
 
   <!-- 新增 / 编辑 -->
-  <el-dialog v-model="editorVisible" :title="editing ? '编辑成员' : '新增成员'" width="640px">
+  <el-dialog v-model="editorVisible" :title="editing ? '编辑成员' : '新增成员'" :width="dialogWidth">
     <el-form :model="form" label-width="90px">
       <el-form-item label="所属部落" required>
         <el-select v-model="form.tribe" filterable placeholder="选择部落" style="width:100%">
@@ -339,7 +384,7 @@
   </el-dialog>
 
   <!-- 查找交换对象 -->
-  <el-dialog v-model="matchVisible" title="查找交换对象" width="760px">
+  <el-dialog v-model="matchVisible" title="查找交换对象" :width="matchDialogWidth">
     <el-form inline>
       <el-form-item label="选择成员" required>
         <el-select v-model="matchMemberId" filterable placeholder="选择本群组成员" style="width:200px">
@@ -461,6 +506,13 @@
         return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
           + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
       }
+
+      const dialogWidth = computed(() => {
+        return window.innerWidth <= 768 ? '92%' : '640px';
+      });
+      const matchDialogWidth = computed(() => {
+        return window.innerWidth <= 768 ? '92%' : '760px';
+      });
 
       const clanTabs = computed(() => {
         return (clans.value || []).map(c => ({ label: c.clanName || c.clanNo, value: c.clanName }));
@@ -765,7 +817,7 @@
         cardSelections, activeCardCat, cardState, toggleCard,
         editorVisible, editing, saving, form, openEditor, submitEditor, loadMembers,
         removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch, completeExchange,
-        fmtTime,
+        fmtTime, dialogWidth, matchDialogWidth,
       };
     }
   }).use(ElementPlus).mount('#app');
