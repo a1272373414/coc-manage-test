@@ -414,7 +414,7 @@
     <div v-for="(grp, gi) in filteredMatchResult" :key="gi" class="ce-match-group">
       <div class="ce-match-head">
         <span>{{ grp.memberName }}</span>
-        <span v-if="grp.tribe" class="ce-match-tribe">部落：{{ grp.tribe }}</span>
+        <span v-if="grp.tribe" class="ce-match-tribe">部落：{{ grp.tribe }}<span v-if="grp.updatedAt" class="ce-clan-time"> | 最后更新时间 {{ fmtTime(grp.updatedAt) }}</span></span>
       </div>
       <div v-for="(cg, ci) in groupPairsByCategory(grp.pairs)" :key="ci" class="ce-match-cat-block">
         <div class="ce-match-cat-title">{{ cg.category }}</div>
@@ -750,10 +750,18 @@
       }
       const filteredMatchResult = computed(() => {
         const q = matchNameQuery.value ? matchNameQuery.value.trim().toLowerCase() : '';
-        return (matchResult.value || []).filter(grp => {
+        let list = (matchResult.value || []).filter(grp => {
           if (q && (!grp.memberName || grp.memberName.toLowerCase().indexOf(q) === -1)) return false;
           return true;
         });
+        // 按更新时间倒序（最新在前）
+        list.sort((a, b) => {
+          if (!a.updatedAt && !b.updatedAt) return 0;
+          if (!a.updatedAt) return 1;
+          if (!b.updatedAt) return -1;
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+        return list;
       });
       // 查找交换对象（纯前端计算；数据均在 members 中）
       function doMatch() {
@@ -789,7 +797,7 @@
               });
             });
             if (pairs.length) {
-              result.push({ memberId: opp.id, memberName: opp.memberName, tribe: opp.tribe || '', pairs });
+              result.push({ memberId: opp.id, memberName: opp.memberName, tribe: opp.tribe || '', updatedAt: opp.updatedAt, pairs });
             }
           });
         }
