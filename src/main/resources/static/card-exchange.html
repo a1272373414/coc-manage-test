@@ -344,7 +344,7 @@
           filterable
           allow-create
           default-first-option
-          placeholder="请输入或选择成员名称"
+          placeholder="请输入或选择游戏名称"
           style="width:100%"
         >
           <el-option v-for="n in clanMemberOptions" :key="n" :label="n" :value="n" />
@@ -386,12 +386,19 @@
   <!-- 查找交换对象 -->
   <el-dialog v-model="matchVisible" title="查找交换对象" :width="matchDialogWidth">
     <el-form inline>
-      <el-form-item label="选择成员" required>
-        <el-select v-model="matchMemberId" filterable placeholder="选择本群组成员" style="width:200px">
-          <el-option v-for="m in members" :key="m.id" :label="m.memberName" :value="m.id" />
+      <el-form-item label="自身游戏名称" required label-width="110px">
+        <el-select v-model="matchMemberId" filterable placeholder="选择本群组成员" style="width:220px">
+          <el-option v-for="m in matchMemberOptions" :key="m.id" :label="m.memberName" :value="m.id" />
         </el-select>
       </el-form-item>
-      <el-form-item label="匹配方式">
+      <div style="width:100%"></div>
+      <el-form-item label="目标部落" label-width="110px">
+        <el-select v-model="matchTargetTribe" filterable placeholder="选择部落" style="width:220px" @change="onMatchTribeChange">
+          <el-option v-for="c in clanTabs" :key="c.value" :label="c.label" :value="c.value" />
+        </el-select>
+      </el-form-item>
+      <div style="width:100%"></div>
+      <el-form-item label="匹配方式" label-width="110px">
         <el-radio-group v-model="matchType">
           <el-radio label="mutual">互利互惠</el-radio>
           <el-radio label="oneWay">单方受益</el-radio>
@@ -441,7 +448,7 @@
 <script src="api.js"></script>
 <script src="card-data.js"></script>
 <script>
-  const { createApp, reactive, ref, computed, onMounted } = Vue;
+  const { createApp, reactive, ref, computed, onMounted, watch } = Vue;
   const { ElMessage, ElMessageBox } = ElementPlus;
 
   // 卡牌选择池：分类 -> [{name, icon}]，来自 card-data.js
@@ -627,6 +634,10 @@
         const data = await COC.http.get('/api/cardExchange/members', { params });
         members.value = data || [];
       }
+      async function loadAllMembers() {
+        const data = await COC.http.get('/api/cardExchange/members', { params: { groupNo: groupNo.value } });
+        matchAllMembers.value = data || [];
+      }
 
       // 编辑器
       const editorVisible = ref(false);
@@ -710,17 +721,28 @@
       // 查找交换对象
       const matchVisible = ref(false);
       const matchMemberId = ref(null);
+      const matchTargetTribe = ref('');
       const matchType = ref('mutual');
       const matchNameQuery = ref('');
       const matching = ref(false);
       const matched = ref(false);
       const matchResult = ref([]);
-      function openMatch() {
-        matchMemberId.value = members.value.length ? members.value[0].id : null;
+      const matchAllMembers = ref([]);
+      const matchMemberOptions = computed(() => {
+        return matchAllMembers.value || [];
+      });
+      function onMatchTribeChange() {
+        // 切换目标部落时不改变已选成员
+      }
+      async function openMatch() {
+        matchTargetTribe.value = memberFilterTribe.value || (clanTabs.value.length ? clanTabs.value[0].value : '');
         matchType.value = 'mutual';
         matchNameQuery.value = '';
         matched.value = false;
         matchResult.value = [];
+        await loadAllMembers();
+        const opts = matchMemberOptions.value;
+        matchMemberId.value = opts.length ? opts[0].id : null;
         matchVisible.value = true;
       }
       async function completeExchange(grp, pair) {
@@ -745,6 +767,7 @@
           });
           ElMessage.success('交换完成');
           await loadMembers(memberFilterTribe.value);
+          await loadAllMembers();
           doMatch();
         } catch (e) { /* 错误提示由拦截器处理 */ }
       }
@@ -763,18 +786,19 @@
         });
         return list;
       });
-      // 查找交换对象（纯前端计算；数据均在 members 中）
+      // 查找交换对象（纯前端计算；数据均在 matchAllMembers 中）
       function doMatch() {
         if (!matchMemberId.value) { ElMessage.error('请选择成员'); return; }
         matching.value = true; matched.value = true;
         const mutual = matchType.value === 'mutual';
-        const me = (members.value || []).find(m => m.id === matchMemberId.value);
+        const me = (matchAllMembers.value || []).find(m => m.id === matchMemberId.value);
         const result = [];
         if (me) {
           const myMissing = (me.cards || []).filter(c => c.cardType === '缺失');
           const myExtra = (me.cards || []).filter(c => c.cardType === '多余');
-          (members.value || []).forEach(opp => {
+          (matchAllMembers.value || []).forEach(opp => {
             if (opp.id === matchMemberId.value) return;
+            if (matchTargetTribe.value && opp.tribe !== matchTargetTribe.value) return;
             const oppExtra = (opp.cards || []).filter(c => c.cardType === '多余');
             const oppMissing = (opp.cards || []).filter(c => c.cardType === '缺失');
             const pairs = [];
@@ -824,7 +848,7 @@
         cardCategories, clans, clanMemberOptions, cardOptions, extraCards, missingCards, groupCards, groupPairsByCategory,
         cardSelections, activeCardCat, cardState, toggleCard,
         editorVisible, editing, saving, form, openEditor, submitEditor, loadMembers,
-        removeMember, matchVisible, matchMemberId, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, openMatch, doMatch, completeExchange,
+        removeMember, matchVisible, matchMemberId, matchTargetTribe, matchType, matchNameQuery, filteredMatchResult, matching, matched, matchResult, matchAllMembers, matchMemberOptions, openMatch, doMatch, completeExchange, onMatchTribeChange, loadAllMembers,
         fmtTime, dialogWidth, matchDialogWidth,
       };
     }

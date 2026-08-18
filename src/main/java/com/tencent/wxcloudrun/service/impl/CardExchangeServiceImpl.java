@@ -53,8 +53,18 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		}
 		qw.orderByDesc("id");
 		List<CardExchangeMember> members = getBaseMapper().selectList(qw);
+
+		// 一次性查出本群组所有卡牌，按 memberId 分组后填充，避免 N+1 查询
+		QueryWrapper<CardExchangeMemberCard> cardQw = new QueryWrapper<>();
+		cardQw.eq("group_no", groupNo);
+		cardQw.in("member_id", members.stream().map(CardExchangeMember::getId).toArray());
+		List<CardExchangeMemberCard> allCards = cardMapper.selectList(cardQw);
+		Map<Long, List<CardExchangeMemberCard>> cardsByMember = new LinkedHashMap<>();
+		for (CardExchangeMemberCard c : allCards) {
+			cardsByMember.computeIfAbsent(c.getMemberId(), k -> new ArrayList<>()).add(c);
+		}
 		for (CardExchangeMember m : members) {
-			m.setCards(loadCards(m.getId(), groupNo));
+			m.setCards(cardsByMember.getOrDefault(m.getId(), new ArrayList<>()));
 		}
 		return members;
 	}
