@@ -10,7 +10,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 开发环境 - 本地/测试数据库
-    url: jdbc:mysql://${MYSQL_ADDRESS:127.0.0.1:3306}/${MYSQL_DATABASE:springboot_demo}
+    url: jdbc:mysql://${MYSQL_ADDRESS:127.0.0.1:3306}/${MYSQL_DATABASE:coc_manager}
     username: ${MYSQL_USERNAME:coc_manager}
     password: ${MYSQL_PASSWORD:Tj201218}
   mvc:
