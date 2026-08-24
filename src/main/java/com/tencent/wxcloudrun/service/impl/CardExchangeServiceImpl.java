@@ -157,12 +157,9 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		if (!groupNo.equals(old.getGroupNo())) {
 			throw new IllegalArgumentException("成员不属于当前群组");
 		}
-		// 逻辑删除成员及卡牌明细（@TableLogic 自动置位 deleted）
-		QueryWrapper<CardExchangeMemberCard> del = new QueryWrapper<>();
-		del.eq("member_id", memberId);
-		del.eq("group_no", groupNo);
-		cardMapper.delete(del);
-		getBaseMapper().deleteById(memberId);
+		// 物理删除成员及卡牌明细
+		getBaseMapper().physicalDeleteById(memberId);
+		deleteCard(groupNo, memberId, null, null, null);
 	}
 
 	@Override
@@ -336,9 +333,10 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		QueryWrapper<CardExchangeMemberCard> qw = new QueryWrapper<>();
 		qw.eq("group_no", groupNo);
 		qw.eq("member_id", memberId);
-		qw.eq("card_category", category);
-		qw.eq("card_name", cardName);
-		qw.eq("card_type", cardType);
+
+		qw.eq(StringUtils.hasText(category), "card_category", category);
+		qw.eq(StringUtils.hasText(cardName), "card_name", cardName);
+		qw.eq(StringUtils.hasText(cardType), "card_type", cardType);
 		cardMapper.physicalDelete(qw);
 	}
 }
