@@ -5,13 +5,14 @@ debug:
 server:
   port: 8080
 
+
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 开发环境 - 本地/测试数据库
-    url: jdbc:mysql://sh-cynosdbmysql-grp-rc3pikzg.sql.tencentcdb.com:23769/springboot_demo
-    username: coc_manager
-    password: Tj201218
+    url: jdbc:mysql://${MYSQL_ADDRESS:127.0.0.1:3306}/${MYSQL_DATABASE:springboot_demo}
+    username: ${MYSQL_USERNAME:coc_manager}
+    password: ${MYSQL_PASSWORD:Tj201218}
   mvc:
     view:
       suffix: .html
@@ -46,3 +47,18 @@ logging:
     root: INFO
     com.tencent: DEBUG
     # 开开MyBatis SQL日志
+
+# 腾讯云 OCR 表格识别V3（图片导入用），密钥建议生产环境通过环境变量覆盖
+tencent:
+  ocr:
+    secret-id: ${TENCENT_OCR_SECRET_ID}
+    secret-key: ${TENCENT_OCR_SECRET_KEY}
+    region: ap-guangzhou
+    endpoint: ocr.tencentcloudapi.com
+
+# 百度OCR
+baidu:
+  ocr:
+    api-key: ${BAIDU_OCR_API_KEY}
+    secret-key: ${BAIDU_OCR_SECRET_KEY}
+    appid: ${BAIDU_OCR_APPID}
