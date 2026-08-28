@@ -212,21 +212,32 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 		boolean noChanged = hadNo && newNo != null && !newNo.equals(oldNo);
 		boolean noFilled = !hadNo && newNo != null && !newNo.isEmpty();
 		if (nameChanged || noChanged || noFilled) {
-			syncLeagueMember(oldName, oldNo, hadNo, old.getClanNo(), old.getGroupNo(), newName, newNo);
+			// 按「成员编号 + 群组编号」关联：同一群组下成员编号唯一，成员可跨部落移动
+			// （clan_no 会变化），故联赛记录以 member_no + group_no 为键匹配，而非 clan_no
+			syncLeagueMember(oldName, oldNo, hadNo, old.getGroupNo(), newName, newNo);
 		}
 		return ApiResponse.ok(body);
 	}
 
 	/**
 	 * 将成员名称/编号的变更同步到联赛成员战绩表与联赛报名表。
-	 * 关联定位：同一 clan_no（及 group_no）下，原编号不为空时按 member_no 匹配，原编号为空时按 member_name 匹配。
-	 * 仅更新发生变化的字段：名称变化则更新 member_name；编号变化（或原本为空现被填写）则更新 member_no。
+	 * 关联定位键：同一 group_no（群组编号）下，原成员编号不为空时按 member_no 匹配，
+	 * 原成员编号为空（历史数据）时按 member_name 匹配。
+	 * 不再限定 clan_no：因为同一群组下成员编号唯一、成员可在不同部落间移动，clan_no 会随之变化，
+	 * 而联赛战绩/报名均以 member_no + group_no 关联成员，故不以部落编号匹配。
+	 * 仅更新发生变化的字段，避免覆盖联赛其它业务字段。
+	 *
+	 * @param oldName    原成员名称
+	 * @param oldNo      原成员编号（可能为 null）
+	 * @param hadNo      原记录是否带编号
+	 * @param oldGroupNo 原群组编号（用于限定同一群组下的关联记录）
+	 * @param newName    新成员名称
+	 * @param newNo      新成员编号
 	 */
-	private void syncLeagueMember(String oldName, String oldNo, boolean hadNo, String oldClanNo, String oldGroupNo,
+	private void syncLeagueMember(String oldName, String oldNo, boolean hadNo, String oldGroupNo,
 			String newName, String newNo) {
-		// 联赛成员战绩表
+		// 联赛成员战绩表：按「群组编号 + 成员编号/名称」匹配（成员可跨部落移动，clan_no 不固定）
 		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
-		rqw.eq("clan_no", oldClanNo);
 		if (oldGroupNo != null && !oldGroupNo.trim().isEmpty()) {
 			rqw.eq("group_no", oldGroupNo);
 		}
@@ -244,7 +255,6 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 
 		// 联赛报名表
 		QueryWrapper<LeagueSignup> sqw = new QueryWrapper<LeagueSignup>();
-		sqw.eq("clan_no", oldClanNo);
 		if (oldGroupNo != null && !oldGroupNo.trim().isEmpty()) {
 			sqw.eq("group_no", oldGroupNo);
 		}
@@ -628,9 +638,13 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 				|| isBlank(m.getBackupName5());
 	}
 
-	/** 将被合并成员关联的联赛两表记录改为关联主数据（按成员名称或编号匹配）。 */
+	/**
+	 * 将被合并成员关联的联赛两表记录改为关联主数据。
+	 * 关联定位：同一 group_no（群组编号，合并前已校验同群组）下，按被合并成员的
+	 * member_no（或 member_name）匹配；不再限定 clan_no，因为同一群组下成员编号唯一、
+	 * 成员可跨部落移动，联赛战绩/报名均以 member_no + group_no 关联成员。
+	 */
 	private void reassignLeague(ClanMember main, ClanMember merge) {
-		String clanNo = main.getClanNo();
 		String groupNo = main.getGroupNo();
 		String mainName = main.getMemberName();
 		String mainNo = main.getMemberNo();
@@ -644,7 +658,6 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			ru.setMemberNo(mainNo);
 		}
 		QueryWrapper<LeagueRecord> rqw = new QueryWrapper<LeagueRecord>();
-		rqw.eq("clan_no", clanNo);
 		if (groupNo != null && !groupNo.trim().isEmpty()) {
 			rqw.eq("group_no", groupNo);
 		}
@@ -663,7 +676,6 @@ public class ClanMemberController extends BaseCrudController<ClanMember> {
 			su.setMemberNo(mainNo);
 		}
 		QueryWrapper<LeagueSignup> sqw = new QueryWrapper<LeagueSignup>();
-		sqw.eq("clan_no", clanNo);
 		if (groupNo != null && !groupNo.trim().isEmpty()) {
 			sqw.eq("group_no", groupNo);
 		}
