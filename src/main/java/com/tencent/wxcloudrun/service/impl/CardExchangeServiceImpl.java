@@ -44,6 +44,7 @@ public class CardExchangeServiceImpl extends ServiceImpl<CardExchangeMemberMappe
 		return clanGroupMapper.selectCount(qw) > 0;
 	}
 
+	@SuppressWarnings("null")
 	@Override
 	public List<CardExchangeMember> listByGroup(String groupNo, String tribe) {
 		QueryWrapper<CardExchangeMember> qw = new QueryWrapper<>();
