@@ -509,23 +509,23 @@
           <el-input :model-value="selectedLeagueNo" disabled />
         </el-form-item>
         <el-form-item label="游戏名称" required>
-          <el-autocomplete
-            v-model="form.memberName"
-            :fetch-suggestions="queryClanMembers"
-            :trigger-on-focus="true"
-            clearable
-            placeholder="输入可搜索该部落已有成员"
-            style="width:100%"
-            @select="onMemberSelected"
-          >
-            <template #default="{ item }">
-              <div class="qs-member-opt">
-                <span class="qs-member-name">{{ item.memberName }}</span>
-                <span v-if="item.memberNo" class="qs-member-no">{{ memberNoView(item.memberNo) }}</span>
-              </div>
-            </template>
-          </el-autocomplete>
-          <div class="qs-field-tip">可搜索该部落已有成员，选中后自动带出编号</div>
+        <el-autocomplete
+          v-model="form.memberName"
+          :fetch-suggestions="queryClanMembers"
+          :trigger-on-focus="true"
+          clearable
+          placeholder="输入可搜索该群组已有成员"
+          style="width:100%"
+          @select="onMemberSelected"
+        >
+          <template #default="{ item }">
+            <div class="qs-member-opt">
+              <span class="qs-member-name">{{ item.memberName }}</span>
+              <span v-if="item.memberNo" class="qs-member-no">{{ memberNoView(item.memberNo) }}</span>
+            </div>
+          </template>
+        </el-autocomplete>
+        <div class="qs-field-tip">可搜索该群组已有成员，选中后自动带出编号</div>
         </el-form-item>
         <el-form-item label="游戏编号">
           <el-input v-model="form.memberNo" placeholder="选填，游戏内编号" maxlength="32" />
@@ -904,12 +904,11 @@
             loadSignups();
           }
 
-          // 报名页“游戏名称”远程搜索该部落已有成员
+          // 报名页“游戏名称”远程搜索该群组已有成员（不再限制当前部落）
           function queryClanMembers(queryString, cb) {
-            if (!activeClanNo.value) { cb([]); return; }
             const kw = queryString || '';
             http.get('/api/quick/clanMembers', {
-              params: { groupNo: groupNo, clanNo: activeClanNo.value, kw: kw }
+              params: { groupNo: groupNo, kw: kw }
             }).then(function (list) {
               const arr = list || [];
               cb(arr.map(function (m) {

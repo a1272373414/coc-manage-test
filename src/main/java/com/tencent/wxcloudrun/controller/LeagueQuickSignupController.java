@@ -105,21 +105,18 @@ public class LeagueQuickSignupController {
 	}
 
 	/**
-	 * 按部落搜索成员（公开接口，用于报名页“游戏名称”自动补全）。 入参：groupNo(必填)、clanNo(必填)、kw(可选模糊关键字)。
-	 * 仅返回该部落下“已加入(member_status=1)且未删除”的成员名称与编号，最多 50 条。
+	 * 按群组搜索成员（公开接口，用于报名页“游戏名称”自动补全）。 入参：groupNo(必填)、kw(可选模糊关键字)。
+	 * 返回整个群组下“已加入(member_status=1)且未删除”的成员名称与编号，最多 50 条。
+	 * 不再按部落过滤：同一成员可在不同部落间移动，搜索范围扩大到整个群组。
 	 */
 	@GetMapping("/clanMembers")
-	public ApiResponse clanMembers(@RequestParam String groupNo, @RequestParam String clanNo,
-			@RequestParam(required = false) String kw) {
+	public ApiResponse clanMembers(@RequestParam String groupNo, @RequestParam(required = false) String kw) {
 		if (groupNo == null || groupNo.trim().isEmpty()) {
 			return ApiResponse.error(400, "群组编号不能为空");
 		}
-		if (clanNo == null || clanNo.trim().isEmpty()) {
-			return ApiResponse.error(400, "部落编号不能为空");
-		}
 		String g = groupNo.trim();
 		QueryWrapper<ClanMember> qw = new QueryWrapper<>();
-		qw.eq("group_no", g).eq("clan_no", clanNo.trim());
+		qw.eq("group_no", g);
 		qw.eq("member_status", 1).eq("deleted", 0);
 		if (kw != null && !kw.trim().isEmpty()) {
 			qw.like("member_name", kw.trim());
@@ -451,18 +448,21 @@ public class LeagueQuickSignupController {
 			return ApiResponse.error("不在报名时间内");
 		}
 
-		// 按 (联赛 + 成员名称) 查找已存在的报名；若提供了成员编号，则进一步按编号区分同名的成员
+		// 按 (群组 + 联赛 + 成员名称) 查找已存在的报名；若提供了成员编号，则进一步按编号区分同名的成员。
+		// 该接口为公开接口（未登录），多租户插件不会自动追加 group_no，故需显式加群组编号条件，避免跨群组误匹配同名成员
 		QueryWrapper<LeagueSignup> qw = new QueryWrapper<LeagueSignup>()
-			.eq("league_no", lg).eq("member_name", memberName);
+			.eq("group_no", groupNo).eq("league_no", lg).eq("member_name", memberName);
 		if (memberNo != null && !memberNo.isEmpty()) {
 			qw.eq("member_no", memberNo);
 		}
 		List<LeagueSignup> existingList = leagueSignupMapper.selectList(qw);
 		LeagueSignup existing = existingList.isEmpty() ? null : existingList.get(0);
 		if (existing != null) {
+			// 同一成员重复报名：同步更新部落字段与报名状态（成员可在不同部落间移动，
+			// 以当前选择的部落为准），并刷新报名时间；若带了 memberNo 顺便补上
+			existing.setClanNo(clanNo);
 			existing.setSignupStatus(signupStatus);
 			existing.setSignupTime(LocalDateTime.now());
-			// 若带了 memberNo 顺便补上（避免后续战绩关联缺编号）
 			if (memberNo != null && !memberNo.isEmpty()) {
 				existing.setMemberNo(memberNo);
 			}
